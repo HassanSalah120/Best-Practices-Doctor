@@ -1,0 +1,336 @@
+"""
+Test Phase 2 Performance Rules
+
+Tests for missing-pagination, missing-usememo-for-expensive-calc,
+and missing-usecallback-for-event-handlers rules.
+"""
+
+import pytest
+from core.ruleset import RuleConfig
+from rules.laravel.missing_pagination import MissingPaginationRule
+from rules.react.missing_usememo_for_expensive_calc import MissingUseMemoForExpensiveCalcRule
+from rules.react.missing_usecallback_for_event_handlers import MissingUseCallbackForEventHandlersRule
+from schemas.facts import Facts, QueryUsage, RouteInfo
+
+
+# ============== Missing Pagination Tests ==============
+
+def test_missing_pagination_on_large_model():
+    """Query returning all records on large model should be flagged."""
+    facts = Facts(project_path=".")
+    facts.queries.append(
+        QueryUsage(
+            model="Patient",
+            method_chain="all()",
+            query_type="select",
+            file_path="app/Http/Controllers/PatientController.php",
+            line_number=15,
+            method_name="index",
+        )
+    )
+
+    rule = MissingPaginationRule(RuleConfig())
+    findings = rule.analyze(facts)
+
+    assert len(findings) == 1
+    assert findings[0].rule_id == "missing-pagination"
+    assert "pagination" in findings[0].title.lower()
+
+
+def test_missing_pagination_with_get():
+    """Query using get() without pagination should be flagged."""
+    facts = Facts(project_path=".")
+    facts.queries.append(
+        QueryUsage(
+            model="User",
+            method_chain="where('active', true)->get()",
+            query_type="select",
+            file_path="app/Http/Controllers/UserController.php",
+            line_number=20,
+            method_name="index",
+        )
+    )
+
+    rule = MissingPaginationRule(RuleConfig())
+    findings = rule.analyze(facts)
+
+    assert len(findings) == 1
+
+
+def test_pagination_present_safe():
+    """Query with paginate() should not be flagged."""
+    facts = Facts(project_path=".")
+    facts.queries.append(
+        QueryUsage(
+            model="Patient",
+            method_chain="paginate(15)",
+            query_type="select",
+            file_path="app/Http/Controllers/PatientController.php",
+            line_number=15,
+            method_name="index",
+        )
+    )
+
+    rule = MissingPaginationRule(RuleConfig())
+    findings = rule.analyze(facts)
+
+    assert len(findings) == 0
+
+
+def test_limit_present_safe():
+    """Query with limit() should not be flagged."""
+    facts = Facts(project_path=".")
+    facts.queries.append(
+        QueryUsage(
+            model="User",
+            method_chain="limit(100)->get()",
+            query_type="select",
+            file_path="app/Http/Controllers/UserController.php",
+            line_number=20,
+            method_name="index",
+        )
+    )
+
+    rule = MissingPaginationRule(RuleConfig())
+    findings = rule.analyze(facts)
+
+    assert len(findings) == 0
+
+
+def test_non_controller_skipped():
+    """Non-controller files should be skipped."""
+    facts = Facts(project_path=".")
+    facts.queries.append(
+        QueryUsage(
+            model="Patient",
+            method_chain="Patient::all()",
+            query_type="select",
+            file_path="app/Services/PatientService.php",
+            line_number=15,
+            method_name="getAll",
+        )
+    )
+
+    rule = MissingPaginationRule(RuleConfig())
+    findings = rule.analyze(facts)
+
+    assert len(findings) == 0
+
+
+def test_test_file_skipped():
+    """Test files should be skipped."""
+    facts = Facts(project_path=".")
+    facts.queries.append(
+        QueryUsage(
+            model="Patient",
+            method_chain="Patient::all()",
+            query_type="select",
+            file_path="tests/Feature/PatientControllerTest.php",
+            line_number=15,
+            method_name="test_index",
+        )
+    )
+
+    rule = MissingPaginationRule(RuleConfig())
+    findings = rule.analyze(facts)
+
+    assert len(findings) == 0
+
+
+# ============== Missing UseMemo Tests ==============
+
+def test_filter_map_without_usememo():
+    """filter().map() without useMemo should be flagged."""
+    rule = MissingUseMemoForExpensiveCalcRule(RuleConfig())
+    content = """
+import { useState } from 'react';
+
+function UserList({ users }) {
+    const [filter, setFilter] = useState('');
+    
+    const filteredUsers = users.filter(u => u.active).map(u => ({ ...u, display: u.name }));
+    
+    return <div>{filteredUsers.map(u => <span key={u.id}>{u.display}</span>)}</div>;
+}
+"""
+    findings = rule.analyze_regex(
+        file_path="src/components/UserList.tsx",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].rule_id == "missing-usememo-for-expensive-calc"
+
+
+def test_reduce_without_usememo():
+    """reduce() without useMemo should be flagged."""
+    rule = MissingUseMemoForExpensiveCalcRule(RuleConfig())
+    content = """
+function Cart({ items }) {
+    const total = items.reduce((sum, item) => sum + item.price, 0);
+    return <div>Total: {total}</div>;
+}
+"""
+    findings = rule.analyze_regex(
+        file_path="src/components/Cart.tsx",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert len(findings) == 1
+
+
+def test_with_usememo_safe():
+    """Code with useMemo should not be flagged."""
+    rule = MissingUseMemoForExpensiveCalcRule(RuleConfig())
+    content = """
+import { useMemo } from 'react';
+
+function UserList({ users }) {
+    const filteredUsers = useMemo(() => {
+        return users.filter(u => u.active);
+    }, [users]);
+    
+    return <div>{filteredUsers.map(u => <span key={u.id}>{u.name}</span>)}</div>;
+}
+"""
+    findings = rule.analyze_regex(
+        file_path="src/components/UserList.tsx",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert len(findings) == 0
+
+
+def test_non_component_skipped():
+    """Non-component files should be skipped."""
+    rule = MissingUseMemoForExpensiveCalcRule(RuleConfig())
+    content = """
+const utils = {
+    processItems: (items) => items.filter(x => x.active)
+};
+export { utils };
+"""
+    findings = rule.analyze_regex(
+        file_path="src/utils/helpers.ts",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert len(findings) == 0
+
+
+# ============== Missing UseCallback Tests ==============
+
+def test_inline_onclick_without_usecallback():
+    """Inline onClick without useCallback should be flagged."""
+    rule = MissingUseCallbackForEventHandlersRule(RuleConfig())
+    content = """
+function Button({ id }) {
+    return (
+        <button onClick={() => console.log(id)}>
+            Click me
+        </button>
+    );
+}
+"""
+    findings = rule.analyze_regex(
+        file_path="src/components/Button.tsx",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].rule_id == "missing-usecallback-for-event-handlers"
+
+
+def test_inline_onchange_without_usecallback():
+    """Inline onChange without useCallback should be flagged."""
+    rule = MissingUseCallbackForEventHandlersRule(RuleConfig())
+    content = """
+function Form() {
+    return (
+        <input onChange={(e) => setValue(e.target.value)} />
+    );
+}
+"""
+    findings = rule.analyze_regex(
+        file_path="src/components/Form.tsx",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert len(findings) == 1
+
+
+def test_with_usecallback_safe():
+    """Handler with useCallback should not be flagged."""
+    rule = MissingUseCallbackForEventHandlersRule(RuleConfig())
+    content = """
+import { useCallback } from 'react';
+
+function Button({ id, onSelect }) {
+    const handleClick = useCallback(() => {
+        onSelect(id);
+    }, [id, onSelect]);
+    
+    return <button onClick={handleClick}>Click me</button>;
+}
+"""
+    findings = rule.analyze_regex(
+        file_path="src/components/Button.tsx",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert len(findings) == 0
+
+
+def test_simple_handler_lower_confidence():
+    """Simple handler without body should have lower confidence."""
+    rule = MissingUseCallbackForEventHandlersRule(RuleConfig())
+    content = """
+function Button({ onClick }) {
+    return <button onClick={() => onClick()}>Click</button>;
+}
+"""
+    findings = rule.analyze_regex(
+        file_path="src/components/Button.tsx",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].confidence < 0.80
+
+
+def test_test_file_skipped():
+    """Test files should be skipped."""
+    rule = MissingUseCallbackForEventHandlersRule(RuleConfig())
+    content = """
+function Button({ id }) {
+    return <button onClick={() => console.log(id)}>Click</button>;
+}
+"""
+    findings = rule.analyze_regex(
+        file_path="src/__tests__/Button.test.tsx",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert len(findings) == 0
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

@@ -1,0 +1,52 @@
+# OS / editor
+Thumbs.db
+Desktop.ini
+.DS_Store
+.idea/
+.vscode/
+*.iml
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.coverage
+coverage.xml
+htmlcov/
+*.egg-info/
+*.egg
+
+# Node / frontend
+node_modules/
+dist/
+dist-ssr/
+
+# Rust / Tauri
+target/
+
+# App runtime data
+.tmp_bpd_appdata/
+.tmp_bpd_facts_builder/
+
+# Backend build artifacts (PyInstaller)
+backend/build/
+backend/dist/
+
+# Logs and temp files
+*.log
+.tmp-*
+
+# Local scratch outputs created by repo scripts
+*.sarif
+*.sarif.json
+
+# Dynamic MCP config (generated at runtime)
+mcp-config-dynamic.json
+
+# pytest-benchmark
+.benchmarks/
+

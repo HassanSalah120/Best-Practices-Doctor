@@ -1,0 +1,8 @@
+{
+  "name": "tests-laravel-inertia-react-mini",
+  "dependencies": {
+    "react": "^18.0.0",
+    "@inertiajs/react": "^1.0.0"
+  }
+}
+

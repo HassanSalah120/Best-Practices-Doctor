@@ -1,0 +1,591 @@
+description: ''
+name: default
+project_types: []
+rules:
+  blade-queries:
+    category: performance
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  contract-suggestion:
+    category: architecture
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  custom-exception-suggestion:
+    category: architecture
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  dry-violation:
+    category: dry
+    enabled: true
+    severity: medium
+    thresholds:
+      min_occurrences: 2
+      min_token_count: 50
+    version: 1
+  eager-loading:
+    category: performance
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  n-plus-one-risk:
+    category: performance
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  enum-suggestion:
+    category: dry
+    enabled: true
+    severity: low
+    thresholds:
+      min_occurrences: 3
+    version: 1
+  env-outside-config:
+    category: laravel_best_practice
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  fat-controller:
+    category: architecture
+    enabled: true
+    severity: high
+    thresholds:
+      max_method_loc: 30
+      max_methods: 10
+      max_queries: 3
+      max_validations: 0
+      method_lines: 55
+    version: 1
+  god-class:
+    category: maintainability
+    enabled: true
+    severity: critical
+    thresholds:
+      max_loc: 300
+      max_methods: 20
+    version: 1
+  unused-private-method:
+    category: maintainability
+    enabled: true
+    severity: low
+    thresholds: {}
+    version: 1
+  unused-service-class:
+    category: maintainability
+    enabled: true
+    severity: low
+    thresholds: {}
+    version: 1
+  prefer-imports:
+    category: maintainability
+    enabled: true
+    severity: low
+    thresholds:
+      root_namespaces:
+      - "App\\"
+    version: 1
+  tests-missing:
+    category: maintainability
+    enabled: true
+    severity: medium
+    thresholds:
+      min_test_files: 3
+    version: 1
+  low-coverage-files:
+    category: maintainability
+    enabled: true
+    severity: medium
+    thresholds:
+      min_pct: 60
+      max_findings: 50
+    version: 1
+  circular-dependency:
+    category: architecture
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  high-coupling-class:
+    category: architecture
+    enabled: true
+    severity: medium
+    thresholds:
+      max_outgoing: 12
+    version: 1
+  high-complexity:
+    category: complexity
+    enabled: true
+    severity: high
+    thresholds:
+      max_cyclomatic: 10
+    version: 1
+  inline-api-logic:
+    category: react_best_practice
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  react-useeffect-deps:
+    category: react_best_practice
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  react-no-array-index-key:
+    category: react_best_practice
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  hooks-in-conditional-or-loop:
+    category: react_best_practice
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  missing-key-on-list-render:
+    category: react_best_practice
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  hardcoded-user-facing-strings:
+    category: react_best_practice
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  interactive-element-a11y:
+    category: react_best_practice
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  form-label-association:
+    category: react_best_practice
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  no-inline-types:
+    category: maintainability
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  no-inline-services:
+    category: maintainability
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  inertia-page-missing-head:
+    category: react_best_practice
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  inertia-internal-link-anchor:
+    category: react_best_practice
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  inertia-form-uses-fetch:
+    category: react_best_practice
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  anonymous-default-export-component:
+    category: maintainability
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  multiple-exported-react-components:
+    category: maintainability
+    enabled: true
+    severity: low
+    thresholds: {}
+    version: 1
+  context-provider-inline-value:
+    category: performance
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  react-useeffect-fetch-without-abort:
+    category: react_best_practice
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  ioc-instead-of-new:
+    category: architecture
+    enabled: true
+    severity: medium
+    thresholds:
+      max_instantiations: 0
+    version: 1
+  controller-query-direct:
+    category: laravel_best_practice
+    enabled: true
+    severity: high
+    thresholds:
+      max_queries_per_method: 0
+    version: 1
+  controller-business-logic:
+    category: architecture
+    enabled: true
+    severity: high
+    thresholds:
+      min_cyclomatic: 8
+      min_loc: 60
+      min_confidence: 0.6
+    version: 1
+  controller-inline-validation:
+    category: validation
+    enabled: true
+    severity: medium
+    thresholds:
+      high_if_rules_ge: 6
+    version: 1
+  mass-assignment-risk:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  unsafe-file-upload:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  user-model-missing-must-verify-email:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  registration-missing-registered-event:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  sensitive-routes-missing-verified-middleware:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  tenant-access-middleware-missing:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  signed-routes-missing-signature-middleware:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  unsafe-external-redirect:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  authorization-missing-on-sensitive-reads:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  insecure-session-cookie-config:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  unsafe-csp-policy:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  job-missing-idempotency-guard:
+    category: security
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  composer-dependency-below-secure-version:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  npm-dependency-below-secure-version:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  inertia-shared-props-sensitive-data:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  inertia-shared-props-eager-query:
+    category: performance
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  job-missing-retry-policy:
+    category: security
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  job-http-call-missing-timeout:
+    category: security
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  no-json-encode-in-controllers:
+    category: laravel_best_practice
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  api-resource-usage:
+    category: laravel_best_practice
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  no-log-debug-in-app:
+    category: maintainability
+    enabled: true
+    severity: low
+    thresholds: {}
+    version: 1
+  no-closure-routes:
+    category: architecture
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  heavy-logic-in-routes:
+    category: architecture
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  duplicate-route-definition:
+    category: architecture
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  missing-throttle-on-auth-api-routes:
+    category: security
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  missing-auth-on-mutating-api-routes:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  policy-coverage-on-mutations:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  authorization-bypass-risk:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  transaction-required-for-multi-write:
+    category: architecture
+    enabled: true
+    severity: high
+    thresholds:
+      min_write_calls: 2
+    version: 1
+  tenant-scope-enforcement:
+    category: security
+    enabled: true
+    severity: high
+    thresholds:
+      min_method_queries: 1
+      min_project_signals: 5
+    version: 1
+  dto-suggestion:
+    category: maintainability
+    enabled: true
+    severity: medium
+    thresholds:
+      min_keys: 6
+    version: 1
+  action-class-suggestion:
+    category: architecture
+    enabled: true
+    severity: low
+    thresholds: {}
+    version: 1
+  massive-model:
+    category: maintainability
+    enabled: true
+    severity: medium
+    thresholds:
+      max_methods: 15
+      max_loc: 400
+    version: 1
+  large-react-component:
+    category: react_best_practice
+    enabled: true
+    severity: medium
+    thresholds:
+      max_loc: 200
+    version: 1
+  long-method:
+    category: srp
+    enabled: true
+    severity: medium
+    thresholds:
+      max_loc: 50
+    version: 1
+  too-many-dependencies:
+    category: maintainability
+    enabled: true
+    severity: medium
+    thresholds:
+      max_dependencies: 5
+    version: 1
+  raw-sql:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  unsafe-eval:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  unsafe-unserialize:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  command-injection-risk:
+    category: security
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
+  sql-injection-risk:
+    category: security
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  blade-xss-risk:
+    category: security
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  config-in-loop:
+    category: performance
+    enabled: true
+    severity: medium
+    thresholds:
+      max_calls: 0
+    version: 1
+  static-helper-abuse:
+    category: architecture
+    enabled: true
+    severity: medium
+    thresholds:
+      min_calls: 2
+    version: 1
+  missing-form-request:
+    category: validation
+    enabled: true
+    severity: medium
+    thresholds:
+      max_validator_rules: 2
+    version: 1
+  repository-suggestion:
+    category: architecture
+    enabled: true
+    severity: medium
+    thresholds:
+      min_complexity: 3
+      min_query_count: 2
+    version: 1
+  service-extraction:
+    category: architecture
+    enabled: true
+    severity: high
+    thresholds:
+      min_business_loc: 15
+    version: 1
+scan:
+  ignore:
+  - vendor/**
+  - node_modules/**
+  - storage/**
+  - bootstrap/cache/**
+  - bootstrap/ssr/**
+  - public/build/**
+  - .git/**
+  - tests/**
+  - database/seeders/**
+  - database/seeds/**
+  max_file_size_kb: 500
+  max_files: 5000
+schema_version: 1
+scoring:
+  severity_penalties:
+    critical: 40.0
+    high: 15.0
+    low: 2.0
+    medium: 5.0
+  weights:
+    architecture: 0.15
+    complexity: 0.15
+    dry: 0.1
+    laravel_best_practice: 0.15
+    maintainability: 0.1
+    performance: 0.05
+    react_best_practice: 0.05
+    accessibility: 0.05
+    security: 0.1
+    srp: 0.05
+    validation: 0.05

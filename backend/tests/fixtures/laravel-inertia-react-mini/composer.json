@@ -1,0 +1,7 @@
+{
+  "name": "tests/laravel-inertia-react-mini",
+  "require": {
+    "laravel/framework": "^10.0",
+    "inertiajs/inertia-laravel": "^0.6"
+  }
+}

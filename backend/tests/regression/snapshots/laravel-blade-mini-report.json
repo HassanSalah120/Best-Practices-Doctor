@@ -1,0 +1,1053 @@
+{
+  "id": "normalized-id",
+  "project_path": "/normalized/path",
+  "project_info": {
+    "root_path": "/normalized/path",
+    "project_type": "laravel_blade",
+    "framework_version": "10.0",
+    "php_version": null,
+    "features": [],
+    "packages": {
+      "laravel/framework": "^10.0"
+    },
+    "dev_packages": {},
+    "npm_packages": {},
+    "has_tests": false,
+    "has_api_routes": false,
+    "has_web_routes": true,
+    "has_blade_views": true,
+    "has_react_components": false,
+    "has_vue_components": false
+  },
+  "scanned_at": "2024-01-01T00:00:00Z",
+  "duration_ms": 0,
+  "files_scanned": 31,
+  "classes_found": 24,
+  "methods_found": 40,
+  "scores": {
+    "overall": 60.4,
+    "grade": "D",
+    "architecture": 25.0,
+    "dry": 98.5,
+    "laravel": 60.0,
+    "react": 100.0,
+    "complexity": 100.0,
+    "security": 0.0,
+    "maintainability": 82.0,
+    "srp": 100.0,
+    "validation": 90.0,
+    "performance": 80.0
+  },
+  "findings": [
+    {
+      "id": "finding_0232ad212cbe",
+      "fingerprint": "0232ad212cbe",
+      "rule_id": "prefer-imports",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "app/Services/CoupledService.php",
+      "context": "App\\Contracts\\UserServiceInterface"
+    },
+    {
+      "id": "finding_03e4b3f9393d",
+      "fingerprint": "03e4b3f9393d",
+      "rule_id": "no-log-debug-in-app",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "app/Services/EnvBad.php",
+      "context": "Log::debug"
+    },
+    {
+      "id": "finding_15aa7e9e68a5",
+      "fingerprint": "15aa7e9e68a5",
+      "rule_id": "static-helper-abuse",
+      "category": "architecture",
+      "severity": "medium",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "App\\Http\\Controllers\\FatController::index"
+    },
+    {
+      "id": "finding_17c9a71c89c1",
+      "fingerprint": "17c9a71c89c1",
+      "rule_id": "dry-violation",
+      "category": "dry",
+      "severity": "low",
+      "file": "app/Support/DupeA.php",
+      "context": "dup:bc21f1df596d52ac"
+    },
+    {
+      "id": "finding_238ae9fa09c6",
+      "fingerprint": "238ae9fa09c6",
+      "rule_id": "unused-private-method",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "App\\Http\\Controllers\\FatController::unusedHelper"
+    },
+    {
+      "id": "finding_37c5d15c6c07",
+      "fingerprint": "37c5d15c6c07",
+      "rule_id": "controller-business-logic",
+      "category": "architecture",
+      "severity": "high",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "App\\Http\\Controllers\\FatController::index"
+    },
+    {
+      "id": "finding_3860c5a49ddf",
+      "fingerprint": "3860c5a49ddf",
+      "rule_id": "missing-form-request",
+      "category": "validation",
+      "severity": "medium",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "index"
+    },
+    {
+      "id": "finding_4996356c73ef",
+      "fingerprint": "4996356c73ef",
+      "rule_id": "blade-queries",
+      "category": "performance",
+      "severity": "medium",
+      "file": "resources/views/users/index.blade.php",
+      "context": "\\App\\Models\\User::all"
+    },
+    {
+      "id": "finding_4a0fe8094617",
+      "fingerprint": "4a0fe8094617",
+      "rule_id": "unsafe-file-upload",
+      "category": "security",
+      "severity": "high",
+      "file": "app/Http/Controllers/UploadController.php",
+      "context": "App\\Http\\Controllers\\UploadController::store"
+    },
+    {
+      "id": "finding_58c01a529494",
+      "fingerprint": "58c01a529494",
+      "rule_id": "fat-controller",
+      "category": "architecture",
+      "severity": "high",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "FatController::index"
+    },
+    {
+      "id": "finding_5b752239f209",
+      "fingerprint": "5b752239f209",
+      "rule_id": "prefer-imports",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "app/Services/CoupledService.php",
+      "context": "App\\Http\\Controllers\\ThinController"
+    },
+    {
+      "id": "finding_5db12653b441",
+      "fingerprint": "5db12653b441",
+      "rule_id": "controller-inline-validation",
+      "category": "validation",
+      "severity": "medium",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "App\\Http\\Controllers\\FatController::index"
+    },
+    {
+      "id": "finding_614ad7940458",
+      "fingerprint": "614ad7940458",
+      "rule_id": "mass-assignment-risk",
+      "category": "security",
+      "severity": "high",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "App\\Http\\Controllers\\FatController::index"
+    },
+    {
+      "id": "finding_62bbd21c8b55",
+      "fingerprint": "62bbd21c8b55",
+      "rule_id": "unsafe-unserialize",
+      "category": "security",
+      "severity": "high",
+      "file": "app/Http/Controllers/SecurityBadController.php",
+      "context": "App\\Http\\Controllers\\SecurityBadController::run"
+    },
+    {
+      "id": "finding_658a246a146a",
+      "fingerprint": "658a246a146a",
+      "rule_id": "prefer-imports",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "app/Services/CoupledService.php",
+      "context": "App\\Models\\User"
+    },
+    {
+      "id": "finding_6617311876d6",
+      "fingerprint": "6617311876d6",
+      "rule_id": "unsafe-eval",
+      "category": "security",
+      "severity": "high",
+      "file": "app/Http/Controllers/SecurityBadController.php",
+      "context": "App\\Http\\Controllers\\SecurityBadController::run"
+    },
+    {
+      "id": "finding_6a1b6348dfa4",
+      "fingerprint": "6a1b6348dfa4",
+      "rule_id": "no-closure-routes",
+      "category": "architecture",
+      "severity": "medium",
+      "file": "routes/web.php",
+      "context": "closure_route"
+    },
+    {
+      "id": "finding_6c8a2795a1a9",
+      "fingerprint": "6c8a2795a1a9",
+      "rule_id": "prefer-imports",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "app/Services/CoupledService.php",
+      "context": "App\\Exceptions\\UserNotFoundException"
+    },
+    {
+      "id": "finding_74e0d7fbd2a7",
+      "fingerprint": "74e0d7fbd2a7",
+      "rule_id": "config-in-loop",
+      "category": "performance",
+      "severity": "medium",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "app/Http/Controllers/FatController.php:index:config_in_loop"
+    },
+    {
+      "id": "finding_750278cba712",
+      "fingerprint": "750278cba712",
+      "rule_id": "controller-query-direct",
+      "category": "laravel_best_practice",
+      "severity": "high",
+      "file": "app/Http/Controllers/SecurityBadController.php",
+      "context": "App\\Http\\Controllers\\SecurityBadController::run"
+    },
+    {
+      "id": "finding_86015089d412",
+      "fingerprint": "86015089d412",
+      "rule_id": "authorization-bypass-risk",
+      "category": "security",
+      "severity": "high",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "App\\Http\\Controllers\\FatController::index"
+    },
+    {
+      "id": "finding_8a603b322fed",
+      "fingerprint": "8a603b322fed",
+      "rule_id": "prefer-imports",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "app/Services/CoupledService.php",
+      "context": "App\\Http\\Controllers\\FatController"
+    },
+    {
+      "id": "finding_8b546f22842a",
+      "fingerprint": "8b546f22842a",
+      "rule_id": "prefer-imports",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "app/Services/CoupledService.php",
+      "context": "App\\Support\\DupeA"
+    },
+    {
+      "id": "finding_9330e87f4073",
+      "fingerprint": "9330e87f4073",
+      "rule_id": "enum-suggestion",
+      "category": "dry",
+      "severity": "low",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": ""
+    },
+    {
+      "id": "finding_988fb17e0f9e",
+      "fingerprint": "988fb17e0f9e",
+      "rule_id": "eager-loading",
+      "category": "performance",
+      "severity": "medium",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "index:User:find"
+    },
+    {
+      "id": "finding_9ee9c6d3ea4d",
+      "fingerprint": "9ee9c6d3ea4d",
+      "rule_id": "prefer-imports",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "app/Services/CoupledService.php",
+      "context": "App\\Models\\Massive"
+    },
+    {
+      "id": "finding_a219127177c0",
+      "fingerprint": "a219127177c0",
+      "rule_id": "env-outside-config",
+      "category": "laravel_best_practice",
+      "severity": "medium",
+      "file": "app/Services/EnvBad.php",
+      "context": "return env(\"STRIPE_KEY\", \"\");"
+    },
+    {
+      "id": "finding_a2aef3d335bd",
+      "fingerprint": "a2aef3d335bd",
+      "rule_id": "policy-coverage-on-mutations",
+      "category": "security",
+      "severity": "high",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "App\\Http\\Controllers\\FatController::index"
+    },
+    {
+      "id": "finding_a5c73f296c92",
+      "fingerprint": "a5c73f296c92",
+      "rule_id": "tests-missing",
+      "category": "maintainability",
+      "severity": "medium",
+      "file": "composer.json",
+      "context": "project:test-suite"
+    },
+    {
+      "id": "finding_a7a29daf1810",
+      "fingerprint": "a7a29daf1810",
+      "rule_id": "prefer-imports",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "app/Services/CoupledService.php",
+      "context": "App\\Http\\Controllers\\NewingController"
+    },
+    {
+      "id": "finding_acd40c6d2613",
+      "fingerprint": "acd40c6d2613",
+      "rule_id": "raw-sql",
+      "category": "security",
+      "severity": "high",
+      "file": "app/Http/Controllers/SecurityBadController.php",
+      "context": "run:DB:select"
+    },
+    {
+      "id": "finding_af4fe242efae",
+      "fingerprint": "af4fe242efae",
+      "rule_id": "massive-model",
+      "category": "maintainability",
+      "severity": "medium",
+      "file": "app/Models/Massive.php",
+      "context": "App\\Models\\Massive"
+    },
+    {
+      "id": "finding_b2e127f6adab",
+      "fingerprint": "b2e127f6adab",
+      "rule_id": "too-many-dependencies",
+      "category": "maintainability",
+      "severity": "medium",
+      "file": "app/Services/ManyDepsService.php",
+      "context": "App\\Services\\ManyDepsService::__construct"
+    },
+    {
+      "id": "finding_b53f32f90e6f",
+      "fingerprint": "b53f32f90e6f",
+      "rule_id": "no-json-encode-in-controllers",
+      "category": "laravel_best_practice",
+      "severity": "medium",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "json_encode_or_toJson"
+    },
+    {
+      "id": "finding_bc8642dc16f3",
+      "fingerprint": "bc8642dc16f3",
+      "rule_id": "prefer-imports",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "routes/web.php",
+      "context": "App\\Http\\Controllers\\FatController"
+    },
+    {
+      "id": "finding_be2539180f4e",
+      "fingerprint": "be2539180f4e",
+      "rule_id": "heavy-logic-in-routes",
+      "category": "architecture",
+      "severity": "medium",
+      "file": "routes/web.php",
+      "context": "routes_heavy_logic"
+    },
+    {
+      "id": "finding_be5e21869ada",
+      "fingerprint": "be5e21869ada",
+      "rule_id": "command-injection-risk",
+      "category": "security",
+      "severity": "high",
+      "file": "app/Http/Controllers/SecurityBadController.php",
+      "context": "App\\Http\\Controllers\\SecurityBadController::run"
+    },
+    {
+      "id": "finding_c0d50b4b8962",
+      "fingerprint": "c0d50b4b8962",
+      "rule_id": "prefer-imports",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "app/Services/CoupledService.php",
+      "context": "App\\Http\\Controllers\\ContractController"
+    },
+    {
+      "id": "finding_c7f6b486b121",
+      "fingerprint": "c7f6b486b121",
+      "rule_id": "controller-query-direct",
+      "category": "laravel_best_practice",
+      "severity": "high",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "App\\Http\\Controllers\\FatController::index"
+    },
+    {
+      "id": "finding_ce84dfc66f70",
+      "fingerprint": "ce84dfc66f70",
+      "rule_id": "circular-dependency",
+      "category": "architecture",
+      "severity": "high",
+      "file": "app/Services/CycleA.php",
+      "context": "App\\Services\\CycleA|App\\Services\\CycleB"
+    },
+    {
+      "id": "finding_d61125952ec0",
+      "fingerprint": "d61125952ec0",
+      "rule_id": "raw-sql",
+      "category": "security",
+      "severity": "high",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "index:DB:select"
+    },
+    {
+      "id": "finding_edde5f110dac",
+      "fingerprint": "edde5f110dac",
+      "rule_id": "prefer-imports",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "app/Services/CoupledService.php",
+      "context": "App\\Http\\Controllers\\UploadController"
+    },
+    {
+      "id": "finding_f2e0265f6271",
+      "fingerprint": "f2e0265f6271",
+      "rule_id": "custom-exception-suggestion",
+      "category": "architecture",
+      "severity": "high",
+      "file": "app/Services/ThrowsBad.php",
+      "context": "App\\Services\\ThrowsBad::run"
+    },
+    {
+      "id": "finding_fdab1b22b7db",
+      "fingerprint": "fdab1b22b7db",
+      "rule_id": "prefer-imports",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "app/Services/CoupledService.php",
+      "context": "App\\Support\\DupeB"
+    },
+    {
+      "id": "finding_fdbf4c04c3f5",
+      "fingerprint": "fdbf4c04c3f5",
+      "rule_id": "blade-queries",
+      "category": "performance",
+      "severity": "medium",
+      "file": "resources/views/users/index.blade.php",
+      "context": "@foreach(\\App\\Models\\User::all"
+    }
+  ],
+  "findings_by_file": {},
+  "findings_by_category": {},
+  "findings_by_severity": {},
+  "file_summaries": [],
+  "action_plan": [
+    {
+      "id": "action_06819d51b2c3",
+      "rule_id": "dry-violation",
+      "category": "dry",
+      "priority": 0.0,
+      "max_severity": "low",
+      "finding_fingerprints": [
+        "17c9a71c89c1"
+      ],
+      "files": [
+        "app/Support/DupeA.php"
+      ]
+    },
+    {
+      "id": "action_1446647f2d71",
+      "rule_id": "controller-business-logic",
+      "category": "architecture",
+      "priority": 0.0,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "37c5d15c6c07"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    },
+    {
+      "id": "action_183cbd05e2c7",
+      "rule_id": "unused-private-method",
+      "category": "maintainability",
+      "priority": 0.15,
+      "max_severity": "low",
+      "finding_fingerprints": [
+        "238ae9fa09c6"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    },
+    {
+      "id": "action_1bd073207f9c",
+      "rule_id": "unsafe-unserialize",
+      "category": "security",
+      "priority": 3.75,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "62bbd21c8b55"
+      ],
+      "files": [
+        "app/Http/Controllers/SecurityBadController.php"
+      ]
+    },
+    {
+      "id": "action_251386ea0e3a",
+      "rule_id": "no-log-debug-in-app",
+      "category": "maintainability",
+      "priority": 0.15,
+      "max_severity": "low",
+      "finding_fingerprints": [
+        "03e4b3f9393d"
+      ],
+      "files": [
+        "app/Services/EnvBad.php"
+      ]
+    },
+    {
+      "id": "action_259922501e23",
+      "rule_id": "blade-queries",
+      "category": "performance",
+      "priority": 1.5,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "4996356c73ef",
+        "fdbf4c04c3f5"
+      ],
+      "files": [
+        "resources/views/users/index.blade.php"
+      ]
+    },
+    {
+      "id": "action_35c7b54ffa82",
+      "rule_id": "prefer-imports",
+      "category": "maintainability",
+      "priority": 1.8,
+      "max_severity": "low",
+      "finding_fingerprints": [
+        "0232ad212cbe",
+        "5b752239f209",
+        "658a246a146a",
+        "6c8a2795a1a9",
+        "8a603b322fed",
+        "8b546f22842a",
+        "9ee9c6d3ea4d",
+        "a7a29daf1810",
+        "bc8642dc16f3",
+        "c0d50b4b8962",
+        "edde5f110dac",
+        "fdab1b22b7db"
+      ],
+      "files": [
+        "app/Services/CoupledService.php",
+        "routes/web.php"
+      ]
+    },
+    {
+      "id": "action_3a0cff490d16",
+      "rule_id": "command-injection-risk",
+      "category": "security",
+      "priority": 3.75,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "be5e21869ada"
+      ],
+      "files": [
+        "app/Http/Controllers/SecurityBadController.php"
+      ]
+    },
+    {
+      "id": "action_59f7500b0ba6",
+      "rule_id": "eager-loading",
+      "category": "performance",
+      "priority": 0.75,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "988fb17e0f9e"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    },
+    {
+      "id": "action_62b7ebc7fb9d",
+      "rule_id": "heavy-logic-in-routes",
+      "category": "architecture",
+      "priority": 0.0,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "be2539180f4e"
+      ],
+      "files": [
+        "routes/web.php"
+      ]
+    },
+    {
+      "id": "action_67865fd31d75",
+      "rule_id": "authorization-bypass-risk",
+      "category": "security",
+      "priority": 3.75,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "86015089d412"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    },
+    {
+      "id": "action_6c9850cdc3d3",
+      "rule_id": "no-json-encode-in-controllers",
+      "category": "laravel_best_practice",
+      "priority": 1.0,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "b53f32f90e6f"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    },
+    {
+      "id": "action_70693448ec26",
+      "rule_id": "unsafe-file-upload",
+      "category": "security",
+      "priority": 3.75,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "4a0fe8094617"
+      ],
+      "files": [
+        "app/Http/Controllers/UploadController.php"
+      ]
+    },
+    {
+      "id": "action_7b70ffb2def9",
+      "rule_id": "mass-assignment-risk",
+      "category": "security",
+      "priority": 3.75,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "614ad7940458"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    },
+    {
+      "id": "action_870cdd8c1701",
+      "rule_id": "custom-exception-suggestion",
+      "category": "architecture",
+      "priority": 0.0,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "f2e0265f6271"
+      ],
+      "files": [
+        "app/Services/ThrowsBad.php"
+      ]
+    },
+    {
+      "id": "action_8bbad2f098b2",
+      "rule_id": "missing-form-request",
+      "category": "validation",
+      "priority": 0.0,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "3860c5a49ddf"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    },
+    {
+      "id": "action_8d5d65274647",
+      "rule_id": "controller-query-direct",
+      "category": "laravel_best_practice",
+      "priority": 6.0,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "750278cba712",
+        "c7f6b486b121"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php",
+        "app/Http/Controllers/SecurityBadController.php"
+      ]
+    },
+    {
+      "id": "action_8d70e9a66fcd",
+      "rule_id": "fat-controller",
+      "category": "architecture",
+      "priority": 0.0,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "58c01a529494"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    },
+    {
+      "id": "action_a33ca64952f3",
+      "rule_id": "too-many-dependencies",
+      "category": "maintainability",
+      "priority": 1.0,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "b2e127f6adab"
+      ],
+      "files": [
+        "app/Services/ManyDepsService.php"
+      ]
+    },
+    {
+      "id": "action_a39c961d46c5",
+      "rule_id": "env-outside-config",
+      "category": "laravel_best_practice",
+      "priority": 1.0,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "a219127177c0"
+      ],
+      "files": [
+        "app/Services/EnvBad.php"
+      ]
+    },
+    {
+      "id": "action_a7600d158eab",
+      "rule_id": "unsafe-eval",
+      "category": "security",
+      "priority": 3.75,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "6617311876d6"
+      ],
+      "files": [
+        "app/Http/Controllers/SecurityBadController.php"
+      ]
+    },
+    {
+      "id": "action_a80a33ee22d9",
+      "rule_id": "tests-missing",
+      "category": "maintainability",
+      "priority": 1.0,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "a5c73f296c92"
+      ],
+      "files": [
+        "composer.json"
+      ]
+    },
+    {
+      "id": "action_aa5c1fa009b1",
+      "rule_id": "no-closure-routes",
+      "category": "architecture",
+      "priority": 0.0,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "6a1b6348dfa4"
+      ],
+      "files": [
+        "routes/web.php"
+      ]
+    },
+    {
+      "id": "action_aac16a38847d",
+      "rule_id": "config-in-loop",
+      "category": "performance",
+      "priority": 0.75,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "74e0d7fbd2a7"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    },
+    {
+      "id": "action_c6cf2fedae12",
+      "rule_id": "enum-suggestion",
+      "category": "dry",
+      "priority": 0.0,
+      "max_severity": "low",
+      "finding_fingerprints": [
+        "9330e87f4073"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    },
+    {
+      "id": "action_cb0a0f474bf3",
+      "rule_id": "circular-dependency",
+      "category": "architecture",
+      "priority": 0.0,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "ce84dfc66f70"
+      ],
+      "files": [
+        "app/Services/CycleA.php"
+      ]
+    },
+    {
+      "id": "action_cbee788130ca",
+      "rule_id": "controller-inline-validation",
+      "category": "validation",
+      "priority": 0.0,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "5db12653b441"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    },
+    {
+      "id": "action_ce2fd3433c9e",
+      "rule_id": "static-helper-abuse",
+      "category": "architecture",
+      "priority": 0.0,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "15aa7e9e68a5"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    },
+    {
+      "id": "action_d8e52b0a6487",
+      "rule_id": "raw-sql",
+      "category": "security",
+      "priority": 7.5,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "acd40c6d2613",
+        "d61125952ec0"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php",
+        "app/Http/Controllers/SecurityBadController.php"
+      ]
+    },
+    {
+      "id": "action_e4c32a41848c",
+      "rule_id": "massive-model",
+      "category": "maintainability",
+      "priority": 1.0,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "af4fe242efae"
+      ],
+      "files": [
+        "app/Models/Massive.php"
+      ]
+    },
+    {
+      "id": "action_e936dbc2b736",
+      "rule_id": "policy-coverage-on-mutations",
+      "category": "security",
+      "priority": 3.75,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "a2aef3d335bd"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    }
+  ],
+  "summary": "",
+  "ruleset_path": null,
+  "rules_executed": [
+    "fat-controller",
+    "missing-form-request",
+    "enum-suggestion",
+    "blade-queries",
+    "custom-exception-suggestion",
+    "eager-loading",
+    "n-plus-one-risk",
+    "env-outside-config",
+    "controller-query-direct",
+    "controller-business-logic",
+    "controller-inline-validation",
+    "mass-assignment-risk",
+    "massive-model",
+    "unsafe-file-upload",
+    "unused-service-class",
+    "no-json-encode-in-controllers",
+    "api-resource-usage",
+    "no-log-debug-in-app",
+    "no-closure-routes",
+    "heavy-logic-in-routes",
+    "duplicate-route-definition",
+    "missing-throttle-on-auth-api-routes",
+    "missing-auth-on-mutating-api-routes",
+    "policy-coverage-on-mutations",
+    "authorization-bypass-risk",
+    "transaction-required-for-multi-write",
+    "tenant-scope-enforcement",
+    "blade-xss-risk",
+    "user-model-missing-must-verify-email",
+    "registration-missing-registered-event",
+    "sensitive-routes-missing-verified-middleware",
+    "tenant-access-middleware-missing",
+    "signed-routes-missing-signature-middleware",
+    "unsafe-external-redirect",
+    "authorization-missing-on-sensitive-reads",
+    "insecure-session-cookie-config",
+    "unsafe-csp-policy",
+    "job-missing-idempotency-guard",
+    "composer-dependency-below-secure-version",
+    "npm-dependency-below-secure-version",
+    "inertia-shared-props-sensitive-data",
+    "inertia-shared-props-eager-query",
+    "job-missing-retry-policy",
+    "job-http-call-missing-timeout",
+    "dry-violation",
+    "high-complexity",
+    "long-method",
+    "god-class",
+    "too-many-dependencies",
+    "raw-sql",
+    "config-in-loop",
+    "static-helper-abuse",
+    "unused-private-method",
+    "circular-dependency",
+    "high-coupling-class",
+    "prefer-imports",
+    "unsafe-eval",
+    "unsafe-unserialize",
+    "command-injection-risk",
+    "sql-injection-risk",
+    "tests-missing",
+    "low-coverage-files",
+    "large-react-component",
+    "inline-api-logic",
+    "react-useeffect-deps",
+    "react-no-array-index-key",
+    "hooks-in-conditional-or-loop",
+    "missing-key-on-list-render",
+    "hardcoded-user-facing-strings",
+    "interactive-element-a11y",
+    "form-label-association",
+    "no-nested-components",
+    "no-dangerously-set-inner-html",
+    "img-alt-missing",
+    "safe-target-blank",
+    "no-inline-hooks",
+    "no-inline-types",
+    "no-inline-services",
+    "inertia-page-missing-head",
+    "inertia-internal-link-anchor",
+    "inertia-form-uses-fetch",
+    "anonymous-default-export-component",
+    "multiple-exported-react-components",
+    "context-provider-inline-value",
+    "react-useeffect-fetch-without-abort"
+  ],
+  "category_breakdown": {
+    "dry": {
+      "category": "dry",
+      "score": null,
+      "raw_score": 98.5,
+      "weight": 0.0,
+      "has_weight": false,
+      "finding_count": 2
+    },
+    "srp": {
+      "category": "srp",
+      "score": null,
+      "raw_score": 100.0,
+      "weight": 0.0,
+      "has_weight": false,
+      "finding_count": 0
+    },
+    "validation": {
+      "category": "validation",
+      "score": null,
+      "raw_score": 90.0,
+      "weight": 0.0,
+      "has_weight": false,
+      "finding_count": 2
+    },
+    "architecture": {
+      "category": "architecture",
+      "score": null,
+      "raw_score": 25.0,
+      "weight": 0.0,
+      "has_weight": false,
+      "finding_count": 7
+    },
+    "performance": {
+      "category": "performance",
+      "score": 80.0,
+      "raw_score": 80.0,
+      "weight": 15.0,
+      "has_weight": true,
+      "finding_count": 4
+    },
+    "security": {
+      "category": "security",
+      "score": 0.0,
+      "raw_score": 0.0,
+      "weight": 25.0,
+      "has_weight": true,
+      "finding_count": 9
+    },
+    "accessibility": {
+      "category": "accessibility",
+      "score": null,
+      "raw_score": 100.0,
+      "weight": 0.0,
+      "has_weight": false,
+      "finding_count": 0
+    },
+    "laravel_best_practice": {
+      "category": "laravel_best_practice",
+      "score": 60.0,
+      "raw_score": 60.0,
+      "weight": 20.0,
+      "has_weight": true,
+      "finding_count": 4
+    },
+    "react_best_practice": {
+      "category": "react_best_practice",
+      "score": null,
+      "raw_score": 100.0,
+      "weight": 0.0,
+      "has_weight": false,
+      "finding_count": 0
+    },
+    "complexity": {
+      "category": "complexity",
+      "score": 100.0,
+      "raw_score": 100.0,
+      "weight": 20.0,
+      "has_weight": true,
+      "finding_count": 0
+    },
+    "maintainability": {
+      "category": "maintainability",
+      "score": 82.0,
+      "raw_score": 82.0,
+      "weight": 20.0,
+      "has_weight": true,
+      "finding_count": 17
+    }
+  }
+}

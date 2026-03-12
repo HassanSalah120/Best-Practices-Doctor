@@ -1,0 +1,85 @@
+{
+  "counts_by_rule": {
+    "controller-inline-validation": 1,
+    "controller-query-direct": 1,
+    "fat-controller": 1,
+    "low-coverage-files": 1,
+    "missing-form-request": 1,
+    "policy-coverage-on-mutations": 1
+  },
+  "counts_by_severity": {
+    "high": 4,
+    "medium": 2
+  },
+  "finding_count": 6,
+  "findings": [
+    {
+      "category": "laravel_best_practice",
+      "confidence": 1.0,
+      "file": "app/Http/Controllers/UserController.php",
+      "fingerprint": "00e4760daacd",
+      "line_start": 19,
+      "rule_id": "controller-query-direct",
+      "severity": "high"
+    },
+    {
+      "category": "validation",
+      "confidence": 1.0,
+      "file": "app/Http/Controllers/UserController.php",
+      "fingerprint": "13f9115493f6",
+      "line_start": 13,
+      "rule_id": "missing-form-request",
+      "severity": "medium"
+    },
+    {
+      "category": "security",
+      "confidence": 0.8,
+      "file": "app/Http/Controllers/UserController.php",
+      "fingerprint": "408c140509bb",
+      "line_start": 11,
+      "rule_id": "policy-coverage-on-mutations",
+      "severity": "high"
+    },
+    {
+      "category": "maintainability",
+      "confidence": 0.8,
+      "file": "app/Http/Controllers/UserController.php",
+      "fingerprint": "592690769583",
+      "line_start": 1,
+      "rule_id": "low-coverage-files",
+      "severity": "medium"
+    },
+    {
+      "category": "validation",
+      "confidence": 1.0,
+      "file": "app/Http/Controllers/UserController.php",
+      "fingerprint": "6e610b72b2b6",
+      "line_start": 13,
+      "rule_id": "controller-inline-validation",
+      "severity": "high"
+    },
+    {
+      "category": "architecture",
+      "confidence": 1.0,
+      "file": "app/Http/Controllers/UserController.php",
+      "fingerprint": "9f6b6af6a582",
+      "line_start": 11,
+      "rule_id": "fat-controller",
+      "severity": "high"
+    }
+  ],
+  "fingerprints": [
+    "00e4760daacd",
+    "13f9115493f6",
+    "408c140509bb",
+    "592690769583",
+    "6e610b72b2b6",
+    "9f6b6af6a582"
+  ],
+  "profile": "startup",
+  "project_path": "G:/Best-Practices-Doctor/backend/tests/fixtures/sample-lara",
+  "project_slug": "sample-lara-4eab448f",
+  "report_hash": "359ea0bc79c3",
+  "schema_version": 2,
+  "updated_at": "2026-03-09T02:51:25.049583+00:00"
+}

@@ -1,0 +1,64 @@
+schema_version: 1
+presets:
+  startup:
+    description: "Default low-friction PR gate: block only NEW Critical/High regressions."
+    profile_floor: high
+    confidence_floor: 0.70
+    fail_on_new_severities: [critical, high]
+    fail_on_security_regressions: false
+    security_min_severity: medium
+    fail_on_profile_floor: false
+    allowlisted_paths:
+      - vendor/**
+      - node_modules/**
+      - storage/**
+      - bootstrap/cache/**
+      - tests/**
+      - "**/*.stories.*"
+      - "**/*.story.*"
+      - "**/storybook/**"
+      - "**/demo/**"
+      - "**/demos/**"
+    allowlisted_extensions: [.snap, .lock, .min.js, .min.css]
+
+  balanced:
+    description: "Block NEW Critical/High regressions plus NEW security regressions at/above medium."
+    profile_floor: medium
+    confidence_floor: 0.60
+    fail_on_new_severities: [critical, high]
+    fail_on_security_regressions: true
+    security_min_severity: medium
+    fail_on_profile_floor: false
+    allowlisted_paths:
+      - vendor/**
+      - node_modules/**
+      - storage/**
+      - bootstrap/cache/**
+      - tests/**
+      - "**/*.stories.*"
+      - "**/*.story.*"
+      - "**/storybook/**"
+      - "**/demo/**"
+      - "**/demos/**"
+    allowlisted_extensions: [.snap, .lock, .min.js, .min.css]
+
+  strict:
+    description: "Strict PR gate: block any NEW finding at/above profile floor (plus security regressions)."
+    profile_floor: low
+    confidence_floor: 0.50
+    fail_on_new_severities: []
+    fail_on_security_regressions: true
+    security_min_severity: low
+    fail_on_profile_floor: true
+    allowlisted_paths:
+      - vendor/**
+      - node_modules/**
+      - storage/**
+      - bootstrap/cache/**
+      - tests/**
+      - "**/*.stories.*"
+      - "**/*.story.*"
+      - "**/storybook/**"
+      - "**/demo/**"
+      - "**/demos/**"
+    allowlisted_extensions: [.snap, .lock, .min.js, .min.css]

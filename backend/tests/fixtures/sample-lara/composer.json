@@ -1,0 +1,6 @@
+{
+  "name": "tests/sample-lara",
+  "require": {
+    "laravel/framework": "^10.0"
+  }
+}

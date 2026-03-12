@@ -1,0 +1,93 @@
+"""
+Unsafe File Upload Rule
+
+Detects common unsafe file upload patterns, such as:
+  $request->file('x')->move(...)
+  $request->file('x')->store(...)
+
+This is heuristic-based and uses AST-extracted call sites and derived validation metrics.
+"""
+from schemas.facts import Facts, MethodInfo
+from schemas.metrics import MethodMetrics
+from schemas.finding import Finding, Category, Severity
+from rules.base import Rule
+
+
+class UnsafeFileUploadRule(Rule):
+    id = "unsafe-file-upload"
+    name = "Unsafe File Upload"
+    description = "Detects file upload handling without validation"
+    category = Category.SECURITY
+    default_severity = Severity.HIGH
+    applicable_project_types = [
+        "laravel_blade",
+        "laravel_inertia_react",
+        "laravel_inertia_vue",
+        "laravel_api",
+        "laravel_livewire",
+    ]
+
+    def analyze(
+        self,
+        facts: Facts,
+        metrics: dict[str, MethodMetrics] | None = None,
+    ) -> list[Finding]:
+        findings: list[Finding] = []
+
+        for m in facts.methods:
+            if not m.call_sites:
+                continue
+
+            lc_sites = [c.lower() for c in m.call_sites]
+            has_file_access = any("->file(" in c or "->hasfile(" in c for c in lc_sites)
+            has_store = any("->store(" in c or "->storeas(" in c or "->move(" in c for c in lc_sites)
+            if not (has_file_access and has_store):
+                continue
+
+            has_validation = False
+            if metrics and m.method_fqn in metrics:
+                has_validation = bool(metrics[m.method_fqn].has_validation)
+            else:
+                # Fallback: cheap heuristic from call sites.
+                has_validation = any("->validate(" in c or "validator::" in c or "validated(" in c for c in lc_sites)
+
+            if has_validation:
+                # Still potentially risky, but we only flag the "no validation" case by default.
+                continue
+
+            ctx = m.method_fqn
+            findings.append(
+                self.create_finding(
+                    title="File upload without validation",
+                    context=ctx,
+                    file=m.file_path,
+                    line_start=m.line_start,
+                    line_end=m.line_end,
+                    description=(
+                        "Detected file upload handling (`file()` + `move()`/`store()`) without any validation in this method. "
+                        "Uploads should be validated for type and size."
+                    ),
+                    why_it_matters=(
+                        "Unsafe uploads can lead to security vulnerabilities (malicious files, storage exhaustion, "
+                        "and in some setups even remote code execution). Validation and safe storage APIs reduce risk."
+                    ),
+                    suggested_fix=(
+                        "1. Validate uploads with rules like: `required|file|mimes:jpg,png,pdf|max:2048`\n"
+                        "2. Prefer `Storage::putFile` / `$file->store()` over manual `move()`\n"
+                        "3. Store outside the public web root and serve via signed URLs when needed\n"
+                        "4. Generate random filenames and avoid trusting client-provided names"
+                    ),
+                    code_example=(
+                        "// Before\n"
+                        "$request->file('avatar')->move(public_path('uploads'), $name);\n\n"
+                        "// After\n"
+                        "$request->validate(['avatar' => 'required|file|mimes:jpg,png|max:2048']);\n"
+                        "$path = $request->file('avatar')->store('avatars');\n"
+                    ),
+                    tags=["security", "uploads", "validation", "laravel"],
+                    confidence=0.65,
+                )
+            )
+
+        return findings
+

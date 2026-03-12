@@ -1,0 +1,738 @@
+"""
+Rule Engine
+
+Orchestrates rule loading, execution, and result collection.
+"""
+import logging
+import os
+import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
+from datetime import date
+from pathlib import Path
+from typing import Type
+
+from schemas.facts import Facts
+from schemas.metrics import MethodMetrics
+from schemas.finding import Finding
+from core.ruleset import Ruleset, RuleConfig
+from rules.base import Rule, RuleResult
+from core.path_utils import normalize_rel_path
+
+# Import all rules
+from rules.laravel import (
+    FatControllerRule,
+    MissingFormRequestRule,
+    ServiceExtractionRule,
+    EnumSuggestionRule,
+    BladeQueriesRule,
+    RepositorySuggestionRule,
+    ContractSuggestionRule,
+    CustomExceptionSuggestionRule,
+    EagerLoadingRule,
+    NPlusOneRiskRule,
+    EnvOutsideConfigRule,
+    IocInsteadOfNewRule,
+    ControllerQueryDirectRule,
+    ControllerBusinessLogicRule,
+    ControllerInlineValidationRule,
+    DtoSuggestionRule,
+    MassAssignmentRiskRule,
+    ActionClassSuggestionRule,
+    MassiveModelRule,
+    UnsafeFileUploadRule,
+    NoJsonEncodeInControllersRule,
+    ApiResourceUsageRule,
+    NoLogDebugInAppRule,
+    NoClosureRoutesRule,
+    HeavyLogicInRoutesRule,
+    DuplicateRouteDefinitionRule,
+    MissingThrottleOnAuthApiRoutesRule,
+    MissingAuthOnMutatingApiRoutesRule,
+    PolicyCoverageOnMutationsRule,
+    AuthorizationBypassRiskRule,
+    TransactionRequiredForMultiWriteRule,
+    TenantScopeEnforcementRule,
+    UnusedServiceClassRule,
+    BladeXssRiskRule,
+    UserModelMissingMustVerifyEmailRule,
+    RegistrationMissingRegisteredEventRule,
+    SensitiveRoutesMissingVerifiedMiddlewareRule,
+    TenantAccessMiddlewareMissingRule,
+    SignedRoutesMissingSignatureMiddlewareRule,
+    UnsafeExternalRedirectRule,
+    AuthorizationMissingOnSensitiveReadsRule,
+    InsecureSessionCookieConfigRule,
+    UnsafeCspPolicyRule,
+    JobMissingIdempotencyGuardRule,
+    ComposerDependencyBelowSecureVersionRule,
+    NpmDependencyBelowSecureVersionRule,
+    InertiaSharedPropsSensitiveDataRule,
+    InertiaSharedPropsEagerQueryRule,
+    JobMissingRetryPolicyRule,
+    JobHttpCallMissingTimeoutRule,
+    # Security rules
+    HardcodedSecretsRule,
+    SensitiveDataLoggingRule,
+    InsecureRandomForSecurityRule,
+    DebugModeExposureRule,
+    MissingHttpsEnforcementRule,
+    CorsMisconfigurationRule,
+    MissingCsrfTokenVerificationRule,
+    InsecureDeserializationRule,
+    # Performance rules
+    ColumnSelectionSuggestionRule,
+    MissingCacheForReferenceDataRule,
+    MissingPaginationRule,
+    NullFilteringSuggestionRule,
+    AssetVersioningCheckRule,
+    # Architecture rules
+    ControllerReturningViewInApiRule,
+    MissingApiResourceRule,
+    SqlInjectionRiskRule,
+)
+from rules.php import (
+    DryViolationRule,
+    HighComplexityRule,
+    LongMethodRule,
+    GodClassRule,
+    TooManyDependenciesRule,
+    RawSqlRule,
+    ConfigInLoopRule,
+    StaticHelperAbuseRule,
+    UnusedPrivateMethodRule,
+    CircularDependencyRule,
+    HighCouplingClassRule,
+    PreferImportsRule,
+    UnsafeEvalRule,
+    UnsafeUnserializeRule,
+    CommandInjectionRiskRule,
+    SqlInjectionRiskRule,
+    TestsMissingRule,
+    LowCoverageFilesRule,
+)
+from rules.react import (
+    LargeComponentRule,
+    InlineLogicRule,
+    UseEffectDependencyArrayRule,
+    NoArrayIndexKeyRule,
+    HooksInConditionalOrLoopRule,
+    MissingKeyOnListRenderRule,
+    HardcodedUserFacingStringsRule,
+    InteractiveElementA11yRule,
+    FormLabelAssociationRule,
+    NoNestedComponentsRule,
+    NoDangerouslySetInnerHtmlRule,
+    ImageAltMissingRule,
+    SafeTargetBlankRule,
+    NoInlineHooksRule,
+    NoInlineTypesRule,
+    NoInlineServicesRule,
+    InertiaPageMissingHeadRule,
+    InertiaInternalLinkAnchorRule,
+    InertiaFormUsesFetchRule,
+    AnonymousDefaultExportComponentRule,
+    MultipleExportedComponentsPerFileRule,
+    ContextProviderInlineValueRule,
+    UseEffectFetchWithoutAbortRule,
+    # Phase 1 React rules
+    UseEffectCleanupMissingRule,
+    # Phase 2 React performance rules
+    MissingUseMemoForExpensiveCalcRule,
+    MissingUseCallbackForEventHandlersRule,
+    # Phase 3 React architecture rules
+    MissingPropsTypeRule,
+    # Phase 4 UX/A11y rules
+    TouchTargetSizeRule,
+    PlaceholderAsLabelRule,
+    LinkTextVagueRule,
+    ButtonTextVagueRule,
+    AutocompleteMissingRule,
+    HeadingOrderRule,
+    FocusIndicatorMissingRule,
+    SkipLinkMissingRule,
+    ModalTrapFocusRule,
+    ErrorMessageMissingRule,
+    LongPageNoTocRule,
+    ColorContrastRatioRule,
+    # Phase 5 WCAG-based UX rules
+    PageTitleMissingRule,
+    LanguageAttributeMissingRule,
+    StatusMessageAnnouncementRule,
+    AutoplayMediaRule,
+    RedundantEntryRule,
+    AccessibleAuthenticationRule,
+    FocusNotObscuredRule,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class EngineResult:
+    """Result from running all rules."""
+    findings: list[Finding] = field(default_factory=list)
+    rules_run: int = 0
+    rules_skipped: int = 0
+    suppressed_count: int = 0
+    filtered_by_confidence: int = 0
+    differential_filtered: int = 0
+    execution_time_ms: float = 0.0
+    rule_results: dict[str, RuleResult] = field(default_factory=dict)
+
+
+# Registry of all available rules
+ALL_RULES: dict[str, Type[Rule]] = {
+    # Laravel rules
+    "fat-controller": FatControllerRule,
+    "missing-form-request": MissingFormRequestRule,
+    "service-extraction": ServiceExtractionRule,
+    "enum-suggestion": EnumSuggestionRule,
+    "blade-queries": BladeQueriesRule,
+    "repository-suggestion": RepositorySuggestionRule,
+    "contract-suggestion": ContractSuggestionRule,
+    "custom-exception-suggestion": CustomExceptionSuggestionRule,
+    "eager-loading": EagerLoadingRule,
+    "n-plus-one-risk": NPlusOneRiskRule,
+    "env-outside-config": EnvOutsideConfigRule,
+    "ioc-instead-of-new": IocInsteadOfNewRule,
+    "controller-query-direct": ControllerQueryDirectRule,
+    "controller-business-logic": ControllerBusinessLogicRule,
+    "controller-inline-validation": ControllerInlineValidationRule,
+    "dto-suggestion": DtoSuggestionRule,
+    "mass-assignment-risk": MassAssignmentRiskRule,
+    "action-class-suggestion": ActionClassSuggestionRule,
+    "massive-model": MassiveModelRule,
+    "unsafe-file-upload": UnsafeFileUploadRule,
+    "unused-service-class": UnusedServiceClassRule,
+
+    # Regex lint rules (file-content scans)
+    "no-json-encode-in-controllers": NoJsonEncodeInControllersRule,
+    "api-resource-usage": ApiResourceUsageRule,
+    "no-log-debug-in-app": NoLogDebugInAppRule,
+    "no-closure-routes": NoClosureRoutesRule,
+    "heavy-logic-in-routes": HeavyLogicInRoutesRule,
+    "duplicate-route-definition": DuplicateRouteDefinitionRule,
+    "missing-throttle-on-auth-api-routes": MissingThrottleOnAuthApiRoutesRule,
+    "missing-auth-on-mutating-api-routes": MissingAuthOnMutatingApiRoutesRule,
+    "policy-coverage-on-mutations": PolicyCoverageOnMutationsRule,
+    "authorization-bypass-risk": AuthorizationBypassRiskRule,
+    "transaction-required-for-multi-write": TransactionRequiredForMultiWriteRule,
+    "tenant-scope-enforcement": TenantScopeEnforcementRule,
+    "blade-xss-risk": BladeXssRiskRule,
+    "user-model-missing-must-verify-email": UserModelMissingMustVerifyEmailRule,
+    "registration-missing-registered-event": RegistrationMissingRegisteredEventRule,
+    "sensitive-routes-missing-verified-middleware": SensitiveRoutesMissingVerifiedMiddlewareRule,
+    "tenant-access-middleware-missing": TenantAccessMiddlewareMissingRule,
+    "signed-routes-missing-signature-middleware": SignedRoutesMissingSignatureMiddlewareRule,
+    "unsafe-external-redirect": UnsafeExternalRedirectRule,
+    "authorization-missing-on-sensitive-reads": AuthorizationMissingOnSensitiveReadsRule,
+    "insecure-session-cookie-config": InsecureSessionCookieConfigRule,
+    "unsafe-csp-policy": UnsafeCspPolicyRule,
+    "job-missing-idempotency-guard": JobMissingIdempotencyGuardRule,
+    "composer-dependency-below-secure-version": ComposerDependencyBelowSecureVersionRule,
+    "npm-dependency-below-secure-version": NpmDependencyBelowSecureVersionRule,
+    "inertia-shared-props-sensitive-data": InertiaSharedPropsSensitiveDataRule,
+    "inertia-shared-props-eager-query": InertiaSharedPropsEagerQueryRule,
+    "job-missing-retry-policy": JobMissingRetryPolicyRule,
+    "job-http-call-missing-timeout": JobHttpCallMissingTimeoutRule,
+    
+    # Security rules (Laravel)
+    "hardcoded-secrets": HardcodedSecretsRule,
+    "debug-mode-exposure": DebugModeExposureRule,
+    "cors-misconfiguration": CorsMisconfigurationRule,
+    "missing-csrf-token-verification": MissingCsrfTokenVerificationRule,
+    "missing-https-enforcement": MissingHttpsEnforcementRule,
+    "insecure-deserialization": InsecureDeserializationRule,
+    "insecure-random-for-security": InsecureRandomForSecurityRule,
+    "sensitive-data-logging": SensitiveDataLoggingRule,
+    
+    # Performance rules (Laravel)
+    "column-selection-suggestion": ColumnSelectionSuggestionRule,
+    "missing-cache-for-reference-data": MissingCacheForReferenceDataRule,
+    "missing-pagination": MissingPaginationRule,
+    "null-filtering-suggestion": NullFilteringSuggestionRule,
+    "asset-versioning-check": AssetVersioningCheckRule,
+    
+    # Architecture rules (Laravel)
+    "controller-returning-view-in-api": ControllerReturningViewInApiRule,
+    "missing-api-resource": MissingApiResourceRule,
+    
+    # PHP rules
+    "dry-violation": DryViolationRule,
+    "high-complexity": HighComplexityRule,
+    "long-method": LongMethodRule,
+    "god-class": GodClassRule,
+    "too-many-dependencies": TooManyDependenciesRule,
+    "raw-sql": RawSqlRule,
+    "config-in-loop": ConfigInLoopRule,
+    "static-helper-abuse": StaticHelperAbuseRule,
+    "unused-private-method": UnusedPrivateMethodRule,
+    "circular-dependency": CircularDependencyRule,
+    "high-coupling-class": HighCouplingClassRule,
+    "prefer-imports": PreferImportsRule,
+    "unsafe-eval": UnsafeEvalRule,
+    "unsafe-unserialize": UnsafeUnserializeRule,
+    "command-injection-risk": CommandInjectionRiskRule,
+    "sql-injection-risk": SqlInjectionRiskRule,
+
+    # Quality gates
+    "tests-missing": TestsMissingRule,
+    "low-coverage-files": LowCoverageFilesRule,
+    
+    # React rules
+    "large-react-component": LargeComponentRule,
+    "inline-api-logic": InlineLogicRule,
+    "react-useeffect-deps": UseEffectDependencyArrayRule,
+    "react-no-array-index-key": NoArrayIndexKeyRule,
+    "hooks-in-conditional-or-loop": HooksInConditionalOrLoopRule,
+    "missing-key-on-list-render": MissingKeyOnListRenderRule,
+    "hardcoded-user-facing-strings": HardcodedUserFacingStringsRule,
+    "interactive-element-a11y": InteractiveElementA11yRule,
+    "form-label-association": FormLabelAssociationRule,
+    "no-nested-components": NoNestedComponentsRule,
+    "no-dangerously-set-inner-html": NoDangerouslySetInnerHtmlRule,
+    "img-alt-missing": ImageAltMissingRule,
+    "safe-target-blank": SafeTargetBlankRule,
+    "no-inline-hooks": NoInlineHooksRule,
+    "no-inline-types": NoInlineTypesRule,
+    "no-inline-services": NoInlineServicesRule,
+    "inertia-page-missing-head": InertiaPageMissingHeadRule,
+    "inertia-internal-link-anchor": InertiaInternalLinkAnchorRule,
+    "inertia-form-uses-fetch": InertiaFormUsesFetchRule,
+    "anonymous-default-export-component": AnonymousDefaultExportComponentRule,
+    "multiple-exported-react-components": MultipleExportedComponentsPerFileRule,
+    "context-provider-inline-value": ContextProviderInlineValueRule,
+    "react-useeffect-fetch-without-abort": UseEffectFetchWithoutAbortRule,
+    
+    # Phase 1 React rules
+    "useeffect-cleanup-missing": UseEffectCleanupMissingRule,
+    
+    # Phase 2 React performance rules
+    "missing-usememo-for-expensive-calc": MissingUseMemoForExpensiveCalcRule,
+    "missing-usecallback-for-event-handlers": MissingUseCallbackForEventHandlersRule,
+    
+    # Phase 3 React architecture rules
+    "missing-props-type": MissingPropsTypeRule,
+    
+    # Phase 4 UX/A11y rules
+    "touch-target-size": TouchTargetSizeRule,
+    "placeholder-as-label": PlaceholderAsLabelRule,
+    "link-text-vague": LinkTextVagueRule,
+    "button-text-vague": ButtonTextVagueRule,
+    "autocomplete-missing": AutocompleteMissingRule,
+    "heading-order": HeadingOrderRule,
+    "focus-indicator-missing": FocusIndicatorMissingRule,
+    "skip-link-missing": SkipLinkMissingRule,
+    "modal-trap-focus": ModalTrapFocusRule,
+    "error-message-missing": ErrorMessageMissingRule,
+    "long-page-no-toc": LongPageNoTocRule,
+    "color-contrast-ratio": ColorContrastRatioRule,
+    
+    # Phase 5 WCAG-based UX rules
+    "page-title-missing": PageTitleMissingRule,
+    "language-attribute-missing": LanguageAttributeMissingRule,
+    "status-message-announcement": StatusMessageAnnouncementRule,
+    "autoplay-media": AutoplayMediaRule,
+    "redundant-entry": RedundantEntryRule,
+    "accessible-authentication": AccessibleAuthenticationRule,
+    "focus-not-obscured": FocusNotObscuredRule,
+}
+
+
+class RuleEngine:
+    """
+    Orchestrates rule execution.
+    
+    Loads rules based on ruleset configuration and executes
+    them against the Facts/Metrics to produce Findings.
+    """
+    
+    def __init__(self, ruleset: Ruleset):
+        self.ruleset = ruleset
+        self.rules: list[Rule] = []
+        self._load_rules()
+    
+    def _load_rules(self) -> None:
+        """Load and configure rules from the registry."""
+        for rule_id, rule_class in ALL_RULES.items():
+            # Get config from ruleset (or use defaults)
+            config = self.ruleset.get_rule_config(rule_id)
+            
+            if config.enabled:
+                try:
+                    rule_instance = rule_class(config)
+                    self.rules.append(rule_instance)
+                    logger.debug(f"Loaded rule: {rule_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to load rule {rule_id}: {e}")
+    
+    def run(
+        self,
+        facts: Facts,
+        metrics: dict[str, MethodMetrics] | None = None,
+        project_type: str = "",
+        cancellation_check: callable = None,
+        differential_mode: bool = False,
+        changed_files: set[str] | list[str] | tuple[str, ...] | None = None,
+        progress_callback: callable[[float, int, int], None] | None = None,
+    ) -> EngineResult:
+        """
+        Execute all applicable rules against the codebase facts.
+        
+        Args:
+            facts: Raw facts about the codebase
+            metrics: Derived metrics (keyed by method_fqn)
+            project_type: Detected project type for filtering
+            cancellation_check: Optional callback to check for cancellation
+        
+        Returns:
+            EngineResult with all findings and execution metadata
+        """
+        import time
+        
+        result = EngineResult()
+        start = time.perf_counter()
+
+        ast_rules = [r for r in self.rules if getattr(r, "type", "ast") != "regex"]
+        regex_rules = [r for r in self.rules if getattr(r, "type", "ast") == "regex"]
+
+        # Execute AST rules in parallel for better performance
+        def _run_ast_rule(rule: Rule) -> tuple[str, RuleResult]:
+            """Execute a single AST rule and return (rule_id, result)."""
+            rule_result = rule.run(facts, project_type, metrics)
+            return (rule.id, rule_result)
+
+        # Use ThreadPoolExecutor for parallel execution
+        max_workers = min(8, len(ast_rules)) if ast_rules else 1
+        total_rules = len(ast_rules) + len(regex_rules)
+        rules_completed = 0
+        
+        if ast_rules:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all AST rules
+                future_to_rule = {
+                    executor.submit(_run_ast_rule, rule): rule
+                    for rule in ast_rules
+                }
+
+                # Collect results as they complete
+                for future in as_completed(future_to_rule):
+                    # Check for cancellation
+                    if cancellation_check and cancellation_check():
+                        logger.info("Rule engine cancelled")
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        break
+
+                    try:
+                        rule_id, rule_result = future.result()
+                        result.rule_results[rule_id] = rule_result
+
+                        if rule_result.skipped:
+                            result.rules_skipped += 1
+                            logger.debug(f"Skipped rule {rule_id}: {rule_result.skip_reason}")
+                        else:
+                            result.rules_run += 1
+                            result.findings.extend(rule_result.findings)
+                            logger.debug(
+                                f"Rule {rule_id}: {len(rule_result.findings)} findings "
+                                f"({rule_result.execution_time_ms:.1f}ms)"
+                            )
+                    except Exception as e:
+                        rule = future_to_rule[future]
+                        logger.warning(f"Rule {rule.id} failed: {e}")
+                        result.rules_skipped += 1
+                    
+                    # Update progress
+                    rules_completed += 1
+                    if progress_callback and total_rules > 0:
+                        progress_callback(rules_completed / total_rules, rules_completed, total_rules)
+
+        # Regex rules are lightweight and run directly on file contents.
+        if not (cancellation_check and cancellation_check()) and regex_rules:
+            file_cache: dict[str, str] = {}
+
+            def _read(rel_path: str) -> str:
+                if rel_path in file_cache:
+                    return file_cache[rel_path]
+                try:
+                    from pathlib import Path
+                    root = Path(getattr(facts, "project_path", "")).resolve()
+                    p = (root / rel_path).resolve()
+                    txt = p.read_text(encoding="utf-8", errors="replace")
+                except Exception:
+                    txt = ""
+                file_cache[rel_path] = txt
+                return txt
+
+            import time as _time
+            for rule in regex_rules:
+                if cancellation_check and cancellation_check():
+                    logger.info("Rule engine cancelled")
+                    break
+
+                rr = RuleResult(rule_id=rule.id)
+                if not rule.is_applicable(facts, project_type):
+                    rr.skipped = True
+                    rr.skip_reason = "Disabled" if not rule.enabled else "Not applicable to this project type"
+                    result.rule_results[rule.id] = rr
+                    result.rules_skipped += 1
+                    rules_completed += 1
+                    if progress_callback and total_rules > 0:
+                        progress_callback(rules_completed / total_rules, rules_completed, total_rules)
+                    continue
+
+                t0 = _time.perf_counter()
+                try:
+                    findings: list[Finding] = []
+                    raw_exts = getattr(rule, "regex_file_extensions", [".php"]) or [".php"]
+                    allowed_exts: set[str] = set()
+                    for ext in raw_exts:
+                        s = str(ext or "").strip().lower()
+                        if not s:
+                            continue
+                        if not s.startswith("."):
+                            s = "." + s
+                        allowed_exts.add(s)
+                    if not allowed_exts:
+                        allowed_exts = {".php"}
+
+                    # Use FactsBuilder's file list to respect ignore globs.
+                    for rel_path in getattr(facts, "files", []) or []:
+                        rel_path = normalize_rel_path(rel_path)
+                        if not rel_path:
+                            continue
+                        rel_lower = rel_path.lower()
+                        if not any(rel_lower.endswith(ext) for ext in allowed_exts):
+                            continue
+                        content = _read(rel_path)
+                        if not content:
+                            continue
+                        findings.extend(rule.analyze_regex(rel_path, content, facts, metrics))
+                    rr.findings = findings
+                except Exception as e:
+                    rr.skipped = True
+                    rr.skip_reason = f"Error: {str(e)}"
+                finally:
+                    rr.execution_time_ms = (_time.perf_counter() - t0) * 1000
+
+                result.rule_results[rule.id] = rr
+                if rr.skipped:
+                    result.rules_skipped += 1
+                    logger.debug(f"Skipped rule {rule.id}: {rr.skip_reason}")
+                else:
+                    result.rules_run += 1
+                    result.findings.extend(rr.findings)
+                    logger.debug(
+                        f"Rule {rule.id}: {len(rr.findings)} findings "
+                        f"({rr.execution_time_ms:.1f}ms)"
+                    )
+                
+                # Update progress after each regex rule
+                rules_completed += 1
+                if progress_callback and total_rules > 0:
+                    progress_callback(rules_completed / total_rules, rules_completed, total_rules)
+        
+        before_conf = len(result.findings)
+        result.findings = self._apply_confidence_filter(result.findings)
+        result.filtered_by_confidence = max(0, before_conf - len(result.findings))
+
+        before_suppression = len(result.findings)
+        result.findings = self._apply_suppressions(result.findings, facts)
+        result.suppressed_count = max(0, before_suppression - len(result.findings))
+
+        mode = differential_mode or (os.environ.get("BPD_DIFFERENTIAL_MODE", "").strip() == "1")
+        if mode:
+            changed = self._resolve_changed_files(changed_files)
+            if changed:
+                before_diff = len(result.findings)
+                result.findings = self._apply_differential_filter(result.findings, changed)
+                result.differential_filtered = max(0, before_diff - len(result.findings))
+
+        result.execution_time_ms = (time.perf_counter() - start) * 1000
+        
+        logger.info(
+            f"Rule engine complete: {result.rules_run} rules, "
+            f"{len(result.findings)} findings, {result.execution_time_ms:.1f}ms"
+        )
+        
+        return result
+
+    def _profile_confidence_floor(self) -> float:
+        name = str(getattr(self.ruleset, "name", "") or "").strip().lower()
+        if name == "startup":
+            return 0.65
+        if name == "balanced":
+            return 0.55
+        if name == "strict":
+            return 0.45
+        return 0.55
+
+    def _confidence_floor_for_rule(self, rule_id: str) -> float:
+        cfg = self.ruleset.get_rule_config(rule_id)
+        if cfg and isinstance(cfg.thresholds, dict):
+            raw = cfg.thresholds.get("min_confidence")
+            if raw is not None:
+                try:
+                    return max(0.0, min(1.0, float(raw)))
+                except Exception:
+                    pass
+        return self._profile_confidence_floor()
+
+    def _apply_confidence_filter(self, findings: list[Finding]) -> list[Finding]:
+        out: list[Finding] = []
+        for f in findings:
+            floor = self._confidence_floor_for_rule(f.rule_id)
+            conf = float(getattr(f, "confidence", 1.0) or 0.0)
+            if conf >= floor:
+                out.append(f)
+        return out
+
+    def _apply_suppressions(self, findings: list[Finding], facts: Facts) -> list[Finding]:
+        root = Path(getattr(facts, "project_path", "") or ".").resolve()
+        cache: dict[str, list[str]] = {}
+        out: list[Finding] = []
+        for f in findings:
+            if self._is_suppressed(f, root, cache):
+                continue
+            out.append(f)
+        return out
+
+    def _is_suppressed(self, finding: Finding, root: Path, cache: dict[str, list[str]]) -> bool:
+        rel = normalize_rel_path(str(getattr(finding, "file", "") or ""))
+        if not rel:
+            return False
+
+        if rel in cache:
+            lines = cache[rel]
+        else:
+            try:
+                p = (root / rel).resolve()
+                lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+            except Exception:
+                lines = []
+            cache[rel] = lines
+
+        if not lines:
+            return False
+
+        line_no = int(getattr(finding, "line_start", 1) or 1)
+        if line_no < 1:
+            line_no = 1
+
+        # Scan same line and up to two previous lines for inline suppression comments.
+        for ln in range(max(1, line_no - 2), min(len(lines), line_no) + 1):
+            if self._line_has_matching_suppression(lines[ln - 1], finding.rule_id, applies_to_next_line=False):
+                return True
+
+        # Scan previous line for next-line suppression.
+        prev = line_no - 1
+        if prev >= 1 and prev <= len(lines):
+            if self._line_has_matching_suppression(lines[prev - 1], finding.rule_id, applies_to_next_line=True):
+                return True
+
+        return False
+
+    def _line_has_matching_suppression(self, line: str, rule_id: str, applies_to_next_line: bool) -> bool:
+        txt = str(line or "")
+        if "@bpd-ignore" not in txt:
+            return False
+
+        m = re.search(
+            r"@bpd-ignore(?P<next>-next-line)?\s+(?P<rule>[a-z0-9._*\-]+)(?P<rest>.*)$",
+            txt,
+            flags=re.IGNORECASE,
+        )
+        if not m:
+            return False
+
+        is_next = bool(m.group("next"))
+        if applies_to_next_line != is_next:
+            return False
+
+        target_rule = (m.group("rule") or "").strip().lower()
+        if target_rule not in {"*", rule_id.lower()}:
+            return False
+
+        rest = (m.group("rest") or "").strip()
+        until_match = re.search(r"\buntil:(\d{4}-\d{2}-\d{2})\b", rest, flags=re.IGNORECASE)
+        if until_match:
+            try:
+                until_date = date.fromisoformat(until_match.group(1))
+                if date.today() > until_date:
+                    return False
+            except Exception:
+                return False
+
+        return True
+
+    def _resolve_changed_files(
+        self, changed_files: set[str] | list[str] | tuple[str, ...] | None
+    ) -> set[str]:
+        if changed_files:
+            src = list(changed_files)
+        else:
+            src = []
+            env_raw = os.environ.get("BPD_CHANGED_FILES", "")
+            if env_raw:
+                src.extend(re.split(r"[\r\n,;]+", env_raw))
+
+            env_file = os.environ.get("BPD_CHANGED_FILES_FILE", "").strip()
+            if env_file:
+                try:
+                    txt = Path(env_file).read_text(encoding="utf-8", errors="replace")
+                    src.extend(re.split(r"[\r\n]+", txt))
+                except Exception:
+                    pass
+
+        out: set[str] = set()
+        for p in src:
+            s = normalize_rel_path(str(p or "").strip())
+            if not s:
+                continue
+            out.add(s)
+        return out
+
+    def _apply_differential_filter(self, findings: list[Finding], changed: set[str]) -> list[Finding]:
+        out: list[Finding] = []
+        for f in findings:
+            main = normalize_rel_path(str(getattr(f, "file", "") or ""))
+            if main in changed:
+                out.append(f)
+                continue
+
+            related = [normalize_rel_path(str(p)) for p in (getattr(f, "related_files", []) or [])]
+            if any(p in changed for p in related):
+                out.append(f)
+                continue
+        return out
+    
+    def get_rule_ids(self) -> list[str]:
+        """Get list of loaded rule IDs."""
+        return [r.id for r in self.rules]
+    
+    def get_rule(self, rule_id: str) -> Rule | None:
+        """Get a specific rule by ID."""
+        return next((r for r in self.rules if r.id == rule_id), None)
+
+
+def create_engine(
+    ruleset: Ruleset | None = None,
+    ruleset_path: str | None = None,
+) -> RuleEngine:
+    """
+    Factory function to create a RuleEngine.
+    
+    Args:
+        ruleset_path: Optional path to custom ruleset.yaml
+    
+    Returns:
+        Configured RuleEngine instance
+    """
+    if ruleset is None:
+        if ruleset_path:
+            ruleset = Ruleset.load_default(override_path=ruleset_path)
+        else:
+            ruleset = Ruleset.load_default()
+
+    return RuleEngine(ruleset)

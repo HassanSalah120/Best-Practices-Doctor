@@ -1,0 +1,410 @@
+{
+  "id": "normalized-id",
+  "project_path": "/normalized/path",
+  "project_info": {
+    "root_path": "/normalized/path",
+    "project_type": "laravel_inertia_react",
+    "framework_version": "10.0",
+    "php_version": null,
+    "features": [
+      "inertia",
+      "react",
+      "inertia-react"
+    ],
+    "packages": {
+      "laravel/framework": "^10.0",
+      "inertiajs/inertia-laravel": "^0.6"
+    },
+    "dev_packages": {},
+    "npm_packages": {
+      "react": "^18.0.0",
+      "@inertiajs/react": "^1.0.0"
+    },
+    "has_tests": false,
+    "has_api_routes": false,
+    "has_web_routes": false,
+    "has_blade_views": false,
+    "has_react_components": true,
+    "has_vue_components": false
+  },
+  "scanned_at": "2024-01-01T00:00:00Z",
+  "duration_ms": 0,
+  "files_scanned": 4,
+  "classes_found": 0,
+  "methods_found": 0,
+  "scores": {
+    "overall": 98.8,
+    "grade": "A",
+    "architecture": 100.0,
+    "dry": 100.0,
+    "laravel": 100.0,
+    "react": 53.5,
+    "complexity": 100.0,
+    "security": 100.0,
+    "maintainability": 94.2,
+    "srp": 100.0,
+    "validation": 100.0,
+    "performance": 100.0
+  },
+  "findings": [
+    {
+      "id": "finding_02a1c2251d5c",
+      "fingerprint": "02a1c2251d5c",
+      "rule_id": "hardcoded-user-facing-strings",
+      "category": "react_best_practice",
+      "severity": "medium",
+      "file": "resources/js/Pages/BigPage.tsx",
+      "context": "file:resources/js/Pages/BigPage.tsx"
+    },
+    {
+      "id": "finding_37175544b890",
+      "fingerprint": "37175544b890",
+      "rule_id": "inertia-page-missing-head",
+      "category": "react_best_practice",
+      "severity": "low",
+      "file": "resources/js/Pages/SmallPage.tsx",
+      "context": "file:resources/js/Pages/SmallPage.tsx"
+    },
+    {
+      "id": "finding_385897063582",
+      "fingerprint": "385897063582",
+      "rule_id": "no-inline-services",
+      "category": "maintainability",
+      "severity": "low",
+      "file": "resources/js/Pages/BigPage.tsx",
+      "context": "file:resources/js/Pages/BigPage.tsx"
+    },
+    {
+      "id": "finding_4353f1e36957",
+      "fingerprint": "4353f1e36957",
+      "rule_id": "inertia-page-missing-head",
+      "category": "react_best_practice",
+      "severity": "low",
+      "file": "resources/js/Pages/BigPage.tsx",
+      "context": "file:resources/js/Pages/BigPage.tsx"
+    },
+    {
+      "id": "finding_5e90b443681d",
+      "fingerprint": "5e90b443681d",
+      "rule_id": "react-useeffect-fetch-without-abort",
+      "category": "react_best_practice",
+      "severity": "medium",
+      "file": "resources/js/Pages/BigPage.tsx",
+      "context": "resources/js/Pages/BigPage.tsx:14:useeffect-fetch"
+    },
+    {
+      "id": "finding_5e96c98a6e90",
+      "fingerprint": "5e96c98a6e90",
+      "rule_id": "inline-api-logic",
+      "category": "react_best_practice",
+      "severity": "high",
+      "file": "resources/js/Pages/BigPage.tsx",
+      "context": "BigPage"
+    },
+    {
+      "id": "finding_5e96c98a6e90",
+      "fingerprint": "5e96c98a6e90",
+      "rule_id": "inline-api-logic",
+      "category": "react_best_practice",
+      "severity": "high",
+      "file": "resources/js/Pages/BigPage.tsx",
+      "context": "BigPage"
+    },
+    {
+      "id": "finding_7e0a6e030e4d",
+      "fingerprint": "7e0a6e030e4d",
+      "rule_id": "large-react-component",
+      "category": "react_best_practice",
+      "severity": "medium",
+      "file": "resources/js/Pages/BigPage.tsx",
+      "context": "BigPage"
+    },
+    {
+      "id": "finding_e255b1ef5e9f",
+      "fingerprint": "e255b1ef5e9f",
+      "rule_id": "tests-missing",
+      "category": "maintainability",
+      "severity": "medium",
+      "file": "package.json",
+      "context": "project:test-suite"
+    }
+  ],
+  "findings_by_file": {},
+  "findings_by_category": {},
+  "findings_by_severity": {},
+  "file_summaries": [],
+  "action_plan": [
+    {
+      "id": "action_08e755def8f3",
+      "rule_id": "hardcoded-user-facing-strings",
+      "category": "react_best_practice",
+      "priority": 0.0,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "02a1c2251d5c"
+      ],
+      "files": [
+        "resources/js/Pages/BigPage.tsx"
+      ]
+    },
+    {
+      "id": "action_21f8eb9d8cb5",
+      "rule_id": "inertia-page-missing-head",
+      "category": "react_best_practice",
+      "priority": 0.0,
+      "max_severity": "low",
+      "finding_fingerprints": [
+        "37175544b890",
+        "4353f1e36957"
+      ],
+      "files": [
+        "resources/js/Pages/BigPage.tsx",
+        "resources/js/Pages/SmallPage.tsx"
+      ]
+    },
+    {
+      "id": "action_61626e785590",
+      "rule_id": "react-useeffect-fetch-without-abort",
+      "category": "react_best_practice",
+      "priority": 0.0,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "5e90b443681d"
+      ],
+      "files": [
+        "resources/js/Pages/BigPage.tsx"
+      ]
+    },
+    {
+      "id": "action_665116d15278",
+      "rule_id": "no-inline-services",
+      "category": "maintainability",
+      "priority": 0.15,
+      "max_severity": "low",
+      "finding_fingerprints": [
+        "385897063582"
+      ],
+      "files": [
+        "resources/js/Pages/BigPage.tsx"
+      ]
+    },
+    {
+      "id": "action_712df1254314",
+      "rule_id": "tests-missing",
+      "category": "maintainability",
+      "priority": 1.0,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "e255b1ef5e9f"
+      ],
+      "files": [
+        "package.json"
+      ]
+    },
+    {
+      "id": "action_deeb164c52b0",
+      "rule_id": "inline-api-logic",
+      "category": "react_best_practice",
+      "priority": 0.0,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "5e96c98a6e90"
+      ],
+      "files": [
+        "resources/js/Pages/BigPage.tsx"
+      ]
+    },
+    {
+      "id": "action_e2b5e5562ec4",
+      "rule_id": "large-react-component",
+      "category": "react_best_practice",
+      "priority": 0.0,
+      "max_severity": "medium",
+      "finding_fingerprints": [
+        "7e0a6e030e4d"
+      ],
+      "files": [
+        "resources/js/Pages/BigPage.tsx"
+      ]
+    }
+  ],
+  "summary": "",
+  "ruleset_path": null,
+  "rules_executed": [
+    "fat-controller",
+    "missing-form-request",
+    "enum-suggestion",
+    "blade-queries",
+    "custom-exception-suggestion",
+    "eager-loading",
+    "n-plus-one-risk",
+    "env-outside-config",
+    "controller-query-direct",
+    "controller-business-logic",
+    "controller-inline-validation",
+    "mass-assignment-risk",
+    "massive-model",
+    "unsafe-file-upload",
+    "unused-service-class",
+    "no-json-encode-in-controllers",
+    "api-resource-usage",
+    "no-log-debug-in-app",
+    "no-closure-routes",
+    "heavy-logic-in-routes",
+    "duplicate-route-definition",
+    "missing-throttle-on-auth-api-routes",
+    "missing-auth-on-mutating-api-routes",
+    "policy-coverage-on-mutations",
+    "authorization-bypass-risk",
+    "transaction-required-for-multi-write",
+    "tenant-scope-enforcement",
+    "blade-xss-risk",
+    "user-model-missing-must-verify-email",
+    "registration-missing-registered-event",
+    "sensitive-routes-missing-verified-middleware",
+    "tenant-access-middleware-missing",
+    "signed-routes-missing-signature-middleware",
+    "unsafe-external-redirect",
+    "authorization-missing-on-sensitive-reads",
+    "insecure-session-cookie-config",
+    "unsafe-csp-policy",
+    "job-missing-idempotency-guard",
+    "composer-dependency-below-secure-version",
+    "npm-dependency-below-secure-version",
+    "inertia-shared-props-sensitive-data",
+    "inertia-shared-props-eager-query",
+    "job-missing-retry-policy",
+    "job-http-call-missing-timeout",
+    "dry-violation",
+    "high-complexity",
+    "long-method",
+    "god-class",
+    "too-many-dependencies",
+    "raw-sql",
+    "config-in-loop",
+    "static-helper-abuse",
+    "unused-private-method",
+    "circular-dependency",
+    "high-coupling-class",
+    "prefer-imports",
+    "unsafe-eval",
+    "unsafe-unserialize",
+    "command-injection-risk",
+    "sql-injection-risk",
+    "tests-missing",
+    "low-coverage-files",
+    "large-react-component",
+    "inline-api-logic",
+    "react-useeffect-deps",
+    "react-no-array-index-key",
+    "hooks-in-conditional-or-loop",
+    "missing-key-on-list-render",
+    "hardcoded-user-facing-strings",
+    "interactive-element-a11y",
+    "form-label-association",
+    "no-nested-components",
+    "no-dangerously-set-inner-html",
+    "img-alt-missing",
+    "safe-target-blank",
+    "no-inline-hooks",
+    "no-inline-types",
+    "no-inline-services",
+    "inertia-page-missing-head",
+    "inertia-internal-link-anchor",
+    "inertia-form-uses-fetch",
+    "anonymous-default-export-component",
+    "multiple-exported-react-components",
+    "context-provider-inline-value",
+    "react-useeffect-fetch-without-abort"
+  ],
+  "category_breakdown": {
+    "dry": {
+      "category": "dry",
+      "score": null,
+      "raw_score": 100.0,
+      "weight": 0.0,
+      "has_weight": false,
+      "finding_count": 0
+    },
+    "srp": {
+      "category": "srp",
+      "score": null,
+      "raw_score": 100.0,
+      "weight": 0.0,
+      "has_weight": false,
+      "finding_count": 0
+    },
+    "validation": {
+      "category": "validation",
+      "score": null,
+      "raw_score": 100.0,
+      "weight": 0.0,
+      "has_weight": false,
+      "finding_count": 0
+    },
+    "architecture": {
+      "category": "architecture",
+      "score": null,
+      "raw_score": 100.0,
+      "weight": 0.0,
+      "has_weight": false,
+      "finding_count": 0
+    },
+    "performance": {
+      "category": "performance",
+      "score": 100.0,
+      "raw_score": 100.0,
+      "weight": 15.0,
+      "has_weight": true,
+      "finding_count": 0
+    },
+    "security": {
+      "category": "security",
+      "score": 100.0,
+      "raw_score": 100.0,
+      "weight": 25.0,
+      "has_weight": true,
+      "finding_count": 0
+    },
+    "accessibility": {
+      "category": "accessibility",
+      "score": null,
+      "raw_score": 100.0,
+      "weight": 0.0,
+      "has_weight": false,
+      "finding_count": 0
+    },
+    "laravel_best_practice": {
+      "category": "laravel_best_practice",
+      "score": 100.0,
+      "raw_score": 100.0,
+      "weight": 20.0,
+      "has_weight": true,
+      "finding_count": 0
+    },
+    "react_best_practice": {
+      "category": "react_best_practice",
+      "score": null,
+      "raw_score": 53.5,
+      "weight": 0.0,
+      "has_weight": false,
+      "finding_count": 7
+    },
+    "complexity": {
+      "category": "complexity",
+      "score": 100.0,
+      "raw_score": 100.0,
+      "weight": 20.0,
+      "has_weight": true,
+      "finding_count": 0
+    },
+    "maintainability": {
+      "category": "maintainability",
+      "score": 94.2,
+      "raw_score": 94.2,
+      "weight": 20.0,
+      "has_weight": true,
+      "finding_count": 2
+    }
+  }
+}

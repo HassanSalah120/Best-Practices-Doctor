@@ -1,0 +1,201 @@
+from core.ruleset import RuleConfig
+from rules.php.unused_private_method import UnusedPrivateMethodRule
+from rules.laravel.unused_service_class import UnusedServiceClassRule
+from schemas.facts import Facts, ClassInfo, MethodInfo, ClassConstAccess
+
+
+def test_unused_private_method_flags_only_unreferenced_private_methods():
+    facts = Facts(project_path=".")
+
+    facts.classes.append(
+        ClassInfo(
+            name="Foo",
+            fqcn="App\\Services\\Foo",
+            file_path="app/Services/Foo.php",
+            file_hash="a",
+            line_start=1,
+            line_end=80,
+        )
+    )
+
+    # Public entrypoint calls the helper.
+    facts.methods.append(
+        MethodInfo(
+            name="run",
+            class_name="Foo",
+            class_fqcn="App\\Services\\Foo",
+            file_path="app/Services/Foo.php",
+            file_hash="a",
+            visibility="public",
+            line_start=10,
+            line_end=20,
+            loc=11,
+            call_sites=["$this->usedHelper()"],
+        )
+    )
+
+    facts.methods.append(
+        MethodInfo(
+            name="usedHelper",
+            class_name="Foo",
+            class_fqcn="App\\Services\\Foo",
+            file_path="app/Services/Foo.php",
+            file_hash="a",
+            visibility="private",
+            line_start=30,
+            line_end=35,
+            loc=6,
+        )
+    )
+
+    facts.methods.append(
+        MethodInfo(
+            name="unusedHelper",
+            class_name="Foo",
+            class_fqcn="App\\Services\\Foo",
+            file_path="app/Services/Foo.php",
+            file_hash="a",
+            visibility="private",
+            line_start=40,
+            line_end=45,
+            loc=6,
+        )
+    )
+
+    # Magic methods should never be flagged.
+    facts.methods.append(
+        MethodInfo(
+            name="__construct",
+            class_name="Foo",
+            class_fqcn="App\\Services\\Foo",
+            file_path="app/Services/Foo.php",
+            file_hash="a",
+            visibility="private",
+            line_start=5,
+            line_end=8,
+            loc=4,
+        )
+    )
+
+    rule = UnusedPrivateMethodRule(RuleConfig())
+    findings = rule.run(facts, project_type="laravel_blade").findings
+
+    assert any(f.rule_id == "unused-private-method" and f.context.endswith("::unusedHelper") for f in findings)
+    assert not any("::usedHelper" in f.context for f in findings)
+    assert not any("__construct" in f.context for f in findings)
+
+
+def test_unused_service_class_is_not_flagged_when_referenced_via_type_hint():
+    facts = Facts(project_path=".")
+
+    facts.classes.append(
+        ClassInfo(
+            name="FooService",
+            fqcn="App\\Services\\FooService",
+            file_path="app/Services/FooService.php",
+            file_hash="a",
+            line_start=1,
+            line_end=40,
+        )
+    )
+    facts.classes.append(
+        ClassInfo(
+            name="UnusedService",
+            fqcn="App\\Services\\UnusedService",
+            file_path="app/Services/UnusedService.php",
+            file_hash="b",
+            line_start=1,
+            line_end=40,
+        )
+    )
+
+    facts.classes.append(
+        ClassInfo(
+            name="XController",
+            fqcn="App\\Http\\Controllers\\XController",
+            file_path="app/Http/Controllers/XController.php",
+            file_hash="c",
+            line_start=1,
+            line_end=60,
+        )
+    )
+
+    # DI type hint should count as a reference.
+    facts.methods.append(
+        MethodInfo(
+            name="__construct",
+            class_name="XController",
+            class_fqcn="App\\Http\\Controllers\\XController",
+            file_path="app/Http/Controllers/XController.php",
+            file_hash="c",
+            visibility="public",
+            line_start=10,
+            line_end=20,
+            loc=11,
+            parameters=["FooService $svc"],
+        )
+    )
+
+    rule = UnusedServiceClassRule(RuleConfig())
+    findings = rule.run(facts, project_type="laravel_blade").findings
+
+    assert any(f.rule_id == "unused-service-class" and f.context == "App\\Services\\UnusedService" for f in findings)
+    assert not any(f.context == "App\\Services\\FooService" for f in findings)
+
+
+def test_unused_service_class_is_not_flagged_when_referenced_via_class_const_access():
+    facts = Facts(project_path=".")
+
+    facts.classes.append(
+        ClassInfo(
+            name="BoundViaProviderOnly",
+            fqcn="App\\Services\\BoundViaProviderOnly",
+            file_path="app/Services/BoundViaProviderOnly.php",
+            file_hash="a",
+            line_start=1,
+            line_end=40,
+        )
+    )
+    facts.classes.append(
+        ClassInfo(
+            name="UnusedService",
+            fqcn="App\\Services\\UnusedService",
+            file_path="app/Services/UnusedService.php",
+            file_hash="b",
+            line_start=1,
+            line_end=40,
+        )
+    )
+
+    facts.classes.append(
+        ClassInfo(
+            name="BindingOnlyServiceProvider",
+            fqcn="App\\Providers\\BindingOnlyServiceProvider",
+            file_path="app/Providers/BindingOnlyServiceProvider.php",
+            file_hash="c",
+            line_start=1,
+            line_end=80,
+        )
+    )
+
+    # Container binding map uses `Service::class` outside method bodies (class constant/properties).
+    facts.class_const_accesses.append(
+        ClassConstAccess(
+            file_path="app/Providers/BindingOnlyServiceProvider.php",
+            line_number=10,
+            expression="BoundViaProviderOnly::class",
+        )
+    )
+    facts.class_const_accesses.append(
+        ClassConstAccess(
+            file_path="app/Providers/BindingOnlyServiceProvider.php",
+            line_number=11,
+            expression="BoundViaProviderOnlyInterface::class",
+        )
+    )
+
+    rule = UnusedServiceClassRule(RuleConfig())
+    findings = rule.run(facts, project_type="laravel_blade").findings
+
+    assert any(f.rule_id == "unused-service-class" and f.context == "App\\Services\\UnusedService" for f in findings)
+    assert not any(f.context == "App\\Services\\BoundViaProviderOnly" for f in findings)

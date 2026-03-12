@@ -1,0 +1,7 @@
+{
+  "name": "tests/php-mvc-mini",
+  "require": {
+    "acme/mvc": "^1.0"
+  }
+}
+
