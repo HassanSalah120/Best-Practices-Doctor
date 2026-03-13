@@ -31,6 +31,8 @@ class SignedRoutesMissingSignatureMiddlewareRule(Rule):
     
     # Patterns that indicate a notice/info page (not actual action)
     _NOTICE_TOKENS = ("notice", "info", "landing", "page", "show", "display")
+    _INTERNAL_AUTH_TOKENS = ("auth", "verified", "password", "emailverification", "verification")
+    _PUBLIC_LINK_TOKENS = ("track", "redirect", "unsubscribe", "magic-link", "magiclink")
 
     def analyze(
         self,
@@ -61,6 +63,8 @@ class SignedRoutesMissingSignatureMiddlewareRule(Rule):
             mw_text = " ".join(str(x).lower() for x in (route.middleware or []))
             if "signed" in mw_text:
                 continue
+            if self._is_internal_auth_route(descriptor, mw_text):
+                continue
 
             findings.append(
                 self.create_finding(
@@ -90,3 +94,12 @@ class SignedRoutesMissingSignatureMiddlewareRule(Rule):
                 )
             )
         return findings
+
+    def _is_internal_auth_route(self, descriptor: str, middleware_text: str) -> bool:
+        if any(tok in descriptor for tok in self._PUBLIC_LINK_TOKENS):
+            return False
+        if "signed" in middleware_text:
+            return False
+        if "auth" in middleware_text or "verified" in middleware_text:
+            return True
+        return any(tok in descriptor for tok in self._INTERNAL_AUTH_TOKENS)

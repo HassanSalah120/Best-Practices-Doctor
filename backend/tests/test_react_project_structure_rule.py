@@ -170,8 +170,8 @@ def test_rule_engine_runs_facts_based_react_rules():
             file_path="src/pages/BigPage.tsx",
             file_hash="deadbeef",
             line_start=1,
-            line_end=260,
-            loc=260,
+            line_end=320,
+            loc=320,
         )
     )
 

@@ -7,6 +7,7 @@ from rules.laravel.controller_business_logic import ControllerBusinessLogicRule
 from rules.laravel.controller_query_direct import ControllerQueryDirectRule
 from rules.laravel.controller_validation_inline import ControllerInlineValidationRule
 from rules.laravel.custom_exception_suggestion import CustomExceptionSuggestionRule
+from rules.laravel.action_class_suggestion import ActionClassSuggestionRule
 from rules.laravel.massive_model import MassiveModelRule
 from rules.php.too_many_dependencies import TooManyDependenciesRule
 from schemas.facts import Facts, ClassInfo, MethodInfo, QueryUsage, RouteInfo, ValidationUsage
@@ -832,4 +833,98 @@ def test_custom_exception_suggestion_skips_console_command_exceptions():
     )
 
     findings = CustomExceptionSuggestionRule(RuleConfig()).analyze(facts)
+    assert findings == []
+
+
+def test_action_class_suggestion_skips_single_method_service_in_action_architecture():
+    facts = Facts(project_path=".")
+    facts.files = [
+        "app/Domains/Admin/Actions/RecordAdminChangeAction.php",
+        "app/Domains/Auth/Actions/RegisterUserAction.php",
+        "app/Services/MatchLifecycleService.php",
+    ]
+    facts.classes.extend(
+        [
+            ClassInfo(
+                name="RecordAdminChangeAction",
+                fqcn="App\\Domains\\Admin\\Actions\\RecordAdminChangeAction",
+                file_path="app/Domains/Admin/Actions/RecordAdminChangeAction.php",
+                file_hash="a1",
+                line_start=1,
+                line_end=20,
+            ),
+            ClassInfo(
+                name="RegisterUserAction",
+                fqcn="App\\Domains\\Auth\\Actions\\RegisterUserAction",
+                file_path="app/Domains/Auth/Actions/RegisterUserAction.php",
+                file_hash="a2",
+                line_start=1,
+                line_end=20,
+            ),
+            ClassInfo(
+                name="MatchLifecycleService",
+                fqcn="App\\Services\\MatchLifecycleService",
+                file_path="app/Services/MatchLifecycleService.php",
+                file_hash="svc",
+                line_start=1,
+                line_end=60,
+            ),
+        ]
+    )
+    facts.methods.append(
+        MethodInfo(
+            name="execute",
+            class_name="MatchLifecycleService",
+            class_fqcn="App\\Services\\MatchLifecycleService",
+            file_path="app/Services/MatchLifecycleService.php",
+            file_hash="svc",
+            line_start=10,
+            line_end=30,
+            loc=21,
+            visibility="public",
+        )
+    )
+
+    findings = ActionClassSuggestionRule(RuleConfig()).run(facts, project_type="laravel_api").findings
+    assert findings == []
+
+
+def test_transaction_required_for_multi_write_skips_action_delegating_orchestrator():
+    facts = Facts(project_path=".")
+    facts.methods.append(
+        MethodInfo(
+            name="createRoom",
+            class_name="RoomController",
+            class_fqcn="App\\Http\\Controllers\\RoomController",
+            file_path="app/Http/Controllers/RoomController.php",
+            file_hash="deadbeef",
+            line_start=10,
+            line_end=40,
+            loc=31,
+            call_sites=[
+                "$room = $this->createRoomWithMatchAction->execute($dto);",
+                "$this->auditTrail->record($room);",
+            ],
+        )
+    )
+    facts.queries.extend(
+        [
+            QueryUsage(
+                file_path="app/Http/Controllers/RoomController.php",
+                line_number=20,
+                method_name="createRoom",
+                model="Room",
+                method_chain="create",
+            ),
+            QueryUsage(
+                file_path="app/Http/Controllers/RoomController.php",
+                line_number=21,
+                method_name="createRoom",
+                model="Match",
+                method_chain="create",
+            ),
+        ]
+    )
+
+    findings = TransactionRequiredForMultiWriteRule(RuleConfig()).run(facts, project_type="laravel_api").findings
     assert findings == []

@@ -38,10 +38,19 @@ class LargeComponentRule(Rule):
         max_lines = self.get_threshold("max_lines", self.get_threshold("max_loc", 200))
         
         for component in facts.react_components:
-            if component.loc > max_lines:
+            threshold = self._effective_threshold(component, max_lines)
+            if component.loc > threshold:
                 findings.append(self._create_finding(component, max_lines))
         
         return findings
+
+    @staticmethod
+    def _effective_threshold(component: ReactComponentInfo, base_threshold: int) -> int:
+        path = str(component.file_path or "").replace("\\", "/").lower()
+        name = str(component.name or "")
+        if "/pages/" in path or "/features/" in path and "/pages/" in path or name.endswith("Page"):
+            return max(base_threshold, 300)
+        return base_threshold
     
     def _create_finding(self, component: ReactComponentInfo, threshold: int) -> Finding:
         """Create finding for large component."""

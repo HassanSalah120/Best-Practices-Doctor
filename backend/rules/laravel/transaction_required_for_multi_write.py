@@ -60,6 +60,7 @@ class TransactionRequiredForMultiWriteRule(Rule):
         "database/seeders/",
         "database/factories/",
     ]
+    _DELEGATION_MARKERS = ("->execute(", "->handle(", "->process(", "->run(", "->dispatch(")
 
     def analyze(
         self,
@@ -92,6 +93,8 @@ class TransactionRequiredForMultiWriteRule(Rule):
                 continue
 
             if self._is_transactional(method.call_sites or []):
+                continue
+            if self._looks_like_thin_write_orchestration(method):
                 continue
 
             sample = ", ".join(sorted({q.method_chain for q in write_qs if q.method_chain})[:3])
@@ -135,3 +138,16 @@ class TransactionRequiredForMultiWriteRule(Rule):
     def _is_transactional(self, call_sites: list[str]) -> bool:
         body = "\n".join(call_sites or [])
         return any(p.search(body) for p in self._TX_PATTERNS)
+
+    def _looks_like_thin_write_orchestration(self, method) -> bool:
+        body = "\n".join(method.call_sites or [])
+        if not body:
+            return False
+
+        lowered = body.lower()
+        delegations = sum(lowered.count(marker) for marker in self._DELEGATION_MARKERS)
+        if delegations == 0:
+            return False
+
+        direct_write_signals = sum(lowered.count(f"->{token}(") for token in self._WRITE_TOKENS)
+        return direct_write_signals <= 1 and delegations >= 1

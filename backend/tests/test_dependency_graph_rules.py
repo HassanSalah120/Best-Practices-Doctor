@@ -166,6 +166,59 @@ def test_circular_dependency_skips_standard_bidirectional_eloquent_relationships
     assert not rule.run(facts, project_type="laravel_blade").findings
 
 
+def test_circular_dependency_skips_abstraction_only_handler_cycles():
+    facts = Facts(project_path=".")
+    facts.classes.extend(
+        [
+            ClassInfo(
+                name="CommandHandler",
+                fqcn="App\\Realtime\\Contracts\\CommandHandler",
+                file_path="app/Realtime/Contracts/CommandHandler.php",
+                file_hash="h1",
+                line_start=1,
+                line_end=20,
+            ),
+            ClassInfo(
+                name="BroadcastGateway",
+                fqcn="App\\Realtime\\Contracts\\BroadcastGateway",
+                file_path="app/Realtime/Contracts/BroadcastGateway.php",
+                file_hash="h2",
+                line_start=1,
+                line_end=20,
+            ),
+        ]
+    )
+    facts.methods.extend(
+        [
+            MethodInfo(
+                name="handle",
+                class_name="CommandHandler",
+                class_fqcn="App\\Realtime\\Contracts\\CommandHandler",
+                file_path="app/Realtime/Contracts/CommandHandler.php",
+                file_hash="h1",
+                line_start=5,
+                line_end=8,
+                loc=4,
+                parameters=["BroadcastGateway $gateway"],
+            ),
+            MethodInfo(
+                name="broadcast",
+                class_name="BroadcastGateway",
+                class_fqcn="App\\Realtime\\Contracts\\BroadcastGateway",
+                file_path="app/Realtime/Contracts/BroadcastGateway.php",
+                file_hash="h2",
+                line_start=5,
+                line_end=8,
+                loc=4,
+                parameters=["CommandHandler $handler"],
+            ),
+        ]
+    )
+
+    rule = CircularDependencyRule(RuleConfig())
+    assert not rule.run(facts, project_type="laravel_blade").findings
+
+
 def test_high_coupling_class_flags_when_outgoing_dependencies_exceed_threshold():
     facts = Facts(project_path=".")
 

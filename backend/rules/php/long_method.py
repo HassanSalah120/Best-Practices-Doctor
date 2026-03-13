@@ -36,9 +36,42 @@ class LongMethodRule(Rule):
         
         for method in facts.methods:
             if method.loc > max_lines:
+                if self._is_mildly_over_threshold_but_still_simple(method, max_lines, metrics or {}):
+                    continue
                 findings.append(self._create_finding(method, max_lines))
         
         return findings
+
+    @staticmethod
+    def _is_mildly_over_threshold_but_still_simple(
+        method: MethodInfo,
+        threshold: int,
+        metrics: dict[str, MethodMetrics],
+    ) -> bool:
+        if int(method.loc) >= int(threshold) + 20:
+            return False
+
+        mm = metrics.get(method.method_fqn)
+        if not mm:
+            return False
+
+        cyclomatic = int(getattr(mm, "cyclomatic_complexity", 0) or 0)
+        cognitive = int(getattr(mm, "cognitive_complexity", 0) or 0)
+        conditionals = int(getattr(mm, "conditional_count", 0) or 0)
+        loops = int(getattr(mm, "loop_count", 0) or 0)
+        queries = int(getattr(mm, "query_count", 0) or 0)
+        validations = int(getattr(mm, "validation_count", 0) or 0)
+        business_signal = bool(getattr(mm, "has_business_logic", False))
+
+        return (
+            cyclomatic <= 4
+            and cognitive <= 5
+            and conditionals <= 2
+            and loops == 0
+            and queries <= 1
+            and validations <= 1
+            and not business_signal
+        )
     
     def _create_finding(self, method: MethodInfo, threshold: int) -> Finding:
         """Create finding for long method."""

@@ -225,6 +225,26 @@ def test_signed_routes_missing_signature_middleware_skips_signed_route():
     assert findings == []
 
 
+def test_signed_routes_missing_signature_middleware_skips_internal_verified_flow():
+    facts = Facts(project_path=".")
+    facts.routes.append(
+        RouteInfo(
+            method="GET",
+            uri="/email/verify",
+            controller="Auth\\EmailVerificationController",
+            action="show",
+            middleware=["web", "auth", "verified"],
+            file_path="routes/web.php",
+            line_number=32,
+        )
+    )
+
+    findings = SignedRoutesMissingSignatureMiddlewareRule(RuleConfig()).run(
+        facts, project_type="laravel_blade"
+    ).findings
+    assert findings == []
+
+
 def test_unsafe_external_redirect_flags_variable_away_redirect():
     rule = UnsafeExternalRedirectRule(RuleConfig())
     facts = Facts(project_path=".")

@@ -61,6 +61,41 @@ def test_large_component_accepts_max_loc_alias():
     assert any(f.rule_id == "large-react-component" for f in res.findings)
 
 
+def test_long_method_skips_mildly_over_threshold_simple_method_when_metrics_are_low():
+    facts = Facts(project_path=".")
+    method = MethodInfo(
+        name="index",
+        class_name="ReportController",
+        class_fqcn="App\\Http\\Controllers\\ReportController",
+        file_path="app/Http/Controllers/ReportController.php",
+        file_hash="deadbeef",
+        line_start=1,
+        line_end=66,
+        loc=66,
+    )
+    facts.methods.append(method)
+
+    rule = LongMethodRule(RuleConfig(thresholds={"max_loc": 60}))
+    res = rule.run(
+        facts,
+        project_type="laravel_api",
+        metrics={
+            method.method_fqn: MethodMetrics(
+                method_fqn=method.method_fqn,
+                file_path=method.file_path,
+                cyclomatic_complexity=3,
+                cognitive_complexity=4,
+                conditional_count=1,
+                query_count=1,
+                validation_count=0,
+                loop_count=0,
+                has_business_logic=False,
+            )
+        },
+    )
+    assert res.findings == []
+
+
 def test_dry_violation_accepts_min_token_count_alias():
     facts = Facts(project_path=".")
     facts.duplicates.append(
@@ -162,6 +197,47 @@ def test_contract_suggestion_parses_fqcn_params():
     rule = ContractSuggestionRule(RuleConfig())
     res = rule.run(facts, project_type="laravel_api")
     assert any(f.rule_id == "contract-suggestion" for f in res.findings)
+
+
+def test_contract_suggestion_skips_concrete_type_when_class_already_implements_contract():
+    facts = Facts(project_path=".")
+    facts.classes.extend(
+        [
+            ClassInfo(
+                name="UserService",
+                fqcn="App\\Services\\UserService",
+                file_path="app/Services/UserService.php",
+                file_hash="svc",
+                implements=["App\\Contracts\\UserServiceInterface"],
+                line_start=1,
+                line_end=40,
+            ),
+            ClassInfo(
+                name="UserServiceInterface",
+                fqcn="App\\Contracts\\UserServiceInterface",
+                file_path="app/Contracts/UserServiceInterface.php",
+                file_hash="iface",
+                line_start=1,
+                line_end=10,
+            ),
+        ]
+    )
+    facts.methods.append(
+        MethodInfo(
+            name="__construct",
+            class_name="UserController",
+            file_path="UserController.php",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=20,
+            loc=10,
+            parameters=["App\\Services\\UserService $svc"],
+        )
+    )
+
+    rule = ContractSuggestionRule(RuleConfig())
+    res = rule.run(facts, project_type="laravel_api")
+    assert res.findings == []
 
 
 def test_god_class_triggers_on_size_and_methods():

@@ -34,6 +34,7 @@ class CircularDependencyRule(Rule):
         "laravel_api",
         "laravel_livewire",
     ]
+    _ABSTRACTION_SUFFIXES = ("Interface", "Contract", "Handler", "Gateway")
 
     def analyze(
         self,
@@ -74,6 +75,8 @@ class CircularDependencyRule(Rule):
                 if dst in members
             }
             if self._is_model_relation_cycle(members, cycle_edges, model_fqcns, relation_edges):
+                continue
+            if self._is_abstraction_only_cycle(members, classes_by_fqcn):
                 continue
             ctx = "|".join(members)
             first = members[0]
@@ -173,3 +176,20 @@ class CircularDependencyRule(Rule):
         if any(member not in model_fqcns for member in members):
             return False
         return cycle_edges.issubset(relation_edges)
+
+    def _is_abstraction_only_cycle(self, members: list[str], classes_by_fqcn: dict[str, object]) -> bool:
+        if len(members) < 2:
+            return False
+
+        descriptors: list[str] = []
+        for member in members:
+            cls = classes_by_fqcn.get(member)
+            if not cls:
+                return False
+            descriptors.append(str(getattr(cls, "name", "") or member.split("\\")[-1]))
+
+        return all(
+            name.endswith(self._ABSTRACTION_SUFFIXES)
+            or name.startswith(("Abstract", "Base"))
+            for name in descriptors
+        )

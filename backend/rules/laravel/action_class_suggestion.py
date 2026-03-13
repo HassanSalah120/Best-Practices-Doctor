@@ -29,6 +29,7 @@ class ActionClassSuggestionRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings: list[Finding] = []
+        project_has_action_architecture = self._has_action_architecture(facts)
 
         # Heuristic: treat classes under app/Services as "services".
         services = [c for c in facts.classes if "/services/" in (c.file_path or "").lower()]
@@ -61,6 +62,8 @@ class ActionClassSuggestionRule(Rule):
 
             # Skip abstract classes - they are base classes used via inheritance
             if getattr(svc, "is_abstract", False):
+                continue
+            if project_has_action_architecture and self._looks_like_intentional_single_use_service(svc, publics[0]):
                 continue
 
             only = publics[0]
@@ -96,3 +99,22 @@ class ActionClassSuggestionRule(Rule):
             )
 
         return findings
+
+    @staticmethod
+    def _has_action_architecture(facts: Facts) -> bool:
+        action_paths = sum(1 for path in facts.files if "/actions/" in str(path).replace("\\", "/").lower())
+        action_classes = sum(1 for cls in facts.classes if str(cls.name or "").endswith("Action"))
+        return action_paths >= 2 or action_classes >= 2
+
+    @staticmethod
+    def _looks_like_intentional_single_use_service(svc: ClassInfo, method: MethodInfo) -> bool:
+        service_path = str(svc.file_path or "").replace("\\", "/").lower()
+        if "/domains/" in service_path or "/application/" in service_path:
+            return True
+
+        method_name = str(method.name or "").lower()
+        if method_name in {"execute", "handle", "__invoke"}:
+            return True
+
+        name = str(svc.name or "")
+        return name.endswith(("Action", "Handler", "Query", "Command"))

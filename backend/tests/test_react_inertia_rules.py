@@ -1,6 +1,7 @@
 from core.ruleset import RuleConfig
 from rules.react.no_inline_types import NoInlineTypesRule
 from rules.react.no_inline_services import NoInlineServicesRule
+from rules.react.large_component import LargeComponentRule
 from rules.react.inertia_page_missing_head import InertiaPageMissingHeadRule
 from rules.react.inertia_internal_link_anchor import InertiaInternalLinkAnchorRule
 from rules.react.inertia_form_uses_fetch import InertiaFormUsesFetchRule
@@ -120,6 +121,44 @@ def test_no_inline_services_skips_pure_local_utilities_inside_component():
     )
 
     findings = NoInlineServicesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
+    assert findings == []
+
+
+def test_no_inline_services_skips_large_service_like_hook_module():
+    facts = Facts(project_path=".")
+    facts.react_components.append(
+        ReactComponentInfo(
+            name="useMatchWorkspace",
+            file_path="resources/js/features/match/hooks/useMatchWorkspace.ts",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=547,
+            loc=547,
+            has_inline_helper_fns=True,
+            inline_helper_names=["connectSocket", "sendCommand", "reconcilePresence"],
+        )
+    )
+
+    findings = NoInlineServicesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
+    assert findings == []
+
+
+def test_large_component_skips_page_shell_that_is_under_soft_page_threshold():
+    facts = Facts(project_path=".")
+    facts.react_components.append(
+        ReactComponentInfo(
+            name="MatchPage",
+            file_path="resources/js/features/match/pages/MatchPage.tsx",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=294,
+            loc=294,
+        )
+    )
+
+    findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
+        facts, project_type="laravel_inertia_react"
+    ).findings
     assert findings == []
 
 
