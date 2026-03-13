@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Type
+from typing import Callable, Type
 
 from schemas.facts import Facts
 from schemas.metrics import MethodMetrics
@@ -393,10 +393,10 @@ class RuleEngine:
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
         project_type: str = "",
-        cancellation_check: callable = None,
+        cancellation_check: Callable[[], bool] | None = None,
         differential_mode: bool = False,
         changed_files: set[str] | list[str] | tuple[str, ...] | None = None,
-        progress_callback: callable[[float, int, int], None] | None = None,
+        progress_callback: Callable[[float, int, int], None] | None = None,
     ) -> EngineResult:
         """
         Execute all applicable rules against the codebase facts.
