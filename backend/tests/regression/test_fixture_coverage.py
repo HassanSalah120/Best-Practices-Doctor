@@ -80,6 +80,7 @@ OPTIONAL_POSITIVE_RULES = {
     "missing-props-type",
     "missing-usecallback-for-event-handlers",
     "missing-usememo-for-expensive-calc",
+    "massive-model",
     "modal-trap-focus",
     "no-dangerously-set-inner-html",
     "no-inline-hooks",

@@ -20,8 +20,24 @@ PAGE_EXPORT_RE = re.compile(
     r"\bexport\s+default\b|\bexport\s+function\s+[A-Z]\w*\b|\bexport\s+const\s+[A-Z]\w*\b",
     re.MULTILINE,
 )
+COMPONENT_SIGNAL_RE = re.compile(
+    r"\bfunction\s+[A-Z]\w*\s*\(|\bconst\s+[A-Z]\w*\s*=\s*(?:memo\s*\()?(?:function\b|\([^)]*\)\s*=>)|return\s*<|return\s*\(",
+    re.MULTILINE,
+)
 HEAD_IMPORT_RE = re.compile(
     r"(from\s+[\"']@inertiajs/react[\"'][^\n]*\bHead\b)|(\bHead\b[^\n]*from\s+[\"']@inertiajs/react[\"'])",
+    re.MULTILINE,
+)
+ALT_HEAD_COMPONENT_RE = re.compile(
+    r"<(?:PageHead|SeoHead|SeoMeta|PageMeta|MetaTags)\b[^>]*\b(title|pageTitle|metaTitle|seoTitle)\s*=",
+    re.MULTILINE,
+)
+HELMET_TITLE_RE = re.compile(
+    r"<Helmet[^>]*>.*?<title[^>]*>.*?</title>.*?</Helmet>",
+    re.IGNORECASE | re.DOTALL,
+)
+HEAD_LIB_IMPORT_RE = re.compile(
+    r"from\s+[\"']react-helmet(?:-async)?[\"']",
     re.MULTILINE,
 )
 LAYOUT_TITLE_PROP_RE = re.compile(
@@ -125,8 +141,14 @@ class InertiaPageMissingHeadRule(Rule):
         text = content or ""
         if not PAGE_EXPORT_RE.search(text):
             return []
+        if not COMPONENT_SIGNAL_RE.search(text):
+            return []
 
         if "<Head" in text or HEAD_IMPORT_RE.search(text):
+            return []
+        if ALT_HEAD_COMPONENT_RE.search(text):
+            return []
+        if HEAD_LIB_IMPORT_RE.search(text) and HELMET_TITLE_RE.search(text):
             return []
 
         if LAYOUT_TITLE_PROP_RE.search(text):

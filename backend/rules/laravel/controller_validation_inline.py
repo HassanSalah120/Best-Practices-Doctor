@@ -28,6 +28,19 @@ class ControllerInlineValidationRule(Rule):
         "laravel_api",
         "laravel_livewire",
     ]
+    _SMALL_AUTH_MARKERS = (
+        "/auth/",
+        "login",
+        "logout",
+        "register",
+        "password",
+        "reset",
+        "forgot",
+        "verify",
+        "verification",
+        "confirm",
+        "twofactor",
+    )
 
     def analyze(
         self,
@@ -42,6 +55,7 @@ class ControllerInlineValidationRule(Rule):
 
         # Escalate to HIGH when validation rule-count is large.
         high_if_rules_ge = int(self.get_threshold("high_if_rules_ge", 6))
+        has_form_requests = bool(facts.form_requests)
 
         grouped: dict[tuple[str, str], list[ValidationUsage]] = {}
         for v in facts.validations:
@@ -59,10 +73,18 @@ class ControllerInlineValidationRule(Rule):
         for (file_path, method_name), vals in grouped.items():
             line_start = min(v.line_number for v in vals)
             max_rules = max((sum(len(r) for r in v.rules.values()) for v in vals), default=0)
+            max_fields = max((len(v.rules) for v in vals), default=0)
+
+            if self._is_small_auth_validation(file_path, method_name, vals, max_rules, max_fields):
+                continue
+
+            confidence = self._confidence_for_validation(vals, max_rules, max_fields, has_form_requests, file_path, method_name)
 
             sev = self.severity
             if max_rules >= high_if_rules_ge:
                 sev = Severity.HIGH
+            elif confidence < 0.7:
+                sev = Severity.LOW
 
             controller_fqcn = fqcn_by_file.get(file_path, "")
             ctx = f"{controller_fqcn}::{method_name}" if controller_fqcn else f"{file_path}:{method_name}"
@@ -92,6 +114,7 @@ class ControllerInlineValidationRule(Rule):
                         "3. Type-hint the FormRequest in the controller method\n"
                         "4. Use `$request->validated()`"
                     ),
+                    confidence=confidence,
                     severity=sev,
                     tags=["validation", "form-request", "controllers"],
                 )
@@ -99,3 +122,42 @@ class ControllerInlineValidationRule(Rule):
 
         return findings
 
+    def _is_small_auth_validation(
+        self,
+        file_path: str,
+        method_name: str,
+        vals: list[ValidationUsage],
+        max_rules: int,
+        max_fields: int,
+    ) -> bool:
+        low = f"{file_path} {method_name}".lower().replace("\\", "/")
+        if not any(marker in low for marker in self._SMALL_AUTH_MARKERS):
+            return False
+        return len(vals) == 1 and max_rules <= 3 and max_fields <= 2
+
+    def _confidence_for_validation(
+        self,
+        vals: list[ValidationUsage],
+        max_rules: int,
+        max_fields: int,
+        has_form_requests: bool,
+        file_path: str,
+        method_name: str,
+    ) -> float:
+        confidence = 0.56
+        if max_rules >= 6:
+            confidence += 0.22
+        elif max_rules >= 4:
+            confidence += 0.14
+        elif max_rules >= 2:
+            confidence += 0.08
+        if len(vals) > 1:
+            confidence += 0.08
+        if max_fields >= 3:
+            confidence += 0.05
+        if has_form_requests:
+            confidence += 0.04
+        low = f"{file_path} {method_name}".lower().replace("\\", "/")
+        if not any(marker in low for marker in self._SMALL_AUTH_MARKERS):
+            confidence += 0.05
+        return min(0.92, confidence)

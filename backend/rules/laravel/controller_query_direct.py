@@ -31,6 +31,10 @@ class ControllerQueryDirectRule(Rule):
         "laravel_livewire",
     ]
 
+    _SIMPLE_READ_TOKENS = {"query", "find", "findorfail", "first", "get", "all", "paginate", "pluck", "count", "exists"}
+    _RESTFUL_READ_METHODS = {"index", "show", "create", "edit"}
+    _PUBLIC_METHOD_NAMES = {"login", "logout", "register", "forgotpassword", "resetpassword", "webhook"}
+
     def analyze(
         self,
         facts: Facts,
@@ -58,6 +62,12 @@ class ControllerQueryDirectRule(Rule):
             fqcn_by_file.setdefault(c.file_path, c.fqcn)
 
         for (file_path, method_name), qs in grouped.items():
+            normalized_name = (method_name or "").lower()
+            if normalized_name in self._PUBLIC_METHOD_NAMES:
+                continue
+
+            if len(qs) == 1 and self._is_simple_controller_read(qs[0], normalized_name):
+                continue
             if len(qs) <= max_queries:
                 continue
 
@@ -97,3 +107,15 @@ class ControllerQueryDirectRule(Rule):
 
         return findings
 
+    def _is_simple_controller_read(self, query: QueryUsage, method_name: str) -> bool:
+        if (query.query_type or "select").lower() != "select":
+            return False
+        if query.is_raw or query.has_eager_loading:
+            return False
+        if method_name not in self._RESTFUL_READ_METHODS:
+            return False
+
+        tokens = [token.strip().lower() for token in (query.method_chain or "").split("->") if token.strip()]
+        if not tokens:
+            return False
+        return all(token in self._SIMPLE_READ_TOKENS for token in tokens)

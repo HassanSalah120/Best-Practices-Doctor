@@ -32,6 +32,8 @@ class ControllerBusinessLogicRule(Rule):
         "laravel_livewire",
     ]
 
+    _RESTFUL_READ_METHODS = {"index", "show", "create", "edit"}
+
     def analyze(
         self,
         facts: Facts,
@@ -64,7 +66,33 @@ class ControllerBusinessLogicRule(Rule):
             if not mm:
                 continue
 
-            if mm.cyclomatic_complexity < min_cyclomatic and (m.loc or 0) < min_loc:
+            has_business_signal = (
+                mm.has_business_logic
+                and mm.business_logic_confidence >= min_conf
+                and (
+                    mm.cyclomatic_complexity >= 2
+                    or (m.loc or 0) >= max(15, min_loc // 2)
+                    or (mm.query_count + mm.validation_count + mm.conditional_count + mm.loop_count) >= 2
+                )
+            )
+            has_structural_signal = (
+                mm.cyclomatic_complexity >= min_cyclomatic
+                and (m.loc or 0) >= min_loc
+                and (mm.conditional_count >= 4 or mm.loop_count >= 1)
+            )
+            if not has_business_signal and not has_structural_signal:
+                continue
+            if self._looks_like_restful_read_controller_method(m, mm) and not has_business_signal:
+                continue
+            if (
+                not has_business_signal
+                and mm.query_count <= 1
+                and mm.validation_count >= 1
+                and mm.conditional_count < 5
+                and mm.loop_count == 0
+                and not mm.has_external_api_calls
+                and not mm.has_file_operations
+            ):
                 continue
 
             controller_fqcn = fqcn_by_file.get(m.file_path, "")
@@ -109,3 +137,15 @@ class ControllerBusinessLogicRule(Rule):
             )
 
         return findings
+
+    def _looks_like_restful_read_controller_method(self, method: MethodInfo, metrics: MethodMetrics) -> bool:
+        method_name = (method.name or "").lower()
+        if method_name not in self._RESTFUL_READ_METHODS:
+            return False
+        return (
+            metrics.query_count <= 1
+            and metrics.validation_count <= 1
+            and not metrics.has_external_api_calls
+            and not metrics.has_file_operations
+            and metrics.loop_count == 0
+        )

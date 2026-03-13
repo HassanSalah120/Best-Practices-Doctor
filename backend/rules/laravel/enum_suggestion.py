@@ -55,6 +55,47 @@ class EnumSuggestionRule(Rule):
         "iso2", "dial_code", "name_en", "name_ar", "max_users", "max_patients",
         "id", "ip_address", "date", "type", "action", "clinic",
     }
+    _NOISE_CONTEXTS = {
+        "heading",
+        "headings",
+        "label",
+        "labels",
+        "column",
+        "columns",
+        "title",
+        "titles",
+        "message",
+        "messages",
+        "description",
+        "descriptions",
+        "name",
+        "names",
+        "email",
+        "password",
+        "route",
+        "view",
+        "icon",
+    }
+    _NOISE_VALUES = {
+        "yes", "no", "on", "off", "true", "false", "null", "none", "default",
+    }
+    _ENUM_CONTEXT_HINTS = (
+        "status",
+        "state",
+        "type",
+        "role",
+        "priority",
+        "phase",
+        "channel",
+        "kind",
+        "mode",
+        "provider",
+        "driver",
+        "method",
+        "category",
+        "reason",
+        "source",
+    )
     
     # Patterns indicating enum is already being used
     _ENUM_USAGE_PATTERNS = [
@@ -74,6 +115,7 @@ class EnumSuggestionRule(Rule):
     ) -> list[Finding]:
         findings = []
         existing_enums = self._existing_enum_names(facts)
+        has_enum_usage = self._check_for_existing_enum_usage(facts)
         
         # 1. Group values by context
         context_to_values = defaultdict(set)
@@ -87,47 +129,35 @@ class EnumSuggestionRule(Rule):
                     continue
                 
                 if occ.context:
-                    context_to_values[occ.context].add(val)
-                    context_to_occurrences[occ.context].append(occ)
+                    normalized_context = self._normalize_context(occ.context)
+                    if not normalized_context:
+                        continue
+                    context_to_values[normalized_context].add(val)
+                    context_to_occurrences[normalized_context].append(occ)
 
         # 2. Extract findings from context clusters
         for context, values in context_to_values.items():
-            if len(values) >= 2:
-                ctx_lower = context.lower()
-                # Skip common noise and context-specific FPs
-                if ctx_lower in self._FRAMEWORK_NOISE:
-                    continue
-                
-                # Skip strings that are clearly numeric keys or generic metadata
-                if any(v.isdigit() for v in values):
-                    continue
-                
-                # Skip if it looks like a list of headings or labels
-                if any(v[0].isupper() for v in values if v) and ctx_lower in ["headings", "labels", "columns"]:
-                    continue
-                if self._matching_enum_exists(ctx_lower, existing_enums):
-                    continue
+            occs = context_to_occurrences[context]
+            if not self._is_actionable_context_cluster(context, values, occs):
+                continue
+            if self._matching_enum_exists(context, existing_enums):
+                continue
 
-                occs = context_to_occurrences[context]
-                findings.append(self._create_cluster_finding(context, list(values), occs))
+            findings.append(self._create_cluster_finding(context, list(values), occs))
 
         # 3. Identify pattern-based groups (legacy but enriched)
         pattern_findings = self._find_enum_groups(facts.string_literals)
         # Avoid duplicate findings (if a pattern group was already found by context)
         detected_values = {tuple(sorted(f.metadata.get("values", []))) for f in findings if f.metadata and "values" in f.metadata}
-        
-        # Check if codebase already uses enums extensively
-        has_enum_usage = self._check_for_existing_enum_usage(facts)
-        
+
         for pf in pattern_findings:
             p_values = tuple(sorted(pf.metadata.get("values", [])))
             if p_values not in detected_values:
                 context = str((pf.metadata or {}).get("context", "") or "").lower()
                 if self._matching_enum_exists(context, existing_enums):
                     continue
-                # If enums are already used extensively, lower confidence
                 if has_enum_usage:
-                    pf.confidence = 0.3  # Lower confidence since enums are already in use
+                    continue
                 findings.append(pf)
                 detected_values.add(p_values)
 
@@ -153,7 +183,12 @@ class EnumSuggestionRule(Rule):
         normalized = re.sub(r"[^a-z0-9]+", "", context.lower())
         if not normalized:
             return False
-        return any(normalized in enum_name for enum_name in existing_enums)
+        return any(
+            enum_name == f"{normalized}enum"
+            or enum_name.endswith(f"{normalized}enum")
+            or normalized in self._tokenize_enum_name(enum_name)
+            for enum_name in existing_enums
+        )
     
     def _check_for_existing_enum_usage(self, facts: Facts) -> bool:
         """Check if the codebase already uses enums extensively."""
@@ -188,16 +223,69 @@ class EnumSuggestionRule(Rule):
                         all_occs.extend(relevant)
             
             unique_vals = list(set(matching_vals))
-            if len(unique_vals) >= 2:
-                findings.append(self._create_cluster_finding(pattern_name, list(set(matching_vals)), all_occs))
+            if len(unique_vals) < 2:
                 continue
 
-            # Repeated single known-domain values are still useful enum candidates
-            # when they exceed the configured occurrence threshold.
-            if len(unique_vals) == 1 and len(all_occs) >= min_occurrences:
-                findings.append(self._create_cluster_finding(pattern_name, unique_vals, all_occs))
+            file_count = len({occ.file_path for occ in all_occs if occ.file_path})
+            if len(all_occs) < max(min_occurrences, len(unique_vals)):
+                continue
+            if file_count < 2:
+                continue
+
+            findings.append(self._create_cluster_finding(pattern_name, list(set(matching_vals)), all_occs))
         
         return findings
+
+    def _normalize_context(self, context: str | None) -> str:
+        raw = str(context or "").strip().lower()
+        if not raw:
+            return ""
+        normalized = re.sub(r"[^a-z0-9_]+", "_", raw).strip("_")
+        if not normalized or normalized in self._FRAMEWORK_NOISE or normalized in self._NOISE_CONTEXTS:
+            return ""
+        return normalized
+
+    def _is_actionable_context_cluster(
+        self,
+        context: str,
+        values: set[str],
+        occurrences: list[StringOccurrence],
+    ) -> bool:
+        cleaned_values = {str(value or "").strip().lower() for value in values if str(value or "").strip()}
+        if len(cleaned_values) < 2:
+            return False
+        if any(value.isdigit() for value in cleaned_values):
+            return False
+        if cleaned_values.issubset(self._NOISE_VALUES):
+            return False
+        if any(value[:1].isupper() for value in values if value) and context in {"headings", "labels", "columns"}:
+            return False
+
+        file_count = len({occ.file_path for occ in occurrences if occ.file_path})
+        if self._is_enum_like_context(context):
+            return len(occurrences) >= len(cleaned_values)
+
+        # Fallback for weaker contexts: only surface if values are repeated across files.
+        return len(cleaned_values) >= 3 and file_count >= 2 and len(occurrences) >= 4
+
+    def _is_enum_like_context(self, context: str) -> bool:
+        normalized = self._normalize_context(context)
+        if not normalized:
+            return False
+        return any(
+            normalized == hint
+            or normalized.endswith(f"_{hint}")
+            or normalized.startswith(f"{hint}_")
+            for hint in self._ENUM_CONTEXT_HINTS
+        )
+
+    def _tokenize_enum_name(self, enum_name: str) -> set[str]:
+        expanded = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", enum_name)
+        return {
+            re.sub(r"[^a-z0-9]+", "", token.lower())
+            for token in re.split(r"[^A-Za-z0-9]+", expanded)
+            if token
+        }
 
     def _create_cluster_finding(self, context: str, values: list[str], occurrences: list[StringOccurrence]) -> Finding:
         first = occurrences[0] if occurrences else StringOccurrence(file_path="", line_number=0, context=context)

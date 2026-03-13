@@ -74,6 +74,36 @@ class HardcodedUserFacingStringsRule(Rule):
         "ios", "android", "windows", "macos", "linux", "ubuntu",
         "none", "null", "undefined", "nan",
     }
+    _SINGLE_WORD_LABEL_ALLOWLIST = {
+        "save",
+        "cancel",
+        "edit",
+        "delete",
+        "close",
+        "open",
+        "next",
+        "back",
+        "search",
+        "filter",
+        "clear",
+        "submit",
+        "reset",
+        "continue",
+        "dashboard",
+        "settings",
+        "profile",
+        "home",
+        "login",
+        "logout",
+        "email",
+        "phone",
+        "name",
+        "status",
+        "type",
+        "role",
+        "admin",
+        "portal",
+    }
 
     def analyze(
         self,
@@ -237,6 +267,11 @@ class HardcodedUserFacingStringsRule(Rule):
         # Skip if it's a single capitalized word that matches a proper noun
         if s[0].isupper() and s[1:].islower() and low in self._PROPER_NOUN_ALLOWLIST:
             return False
+        if " " not in s and not re.search(r"[,.!?/:;]", s):
+            if low in self._SINGLE_WORD_LABEL_ALLOWLIST:
+                return False
+            if s[0].isupper() and s[1:].islower() and len(s) <= 10:
+                return False
         
         letters = sum(1 for c in s if c.isalpha())
         return letters >= 2

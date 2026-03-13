@@ -239,6 +239,61 @@ export default function EditPatient() {
     assert findings[0].rule_id == "inertia-page-missing-head"
 
 
+def test_inertia_page_missing_head_skips_custom_seo_component():
+    rule = InertiaPageMissingHeadRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+import SeoHead from "@/Components/SeoHead";
+
+export default function Dashboard() {
+  return (
+    <>
+      <SeoHead title="Dashboard" />
+      <div>Dashboard</div>
+    </>
+  );
+}
+"""
+
+    findings = rule.analyze_regex("resources/js/Pages/Dashboard.tsx", content, facts)
+    assert findings == []
+
+
+def test_inertia_page_missing_head_skips_react_helmet_title():
+    rule = InertiaPageMissingHeadRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+import { Helmet } from "react-helmet-async";
+
+export default function Dashboard() {
+  return (
+    <>
+      <Helmet>
+        <title>Dashboard</title>
+      </Helmet>
+      <div>Dashboard</div>
+    </>
+  );
+}
+"""
+
+    findings = rule.analyze_regex("resources/js/Pages/Dashboard.tsx", content, facts)
+    assert findings == []
+
+
+def test_inertia_page_missing_head_skips_non_component_module_even_under_pages():
+    rule = InertiaPageMissingHeadRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+export const DASHBOARD_COLUMNS = [
+  { key: "name" },
+];
+"""
+
+    findings = rule.analyze_regex("resources/js/Pages/Dashboard.tsx", content, facts)
+    assert findings == []
+
+
 def test_inertia_internal_link_anchor_flags_raw_internal_anchor():
     rule = InertiaInternalLinkAnchorRule(RuleConfig())
     facts = Facts(project_path=".")

@@ -24,34 +24,52 @@ class PageTitleMissingRule(Rule):
     applicable_project_types: list[str] = []
     regex_file_extensions = [".js", ".jsx", ".ts", ".tsx"]
 
-    # Title patterns
     _TITLE_PATTERN = re.compile(
         r"<title[^>]*>(?P<text>[^<]+)</title>",
         re.IGNORECASE | re.DOTALL,
     )
-    
-    # Document.title or useTitle hook
+
+    _TITLE_LITERAL_PATTERNS = [
+        _TITLE_PATTERN,
+        re.compile(r"<Head[^>]*\btitle\s*=\s*['\"](?P<text>[^'\"]+)['\"]", re.IGNORECASE),
+        re.compile(
+            r"<[A-Z][a-zA-Z0-9]*(?:Layout|Shell|Page|Wrapper)\b[^>]*\btitle\s*=\s*['\"](?P<text>[^'\"]+)['\"]",
+            re.IGNORECASE,
+        ),
+        re.compile(r"useTitle\s*\(\s*['\"](?P<text>[^'\"]+)['\"]", re.IGNORECASE),
+        re.compile(r"document\.title\s*=\s*['\"](?P<text>[^'\"]+)['\"]", re.IGNORECASE),
+        re.compile(r"usePageTitle\s*\(\s*['\"](?P<text>[^'\"]+)['\"]", re.IGNORECASE),
+        re.compile(r"setPageTitle\s*\(\s*['\"](?P<text>[^'\"]+)['\"]", re.IGNORECASE),
+    ]
+
+    _TITLE_SIGNAL_PATTERNS = [
+        _TITLE_PATTERN,
+        re.compile(r"useTitle\s*\(", re.IGNORECASE),
+        re.compile(r"document\.title\s*=", re.IGNORECASE),
+        re.compile(r"usePageTitle\s*\(", re.IGNORECASE),
+        re.compile(r"setPageTitle\s*\(", re.IGNORECASE),
+        re.compile(r"useDocumentTitle\s*\(", re.IGNORECASE),
+        re.compile(r"setDocumentTitle\s*\(", re.IGNORECASE),
+        re.compile(r"<Head[^>]*title\s*=", re.IGNORECASE),
+        re.compile(r"<Head[^>]*>.*?<title[^>]*>.*?</title>.*?</Head>", re.IGNORECASE | re.DOTALL),
+        re.compile(
+            r"<[A-Z][a-zA-Z0-9]*(?:Layout|Shell|Page|Wrapper)\b[^>]*\b(title|pageTitle|metaTitle|seoTitle)\s*=",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\.\s*layout\s*=\s*(?:.|\n){0,240}?\b(title|pageTitle|metaTitle|seoTitle)\s*=",
+            re.MULTILINE,
+        ),
+    ]
+    _PAGE_EXPORT_PATTERN = re.compile(
+        r"\bexport\s+default\b|\bexport\s+function\s+[A-Z]\w*\b|\bexport\s+const\s+[A-Z]\w*\b|return\s*\(",
+        re.MULTILINE,
+    )
+    _GENERIC_TITLES = {"untitled", "page", "new page", "home"}
+
+    # Legacy compatibility patterns
     _USE_TITLE_PATTERN = re.compile(
         r"useTitle\s*\(|document\.title\s*=",
-        re.IGNORECASE,
-    )
-    
-    # Head component with title (Next.js, etc.)
-    _HEAD_TITLE_PATTERN = re.compile(
-        r"<Head[^>]*>.*?<title[^>]*>.*?</title>.*?</Head>",
-        re.IGNORECASE | re.DOTALL,
-    )
-    
-    # Inertia.js layout with title prop (e.g., <AuthenticatedLayout title="...">
-    # Matches any component ending with "Layout", "Shell", "Page", or "Wrapper" that has a title prop
-    _LAYOUT_TITLE_PATTERN = re.compile(
-        r"<[A-Z][a-zA-Z0-9]*(?:Layout|Shell|Page|Wrapper)\b[^>]*\btitle\s*=\s*(?:{|[\"'])",
-        re.IGNORECASE,
-    )
-    
-    # Head component with title prop (Inertia.js @inertiajs/react)
-    _HEAD_TITLE_PROP_PATTERN = re.compile(
-        r"<Head[^>]*title\s*=",
         re.IGNORECASE,
     )
     
@@ -167,35 +185,23 @@ class PageTitleMissingRule(Rule):
         if self._is_allowlisted_path(file_path):
             return []
 
-        findings: list[Finding] = []
-
         # First, exclude non-page files (types, hooks, utils, components, etc.)
         if any(p.search(file_path) for p in self._NON_PAGE_PATTERNS):
-            return findings
+            return []
 
         # Check if this is a page-like file (in pages/screens/views folder OR has page file name)
         is_in_page_folder = any(p.search(file_path) for p in self._PAGE_PATTERNS)
         is_page_file_name = any(p.search(file_path) for p in self._PAGE_FILE_PATTERNS)
 
         if not (is_in_page_folder or is_page_file_name):
-            return findings
+            return []
+        if not self._looks_like_page_component(content):
+            return []
 
-        # Check for title element
-        has_title = bool(self._TITLE_PATTERN.search(content))
-        has_use_title = bool(self._USE_TITLE_PATTERN.search(content))
-        has_head_title = bool(self._HEAD_TITLE_PATTERN.search(content))
-        has_layout_title = bool(self._LAYOUT_TITLE_PATTERN.search(content))
-        has_head_title_prop = bool(self._HEAD_TITLE_PROP_PATTERN.search(content))
-        
-        if has_title or has_use_title or has_head_title or has_layout_title or has_head_title_prop:
-            return findings
-        
-        # Check if title is too short or generic
-        title_match = self._TITLE_PATTERN.search(content)
-        if title_match:
-            title_text = title_match.group("text").strip()
-            if len(title_text) < 3 or title_text.lower() in ("untitled", "page", "new page"):
-                findings.append(
+        title_text = self._extract_explicit_title(content)
+        if title_text is not None:
+            if self._is_generic_title(title_text):
+                return [
                     self.create_finding(
                         title="Page title is too short or generic",
                         context=f"file:{file_path}",
@@ -218,12 +224,15 @@ class PageTitleMissingRule(Rule):
                         ),
                         tags=["ux", "a11y", "title", "accessibility", "wcag"],
                         confidence=0.85,
-                        evidence_signals=[f"title_text={title_text}"],
+                        evidence_signals=[f"title_text={title_text.strip()}"],
                     )
-                )
-            return findings
-        
-        findings.append(
+                ]
+            return []
+
+        if any(pattern.search(content) for pattern in self._TITLE_SIGNAL_PATTERNS):
+            return []
+
+        return [
             self.create_finding(
                 title="Page missing title element",
                 context=f"file:{file_path}",
@@ -250,10 +259,26 @@ class PageTitleMissingRule(Rule):
                 confidence=0.90,
                 evidence_signals=["title_missing=true"],
             )
-        )
-
-        return findings
+        ]
 
     def _is_allowlisted_path(self, file_path: str) -> bool:
         low = (file_path or "").lower().replace("\\", "/")
         return any(marker in low for marker in self._ALLOWLIST_PATHS)
+
+    def _looks_like_page_component(self, content: str) -> bool:
+        return bool(self._PAGE_EXPORT_PATTERN.search(content or ""))
+
+    def _extract_explicit_title(self, content: str) -> str | None:
+        text = content or ""
+        for pattern in self._TITLE_LITERAL_PATTERNS:
+            match = pattern.search(text)
+            if not match:
+                continue
+            title_text = (match.groupdict().get("text") or "").strip()
+            if title_text:
+                return title_text
+        return None
+
+    def _is_generic_title(self, title_text: str) -> bool:
+        normalized = (title_text or "").strip().lower()
+        return len(normalized) < 3 or normalized in self._GENERIC_TITLES

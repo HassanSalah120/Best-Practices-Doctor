@@ -2489,6 +2489,15 @@ class FactsBuilder:
                         if method_name in ["where", "orWhere", "whereIn", "update", "create", "firstOrCreate"]:
                             context = call_match.group(3)
 
+                # 4. Comparison: $status === 'active' or $order->status == 'active'
+                if not context:
+                    comparison_match = re.search(
+                        r"(?:->([a-zA-Z0-9_]+)|\$([a-zA-Z0-9_]+)|\[['\"]?([a-zA-Z0-9_]+)['\"]?\])\s*(?:===|==|!==|!=)\s*$",
+                        prefix,
+                    )
+                    if comparison_match:
+                        context = comparison_match.group(1) or comparison_match.group(3) or comparison_match.group(2)
+
                 # Skip array keys: 'key' => 'value' (already handled in original code)
                 rest = line[match.end():]
                 if re.match(r"\s*=>", rest):

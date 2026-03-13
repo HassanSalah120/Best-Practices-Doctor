@@ -1,5 +1,6 @@
 {
   "counts_by_rule": {
+    "controller-business-logic": 1,
     "controller-inline-validation": 1,
     "controller-query-direct": 1,
     "fat-controller": 1,
@@ -8,10 +9,10 @@
     "policy-coverage-on-mutations": 1
   },
   "counts_by_severity": {
-    "high": 4,
+    "high": 5,
     "medium": 2
   },
-  "finding_count": 6,
+  "finding_count": 7,
   "findings": [
     {
       "category": "laravel_best_practice",
@@ -41,6 +42,15 @@
       "severity": "high"
     },
     {
+      "category": "architecture",
+      "confidence": 0.825,
+      "file": "app/Http/Controllers/UserController.php",
+      "fingerprint": "4f20c26b9306",
+      "line_start": 11,
+      "rule_id": "controller-business-logic",
+      "severity": "high"
+    },
+    {
       "category": "maintainability",
       "confidence": 0.8,
       "file": "app/Http/Controllers/UserController.php",
@@ -51,7 +61,7 @@
     },
     {
       "category": "validation",
-      "confidence": 1.0,
+      "confidence": 0.8300000000000001,
       "file": "app/Http/Controllers/UserController.php",
       "fingerprint": "6e610b72b2b6",
       "line_start": 13,
@@ -72,6 +82,7 @@
     "00e4760daacd",
     "13f9115493f6",
     "408c140509bb",
+    "4f20c26b9306",
     "592690769583",
     "6e610b72b2b6",
     "9f6b6af6a582"
@@ -79,7 +90,7 @@
   "profile": "startup",
   "project_path": "G:/Best-Practices-Doctor/backend/tests/fixtures/sample-lara",
   "project_slug": "sample-lara-4eab448f",
-  "report_hash": "359ea0bc79c3",
+  "report_hash": "fcab30f04102",
   "schema_version": 2,
-  "updated_at": "2026-03-13T01:48:01.339778+00:00"
+  "updated_at": "2026-03-13T16:30:17.310885+00:00"
 }

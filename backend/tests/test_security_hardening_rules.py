@@ -160,6 +160,30 @@ def test_tenant_access_middleware_missing_skips_clinic_route_with_access_guard()
     assert findings == []
 
 
+def test_tenant_access_middleware_missing_skips_non_tenant_account_routes():
+    facts = Facts(project_path=".")
+    facts.files = [
+        "app/Http/Controllers/Account/ProfileController.php",
+        "app/Models/User.php",
+    ]
+    facts.routes.append(
+        RouteInfo(
+            method="GET",
+            uri="/account/profile",
+            controller="Account\\ProfileController",
+            action="show",
+            middleware=["web", "auth", "verified"],
+            file_path="routes/web.php",
+            line_number=20,
+        )
+    )
+
+    findings = TenantAccessMiddlewareMissingRule(RuleConfig()).run(
+        facts, project_type="laravel_blade"
+    ).findings
+    assert findings == []
+
+
 def test_signed_routes_missing_signature_middleware_flags_track_route():
     facts = Facts(project_path=".")
     facts.routes.append(

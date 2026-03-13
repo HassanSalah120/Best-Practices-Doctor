@@ -10,6 +10,7 @@ from core.ruleset import RuleConfig
 from rules.laravel.cors_misconfiguration import CorsMisconfigurationRule
 from rules.laravel.missing_csrf_token_verification import MissingCsrfTokenVerificationRule
 from rules.laravel.insecure_deserialization import InsecureDeserializationRule
+from rules.laravel.hardcoded_secrets import HardcodedSecretsRule
 from rules.react.useeffect_cleanup_missing import UseEffectCleanupMissingRule
 from schemas.facts import Facts, RouteInfo
 
@@ -361,6 +362,58 @@ $data = unserialize($_GET['payload']);
     )
 
     assert len(findings) == 0
+
+
+# ============== Hardcoded Secrets Tests ==============
+
+def test_hardcoded_secrets_flags_live_api_key():
+    rule = HardcodedSecretsRule(RuleConfig())
+    content = """
+<?php
+$apiKey = 'sk-live-1234567890abcdefghijklmnopqrstuvwxyz';
+"""
+    findings = rule.analyze_regex(
+        file_path="app/Services/BillingService.php",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].rule_id == "hardcoded-secrets"
+    assert findings[0].confidence >= 0.9
+
+
+def test_hardcoded_secrets_skips_example_token_strings():
+    rule = HardcodedSecretsRule(RuleConfig())
+    content = """
+<?php
+$token = 'demo-token-example';
+"""
+    findings = rule.analyze_regex(
+        file_path="app/Services/BillingService.php",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert findings == []
+
+
+def test_hardcoded_secrets_skips_low_entropy_generic_token():
+    rule = HardcodedSecretsRule(RuleConfig())
+    content = """
+<?php
+$token = 'session-token';
+"""
+    findings = rule.analyze_regex(
+        file_path="app/Services/BillingService.php",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert findings == []
 
 
 # ============== UseEffect Cleanup Missing Tests ==============

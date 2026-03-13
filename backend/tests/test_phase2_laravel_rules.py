@@ -3,7 +3,13 @@ from rules.laravel.policy_coverage_on_mutations import PolicyCoverageOnMutations
 from rules.laravel.authorization_bypass_risk import AuthorizationBypassRiskRule
 from rules.laravel.transaction_required_for_multi_write import TransactionRequiredForMultiWriteRule
 from rules.laravel.tenant_scope_enforcement import TenantScopeEnforcementRule
-from schemas.facts import Facts, ClassInfo, MethodInfo, QueryUsage, RouteInfo
+from rules.laravel.controller_business_logic import ControllerBusinessLogicRule
+from rules.laravel.controller_query_direct import ControllerQueryDirectRule
+from rules.laravel.controller_validation_inline import ControllerInlineValidationRule
+from rules.laravel.custom_exception_suggestion import CustomExceptionSuggestionRule
+from rules.laravel.massive_model import MassiveModelRule
+from schemas.facts import Facts, ClassInfo, MethodInfo, QueryUsage, RouteInfo, ValidationUsage
+from schemas.metrics import MethodMetrics
 
 
 def _controller(name: str, file_path: str) -> ClassInfo:
@@ -418,4 +424,352 @@ def test_tenant_scope_enforcement_ignores_global_model_queries():
     )
 
     findings = TenantScopeEnforcementRule(RuleConfig()).run(facts, project_type="laravel_api").findings
+    assert findings == []
+
+
+def test_tenant_scope_enforcement_skips_non_tenant_projects_with_account_language():
+    facts = Facts(project_path=".")
+    facts.files = [
+        "app/Http/Controllers/Account/OrdersController.php",
+        "app/Services/AccountReportingService.php",
+        "app/Models/Order.php",
+        "app/Models/Account.php",
+    ]
+    facts.methods.append(
+        MethodInfo(
+            name="index",
+            class_name="OrdersController",
+            class_fqcn="App\\Http\\Controllers\\Account\\OrdersController",
+            file_path="app/Http/Controllers/Account/OrdersController.php",
+            file_hash="deadbeef",
+            line_start=10,
+            line_end=70,
+            loc=61,
+            call_sites=["Order::query()->paginate(20)"],
+        )
+    )
+    facts.queries.append(
+        QueryUsage(
+            file_path="app/Http/Controllers/Account/OrdersController.php",
+            line_number=20,
+            method_name="index",
+            model="Order",
+            method_chain="query->paginate",
+        )
+    )
+
+    findings = TenantScopeEnforcementRule(RuleConfig()).run(facts, project_type="laravel_api").findings
+    assert findings == []
+
+
+def test_controller_query_direct_skips_single_simple_rest_read():
+    facts = Facts(project_path=".")
+    controller = _controller("PatientController", "app/Http/Controllers/PatientController.php")
+    facts.controllers.append(controller)
+    facts.methods.append(_method("PatientController", "index", controller.file_path))
+    facts.queries.append(
+        QueryUsage(
+            file_path=controller.file_path,
+            line_number=18,
+            method_name="index",
+            model="Patient",
+            method_chain="query->paginate",
+            query_type="select",
+        )
+    )
+
+    findings = ControllerQueryDirectRule(RuleConfig()).run(facts, project_type="laravel_api").findings
+    assert findings == []
+
+
+def test_controller_query_direct_flags_multiple_controller_queries():
+    facts = Facts(project_path=".")
+    controller = _controller("PatientController", "app/Http/Controllers/PatientController.php")
+    facts.controllers.append(controller)
+    facts.methods.append(_method("PatientController", "index", controller.file_path))
+    facts.queries.extend(
+        [
+            QueryUsage(
+                file_path=controller.file_path,
+                line_number=18,
+                method_name="index",
+                model="Patient",
+                method_chain="query->paginate",
+                query_type="select",
+            ),
+            QueryUsage(
+                file_path=controller.file_path,
+                line_number=28,
+                method_name="index",
+                model="Clinic",
+                method_chain="query->get",
+                query_type="select",
+            ),
+        ]
+    )
+
+    findings = ControllerQueryDirectRule(RuleConfig()).run(facts, project_type="laravel_api").findings
+    assert len(findings) == 1
+    assert findings[0].rule_id == "controller-query-direct"
+
+
+def test_controller_business_logic_skips_large_rest_read_without_business_signal():
+    facts = Facts(project_path=".")
+    controller = _controller("ReportsController", "app/Http/Controllers/ReportsController.php")
+    method = _method("ReportsController", "index", controller.file_path)
+    method.loc = 95
+    facts.controllers.append(controller)
+    facts.methods.append(method)
+    metrics = {
+        method.method_fqn: MethodMetrics(
+            method_fqn=method.method_fqn,
+            file_path=method.file_path,
+            cyclomatic_complexity=9,
+            conditional_count=2,
+            query_count=1,
+            validation_count=1,
+            loop_count=0,
+            has_business_logic=False,
+        )
+    }
+
+    findings = ControllerBusinessLogicRule(RuleConfig()).analyze(facts, metrics)
+    assert findings == []
+
+
+def test_controller_business_logic_flags_confident_business_logic():
+    facts = Facts(project_path=".")
+    controller = _controller("CheckoutController", "app/Http/Controllers/CheckoutController.php")
+    method = _method("CheckoutController", "store", controller.file_path)
+    method.loc = 90
+    facts.controllers.append(controller)
+    facts.methods.append(method)
+    metrics = {
+        method.method_fqn: MethodMetrics(
+            method_fqn=method.method_fqn,
+            file_path=method.file_path,
+            cyclomatic_complexity=10,
+            conditional_count=5,
+            query_count=2,
+            validation_count=1,
+            loop_count=1,
+            has_business_logic=True,
+            business_logic_confidence=0.85,
+        )
+    }
+
+    findings = ControllerBusinessLogicRule(RuleConfig()).analyze(facts, metrics)
+    assert len(findings) == 1
+    assert findings[0].rule_id == "controller-business-logic"
+
+
+def test_controller_business_logic_skips_tiny_service_delegation():
+    facts = Facts(project_path=".")
+    controller = _controller("NewingController", "app/Http/Controllers/NewingController.php")
+    method = _method("NewingController", "store", controller.file_path)
+    method.loc = 6
+    facts.controllers.append(controller)
+    facts.methods.append(method)
+    metrics = {
+        method.method_fqn: MethodMetrics(
+            method_fqn=method.method_fqn,
+            file_path=method.file_path,
+            cyclomatic_complexity=1,
+            conditional_count=0,
+            query_count=0,
+            validation_count=0,
+            loop_count=0,
+            has_business_logic=True,
+            business_logic_confidence=0.65,
+        )
+    }
+
+    findings = ControllerBusinessLogicRule(RuleConfig()).analyze(facts, metrics)
+    assert findings == []
+
+
+def test_massive_model_skips_slightly_large_structure_without_mixed_responsibilities():
+    facts = Facts(project_path=".")
+    model = ClassInfo(
+        name="Patient",
+        fqcn="App\\Models\\Patient",
+        file_path="app/Models/Patient.php",
+        file_hash="deadbeef",
+        line_start=1,
+        line_end=220,
+    )
+    facts.models.append(model)
+    for index in range(16):
+        facts.methods.append(
+            MethodInfo(
+                name=f"relation{index}",
+                class_name="Patient",
+                class_fqcn=model.fqcn,
+                file_path=model.file_path,
+                file_hash="deadbeef",
+                line_start=10 + index,
+                line_end=11 + index,
+                loc=2,
+            )
+        )
+
+    findings = MassiveModelRule(RuleConfig()).analyze(facts, metrics={})
+    assert findings == []
+
+
+def test_massive_model_flags_large_model_with_mixed_responsibilities():
+    facts = Facts(project_path=".")
+    model = ClassInfo(
+        name="Patient",
+        fqcn="App\\Models\\Patient",
+        file_path="app/Models/Patient.php",
+        file_hash="deadbeef",
+        line_start=1,
+        line_end=220,
+    )
+    facts.models.append(model)
+    metrics: dict[str, MethodMetrics] = {}
+    for index in range(16):
+        method = MethodInfo(
+            name=f"method{index}",
+            class_name="Patient",
+            class_fqcn=model.fqcn,
+            file_path=model.file_path,
+            file_hash="deadbeef",
+            line_start=10 + index,
+            line_end=12 + index,
+            loc=3,
+        )
+        facts.methods.append(method)
+        metrics[method.method_fqn] = MethodMetrics(
+            method_fqn=method.method_fqn,
+            file_path=method.file_path,
+            has_query=index == 0,
+            has_business_logic=index == 1,
+            business_logic_confidence=0.8 if index == 1 else 0.0,
+        )
+
+    findings = MassiveModelRule(RuleConfig()).analyze(facts, metrics=metrics)
+    assert len(findings) == 1
+    assert findings[0].rule_id == "massive-model"
+
+
+def test_controller_inline_validation_skips_small_auth_flow():
+    facts = Facts(project_path=".")
+    controller = ClassInfo(
+        name="LoginController",
+        fqcn="App\\Http\\Controllers\\Auth\\LoginController",
+        file_path="app/Http/Controllers/Auth/LoginController.php",
+        file_hash="deadbeef",
+        line_start=1,
+        line_end=120,
+    )
+    facts.controllers.append(controller)
+    facts.validations.append(
+        ValidationUsage(
+            file_path=controller.file_path,
+            line_number=18,
+            method_name="store",
+            validation_type="inline",
+            rules={"email": ["required", "email"], "password": ["required"]},
+        )
+    )
+
+    findings = ControllerInlineValidationRule(RuleConfig()).analyze(facts)
+    assert findings == []
+
+
+def test_controller_inline_validation_flags_substantial_validation():
+    facts = Facts(project_path=".")
+    controller = _controller("PatientController", "app/Http/Controllers/PatientController.php")
+    facts.controllers.append(controller)
+    facts.form_requests.append(
+        ClassInfo(
+            name="PatientRequest",
+            fqcn="App\\Http\\Requests\\PatientRequest",
+            file_path="app/Http/Requests/PatientRequest.php",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=40,
+        )
+    )
+    facts.validations.append(
+        ValidationUsage(
+            file_path=controller.file_path,
+            line_number=18,
+            method_name="store",
+            validation_type="inline",
+            rules={
+                "email": ["required", "email", "unique:users"],
+                "name": ["required", "string", "max:255"],
+            },
+        )
+    )
+
+    findings = ControllerInlineValidationRule(RuleConfig()).analyze(facts)
+    assert len(findings) == 1
+    assert findings[0].rule_id == "controller-inline-validation"
+    assert findings[0].confidence >= 0.8
+
+
+def test_custom_exception_suggestion_flags_generic_service_exception_when_project_has_custom_exceptions():
+    facts = Facts(project_path=".")
+    facts.exceptions.append(
+        ClassInfo(
+            name="PaymentFailedException",
+            fqcn="App\\Exceptions\\PaymentFailedException",
+            file_path="app/Exceptions/PaymentFailedException.php",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=20,
+        )
+    )
+    facts.methods.append(
+        MethodInfo(
+            name="charge",
+            class_name="BillingService",
+            class_fqcn="App\\Services\\BillingService",
+            file_path="app/Services/BillingService.php",
+            file_hash="deadbeef",
+            line_start=10,
+            line_end=30,
+            loc=21,
+            call_sites=["$gateway->charge()", "$logger->error()"],
+            throws=["Exception"],
+        )
+    )
+
+    findings = CustomExceptionSuggestionRule(RuleConfig()).analyze(facts)
+    assert len(findings) == 1
+    assert findings[0].rule_id == "custom-exception-suggestion"
+    assert findings[0].confidence >= 0.8
+
+
+def test_custom_exception_suggestion_skips_console_command_exceptions():
+    facts = Facts(project_path=".")
+    facts.exceptions.append(
+        ClassInfo(
+            name="DomainException",
+            fqcn="App\\Exceptions\\DomainException",
+            file_path="app/Exceptions/DomainException.php",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=20,
+        )
+    )
+    facts.methods.append(
+        MethodInfo(
+            name="handle",
+            class_name="SyncDataCommand",
+            class_fqcn="App\\Console\\Commands\\SyncDataCommand",
+            file_path="app/Console/Commands/SyncDataCommand.php",
+            file_hash="deadbeef",
+            line_start=10,
+            line_end=22,
+            loc=13,
+            throws=["Exception"],
+        )
+    )
+
+    findings = CustomExceptionSuggestionRule(RuleConfig()).analyze(facts)
     assert findings == []

@@ -40,6 +40,24 @@ class TenantScopeEnforcementRule(Rule):
         "practice",
         "branch",
     )
+    _STRONG_TENANT_MARKERS = (
+        "tenant",
+        "tenant_id",
+        "clinic",
+        "clinic_id",
+        "workspace",
+        "workspace_id",
+        "organization",
+        "organization_id",
+        "tenant_access",
+        "clinic_access",
+    )
+    _WEAK_TENANT_MARKERS = (
+        "account",
+        "account_id",
+        "practice",
+        "branch",
+    )
     _PUBLIC_CONTEXT_MARKERS = ("auth/", "public/", "webhook", "health", "status")
     _ALLOWLIST_PATH_MARKERS = (
         "/tests/",
@@ -123,7 +141,8 @@ class TenantScopeEnforcementRule(Rule):
         min_signals = int(self.get_threshold("min_project_signals", 5) or 5)
         min_method_queries = int(self.get_threshold("min_method_queries", 1) or 1)
 
-        if self._project_tenant_signals(facts) < min_signals:
+        project_signal_score, project_strong_hits = self._project_tenant_signals(facts)
+        if project_signal_score < min_signals or project_strong_hits == 0:
             return findings
 
         methods_by_key: dict[tuple[str, str], MethodInfo] = {
@@ -170,6 +189,8 @@ class TenantScopeEnforcementRule(Rule):
                 continue
 
             route_ctx = routes_by_target.get((method.class_name.lower(), method.name.lower()), [])
+            if not self._has_method_tenant_context(method, route_ctx):
+                continue
             if route_ctx and self._all_routes_look_public(route_ctx):
                 continue
 
@@ -221,22 +242,59 @@ class TenantScopeEnforcementRule(Rule):
 
         return findings
 
-    def _project_tenant_signals(self, facts: Facts) -> int:
+    def _project_tenant_signals(self, facts: Facts) -> tuple[int, int]:
         score = 0
+        strong_hits = 0
         for f in facts.files or []:
             low = f.lower().replace("\\", "/")
-            if any(m in low for m in self._TENANT_MARKERS):
-                score += 1
+            item_score, item_strong = self._tenant_marker_score(low)
+            score += item_score
+            strong_hits += item_strong
         for c in facts.classes or []:
             name = (c.name or "").lower()
             fqcn = (c.fqcn or "").lower()
-            if any(m in name or m in fqcn for m in self._TENANT_MARKERS):
-                score += 1
-        return score
+            item_score, item_strong = self._tenant_marker_score(f"{name} {fqcn}")
+            score += item_score
+            strong_hits += item_strong
+        for route in facts.routes or []:
+            route_text = " ".join(
+                [
+                    str(getattr(route, "uri", "") or ""),
+                    " ".join(str(x or "") for x in (getattr(route, "middleware", []) or [])),
+                ]
+            ).lower()
+            item_score, item_strong = self._tenant_marker_score(route_text)
+            score += item_score
+            strong_hits += item_strong
+        return score, strong_hits
 
     def _is_tenant_sensitive_path(self, file_path: str) -> bool:
         low = (file_path or "").lower().replace("\\", "/")
         return low.startswith("app/") and any(p in low for p in ["/controllers/", "/services/"])
+
+    def _has_method_tenant_context(self, method: MethodInfo, route_ctx: list) -> bool:
+        method_text = " ".join(
+            [
+                str(method.file_path or ""),
+                str(method.class_name or ""),
+                str(method.class_fqcn or ""),
+            ]
+        ).lower().replace("\\", "/")
+        _, strong_hits = self._tenant_marker_score(method_text)
+        if strong_hits:
+            return True
+
+        for route in route_ctx or []:
+            route_text = " ".join(
+                [
+                    str(getattr(route, "uri", "") or ""),
+                    " ".join(str(x or "") for x in (getattr(route, "middleware", []) or [])),
+                ]
+            ).lower()
+            _, route_strong_hits = self._tenant_marker_score(route_text)
+            if route_strong_hits:
+                return True
+        return False
 
     def _is_allowlisted_path(self, file_path: str) -> bool:
         low = (file_path or "").lower().replace("\\", "/")
@@ -313,6 +371,12 @@ class TenantScopeEnforcementRule(Rule):
         if any(k in joined_calls for k in ("currenttenant", "currentclinic", "forclinic", "fortenant", "scopebytenant")):
             return True
         return False
+
+    def _tenant_marker_score(self, text: str) -> tuple[int, int]:
+        low = (text or "").lower()
+        strong = sum(1 for marker in self._STRONG_TENANT_MARKERS if marker in low)
+        weak = sum(1 for marker in self._WEAK_TENANT_MARKERS if marker in low)
+        return (strong * 2) + weak, strong
 
     def _routes_by_target(self, facts: Facts) -> dict[tuple[str, str], list]:
         out: dict[tuple[str, str], list] = {}

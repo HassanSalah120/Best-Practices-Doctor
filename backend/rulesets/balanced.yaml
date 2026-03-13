@@ -16,10 +16,11 @@ rules:
     thresholds: {}
   custom-exception-suggestion:
     enabled: true
-    severity: high
+    severity: medium
     category: architecture
     version: 1
-    thresholds: {}
+    thresholds:
+      min_confidence: 0.65
   dry-violation:
     enabled: true
     severity: medium
@@ -192,7 +193,8 @@ rules:
     severity: medium
     category: react_best_practice
     version: 1
-    thresholds: {}
+    thresholds:
+      min_confidence: 0.6
   inertia-internal-link-anchor:
     enabled: true
     severity: medium
@@ -271,6 +273,7 @@ rules:
     version: 1
     thresholds:
       high_if_rules_ge: 6
+      min_confidence: 0.6
   mass-assignment-risk:
     enabled: true
     severity: high

@@ -43,18 +43,20 @@ def test_string_literal_collection_skips_array_keys():
         assert "port" not in vals
 
 
-def test_enum_suggestion_still_fires_for_known_domain_values():
+def test_enum_suggestion_fires_for_explicit_status_context_cluster():
     facts = Facts(project_path="x")
     facts.string_literals = [
-        StringLiteral(value="pending", occurrences=[("a.php", 10), ("b.php", 20), ("c.php", 30)]),
+        StringLiteral(value="pending", occurrences=[("a.php", 10, "status"), ("b.php", 20, "status")]),
+        StringLiteral(value="completed", occurrences=[("a.php", 30, "status"), ("b.php", 40, "status")]),
     ]
 
     rule = EnumSuggestionRule(RuleConfig())
     findings = rule.run(facts, project_type="laravel_blade").findings
     assert any(f.rule_id == "enum-suggestion" for f in findings)
+    assert any((f.metadata or {}).get("context") == "status" for f in findings)
 
 
-def test_enum_suggestion_fires_for_saas_status_values():
+def test_enum_suggestion_ignores_single_repeated_status_without_context():
     facts = Facts(project_path="x")
     facts.string_literals = [
         StringLiteral(value="scheduled", occurrences=[("a.php", 10), ("b.php", 20), ("c.php", 30)]),
@@ -62,7 +64,7 @@ def test_enum_suggestion_fires_for_saas_status_values():
 
     rule = EnumSuggestionRule(RuleConfig())
     findings = rule.run(facts, project_type="laravel_blade").findings
-    assert any(f.rule_id == "enum-suggestion" for f in findings)
+    assert all(f.rule_id != "enum-suggestion" for f in findings)
 
 
 def test_enum_suggestion_ignores_lang_dictionary_occurrences():
@@ -96,6 +98,18 @@ def test_enum_suggestion_counts_only_non_lang_occurrences():
                 ("app/Services/C.php", 33),
             ],
         ),
+    ]
+
+    rule = EnumSuggestionRule(RuleConfig())
+    findings = rule.run(facts, project_type="laravel_blade").findings
+    assert all(f.rule_id != "enum-suggestion" for f in findings)
+
+
+def test_enum_suggestion_pattern_group_requires_multiple_values():
+    facts = Facts(project_path="x")
+    facts.string_literals = [
+        StringLiteral(value="pending", occurrences=[("app/Services/A.php", 11), ("app/Services/B.php", 22)]),
+        StringLiteral(value="completed", occurrences=[("app/Services/C.php", 33), ("app/Services/D.php", 44)]),
     ]
 
     rule = EnumSuggestionRule(RuleConfig())
@@ -136,3 +150,28 @@ def test_enum_suggestion_skips_when_matching_enum_file_exists_in_facts_files():
     rule = EnumSuggestionRule(RuleConfig())
     findings = rule.run(facts, project_type="laravel_blade").findings
     assert all(f.rule_id != "enum-suggestion" for f in findings)
+
+
+def test_string_literal_collection_extracts_comparison_context_for_enum_detection():
+    from analysis.facts_builder import FactsBuilder
+    from core.detector import ProjectDetector
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        (root / "app" / "Http" / "Controllers").mkdir(parents=True)
+        p = root / "app" / "Http" / "Controllers" / "OrderController.php"
+        p.write_text(
+            "<?php\n"
+            "namespace App\\Http\\Controllers;\n"
+            "class OrderController { public function show($order) { if ($order->status === 'pending') { return 'ok'; } } }\n",
+            encoding="utf-8",
+        )
+
+        info = ProjectDetector(str(root)).detect()
+        facts = FactsBuilder(info).build()
+
+        pending_literal = next((s for s in facts.string_literals if s.value == "pending"), None)
+        assert pending_literal is not None
+        assert any((occ.context or "") == "status" for occ in pending_literal.occurrences)

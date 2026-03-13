@@ -134,37 +134,63 @@ class HardcodedSecretsRule(Rule):
         r"['\"](password|admin|123456|qwerty|letmein|welcome|monkey|dragon)['\"]\d*",
         re.IGNORECASE
     )
+    _STRONG_SECRET_KEYS = {
+        "api_key",
+        "apikey",
+        "secret_key",
+        "private_key",
+        "aws_access_key_id",
+        "aws_secret_access_key",
+        "access_token",
+        "db_password",
+        "database_password",
+    }
+    _WEAK_SECRET_KEYS = {"password", "token", "secret", "apiKey".lower()}
+    _EXAMPLE_VALUE_PATTERN = re.compile(
+        r"(example|sample|demo|dummy|fake|mock|fixture|test[_-]?(?:key|token|secret|password)?|changeme|placeholder|localhost)",
+        re.IGNORECASE,
+    )
 
-    def _looks_like_actual_secret(self, value: str) -> bool:
+    def _looks_like_actual_secret(self, value: str, key_name: str = "") -> bool:
         """
         Determine if a value looks like an actual secret vs a Laravel pattern.
         Returns True if the value appears to be a real secret.
         """
+        key_low = (key_name or "").strip().lower()
+        value_raw = value.strip("'\"")
+
+        if self._EXAMPLE_VALUE_PATTERN.search(value_raw):
+            return False
+
         # If it matches weak passwords, it's a secret (bad practice)
         if self._WEAK_PASSWORDS.search(value):
             return True
 
         # If it has high entropy or API key patterns, it's a secret
         for pattern in self._ACTUAL_SECRET_INDICATORS:
-            if pattern.search(value):
+            if pattern.search(value_raw):
                 return True
 
         # Laravel validation rules often have colons (min:8, max:255)
-        if re.search(r"\w+:\d+", value):
+        if re.search(r"\w+:\d+", value_raw):
             return False
 
-        # Laravel casts and validation rules are typically lowercase single words
-        # that are in our safe values list - but if we get here, it wasn't matched
-        # Check for simple lowercase words (likely Laravel patterns)
-        if re.match(r"^[a-z_]+$", value.strip("'\"")):
+        if self._looks_like_placeholder_identifier(value_raw):
             return False
 
-        # If the value is short (less than 8 chars), probably not a secret
-        if len(value.strip("'\"")) < 8:
+        if len(value_raw) < 8:
             return False
 
-        # Default: if it looks complex enough, treat as secret
-        return len(value) >= 10
+        if key_low == "password":
+            return len(value_raw) >= 10 and self._has_secret_entropy(value_raw)
+
+        if key_low in {"token", "secret"}:
+            return len(value_raw) >= 20 and self._has_secret_entropy(value_raw)
+
+        if key_low in self._STRONG_SECRET_KEYS:
+            return len(value_raw) >= 10 and (self._has_secret_entropy(value_raw) or not value_raw.islower())
+
+        return len(value_raw) >= 20 and self._has_secret_entropy(value_raw)
 
     def _extract_value_from_match(self, matched: str) -> str:
         """Extract the actual value from a pattern match like 'password' => 'value'."""
@@ -177,6 +203,24 @@ class HardcodedSecretsRule(Rule):
         if value_match:
             return value_match.group(1)
         return matched
+
+    def _extract_key_from_match(self, matched: str) -> str:
+        key_match = re.search(r"['\"]([a-zA-Z0-9_]+)['\"]\s*(?:=>|=)", matched)
+        if key_match:
+            return key_match.group(1)
+        var_match = re.search(r"\$([a-zA-Z0-9_]+)\s*=", matched)
+        if var_match:
+            return var_match.group(1)
+        return ""
+
+    def _looks_like_placeholder_identifier(self, value: str) -> bool:
+        return bool(re.fullmatch(r"[a-z_][a-z0-9_-]*", value))
+
+    def _has_secret_entropy(self, value: str) -> bool:
+        has_digit = any(c.isdigit() for c in value)
+        has_upper = any(c.isupper() for c in value)
+        has_symbol = any(not c.isalnum() for c in value)
+        return sum([has_digit, has_upper, has_symbol]) >= 2 or len(value) >= 24
 
     _ALLOWLIST_PATHS = (
         "/tests/",
@@ -227,11 +271,18 @@ class HardcodedSecretsRule(Rule):
 
                 # Extract the matched text and value
                 matched = match.group(0)
+                key_name = self._extract_key_from_match(matched)
                 value = self._extract_value_from_match(matched)
 
                 # Check if it looks like an actual secret (not Laravel validation/cast)
-                if not self._looks_like_actual_secret(value):
+                if not self._looks_like_actual_secret(value, key_name):
                     continue
+
+                confidence = 0.86
+                if (key_name or "").lower() in self._STRONG_SECRET_KEYS:
+                    confidence = 0.93
+                elif (key_name or "").lower() in {"token", "secret"}:
+                    confidence = 0.82
 
                 findings.append(
                     self.create_finding(
@@ -265,7 +316,7 @@ class HardcodedSecretsRule(Rule):
                             "// In .env (not committed):\n"
                             "API_KEY=sk-live-abc123xyz"
                         ),
-                        confidence=0.85,
+                        confidence=confidence,
                         tags=["security", "secrets", "credentials", "owasp-a2"],
                     )
                 )

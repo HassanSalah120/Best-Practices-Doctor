@@ -2,7 +2,7 @@ from pathlib import Path
 
 from core.rule_engine import ALL_RULES, RuleEngine
 from core.ruleset import RuleConfig, Ruleset
-from schemas.facts import Facts
+from schemas.facts import Facts, MethodInfo
 
 
 def _ruleset_with_only(rule_id: str, config: RuleConfig | None = None) -> Ruleset:
@@ -31,6 +31,34 @@ def test_rule_engine_confidence_floor_filters_low_confidence_regex_findings(tmp_
         "no-closure-routes",
         RuleConfig(enabled=True, thresholds={"min_confidence": 0.8}),
     )
+    engine = RuleEngine(rs)
+    res = engine.run(facts, project_type="laravel_api")
+
+    assert res.findings == []
+    assert res.filtered_by_confidence >= 1
+
+
+def test_rule_engine_startup_profile_filters_low_confidence_ast_advisory():
+    facts = Facts(project_path=".")
+    facts.methods.append(
+        MethodInfo(
+            name="run",
+            class_name="BillingService",
+            class_fqcn="App\\Services\\BillingService",
+            file_path="app/Services/BillingService.php",
+            file_hash="deadbeef",
+            line_start=10,
+            line_end=16,
+            loc=7,
+            throws=["Exception"],
+        )
+    )
+
+    rs = _ruleset_with_only(
+        "custom-exception-suggestion",
+        RuleConfig(enabled=True, thresholds={"min_confidence": 0.75}),
+    )
+    rs.name = "startup"
     engine = RuleEngine(rs)
     res = engine.run(facts, project_type="laravel_api")
 

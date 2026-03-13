@@ -25,23 +25,45 @@ class CustomExceptionSuggestionRule(Rule):
     category = Category.ARCHITECTURE
     default_severity = Severity.HIGH
     applicable_project_types = ["laravel_api", "laravel_blade", "laravel_inertia_react", "laravel_inertia_vue"]
+    _GENERIC_EXCEPTIONS = {"Exception", "RuntimeException", "LogicException", "Throwable"}
+    _ALLOWLIST_PATH_MARKERS = (
+        "/tests/",
+        "/test/",
+        "/console/",
+        "/commands/",
+        "/providers/",
+        "/middleware/",
+        "/vendor/",
+    )
+    _ALLOWLIST_METHODS = {"report", "render", "register", "boot"}
+    _DOMAIN_PATH_MARKERS = (
+        "/services/",
+        "/actions/",
+        "/domain/",
+        "/repositories/",
+        "/http/controllers/",
+    )
     
     def analyze(
         self,
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
-        findings = []
+        findings: list[Finding] = []
+        has_custom_exceptions = self._project_has_custom_exceptions(facts)
         
         for method in facts.methods:
-            # Check for generic Exception instantiation or throw
-            # FactsBuilder now extracts `instantiations` and `throws`
-            
-            # Check throws first (explicit throw new Exception)
+            if self._is_allowlisted_method(method):
+                continue
+
             for exception_class in method.throws:
                 exc = (exception_class or "").lstrip("\\")
-                if exc in {"Exception", "RuntimeException", "LogicException", "Throwable"}:
-                    findings.append(self.create_finding(
+                if exc not in self._GENERIC_EXCEPTIONS:
+                    continue
+
+                confidence = self._confidence_for_method(method, has_custom_exceptions)
+                severity = self.severity if confidence >= 0.7 else Severity.LOW
+                findings.append(self.create_finding(
                         title="Avoid throwing generic exception",
                         context=method.method_fqn,
                         file=method.file_path,
@@ -57,18 +79,40 @@ class CustomExceptionSuggestionRule(Rule):
                         ),
                         suggested_fix="Create a domain-specific exception class and throw that instead.",
                         code_example=self._generate_throw_example(method.name),
+                        severity=severity,
+                        confidence=confidence,
                         tags=["architecture", "error-handling"],
                     ))
-            
-            # Check instantiations (new Exception) logic
-            # This covers `throw new Exception` (caught above) AND `$e = new Exception`
-            # We might want to skip if we already caught it via throws to avoid duplicates,
-            # but standardizing on 'throws' is safer for now.
-            
-            # If we wanted to check 'catch (Exception $e)', we would need that in FactsBuilder too.
-            # For now, focusing on THROWing generic exceptions is high value.
 
         return findings
+
+    def _project_has_custom_exceptions(self, facts: Facts) -> bool:
+        for exc in facts.exceptions:
+            low = str(getattr(exc, "file_path", "") or "").lower().replace("\\", "/")
+            if any(marker in low for marker in self._ALLOWLIST_PATH_MARKERS):
+                continue
+            return True
+        return False
+
+    def _is_allowlisted_method(self, method) -> bool:
+        low_path = str(getattr(method, "file_path", "") or "").lower().replace("\\", "/")
+        if any(marker in low_path for marker in self._ALLOWLIST_PATH_MARKERS):
+            return True
+        low_name = str(getattr(method, "name", "") or "").lower()
+        return low_name in self._ALLOWLIST_METHODS
+
+    def _confidence_for_method(self, method, has_custom_exceptions: bool) -> float:
+        low_path = str(getattr(method, "file_path", "") or "").lower().replace("\\", "/")
+        confidence = 0.56
+        if any(marker in low_path for marker in self._DOMAIN_PATH_MARKERS):
+            confidence += 0.12
+        if has_custom_exceptions:
+            confidence += 0.16
+        if int(getattr(method, "loc", 0) or 0) >= 12:
+            confidence += 0.05
+        if len(getattr(method, "call_sites", []) or []) >= 2:
+            confidence += 0.05
+        return min(0.92, confidence)
     
     def _generate_throw_example(self, method_name: str) -> str:
         return f"""// Before: Generic Exception

@@ -45,9 +45,8 @@ class MassiveModelRule(Rule):
             ms = [m for m in ms if not m.name.startswith("__")]
             method_count = len(ms)
             loc = max(0, (model.line_end or 0) - (model.line_start or 0) + 1)
-
-            if method_count <= max_methods and loc <= max_loc:
-                continue
+            over_methods = method_count > max_methods
+            over_loc = loc > max_loc
 
             # Best-effort: how many methods look like they contain DB logic/business logic.
             queryish = 0
@@ -61,6 +60,13 @@ class MassiveModelRule(Rule):
                         queryish += 1
                     if mm.has_business_logic:
                         businessish += 1
+
+            if not (over_methods and over_loc):
+                mixed_responsibility_signals = queryish + businessish
+                if not ((over_methods or over_loc) and mixed_responsibility_signals >= 2):
+                    continue
+            if metrics and queryish == 0 and businessish == 0 and not (method_count > (max_methods * 2) or loc > (max_loc * 2)):
+                continue
 
             ctx = model.fqcn
             findings.append(
@@ -91,4 +97,3 @@ class MassiveModelRule(Rule):
             )
 
         return findings
-
