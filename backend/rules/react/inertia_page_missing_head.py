@@ -150,6 +150,8 @@ class InertiaPageMissingHeadRule(Rule):
             return []
         if HEAD_LIB_IMPORT_RE.search(text) and HELMET_TITLE_RE.search(text):
             return []
+        if self._uses_project_head_wrapper(text, facts):
+            return []
 
         if LAYOUT_TITLE_PROP_RE.search(text):
             return []
@@ -218,3 +220,17 @@ class InertiaPageMissingHeadRule(Rule):
             if sibling.exists():
                 return True
         return False
+
+    def _uses_project_head_wrapper(self, content: str, facts: Facts) -> bool:
+        wrappers = [
+            str(name or "").strip()
+            for name in (getattr(getattr(facts, "project_context", None), "custom_head_wrappers", []) or [])
+            if str(name or "").strip() and str(name or "").strip() != "Head"
+        ]
+        if not wrappers:
+            return False
+        wrapper_re = re.compile(
+            rf"<(?:{'|'.join(re.escape(name) for name in wrappers)})\b[^>]*\b(title|pageTitle|metaTitle|seoTitle)\s*=",
+            re.MULTILINE,
+        )
+        return bool(wrapper_re.search(content or ""))

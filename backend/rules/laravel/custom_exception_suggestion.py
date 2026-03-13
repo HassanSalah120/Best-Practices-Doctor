@@ -51,9 +51,13 @@ class CustomExceptionSuggestionRule(Rule):
     ) -> list[Finding]:
         findings: list[Finding] = []
         has_custom_exceptions = self._project_has_custom_exceptions(facts)
+        shared_infra_roots = tuple(
+            str(root or "").lower().replace("\\", "/")
+            for root in (getattr(getattr(facts, "project_context", None), "shared_infra_roots", []) or [])
+        )
         
         for method in facts.methods:
-            if self._is_allowlisted_method(method):
+            if self._is_allowlisted_method(method, shared_infra_roots):
                 continue
 
             for exception_class in method.throws:
@@ -94,9 +98,11 @@ class CustomExceptionSuggestionRule(Rule):
             return True
         return False
 
-    def _is_allowlisted_method(self, method) -> bool:
+    def _is_allowlisted_method(self, method, shared_infra_roots: tuple[str, ...] = ()) -> bool:
         low_path = str(getattr(method, "file_path", "") or "").lower().replace("\\", "/")
         if any(marker in low_path for marker in self._ALLOWLIST_PATH_MARKERS):
+            return True
+        if any(low_path.startswith(root.rstrip("/") + "/") for root in shared_infra_roots if root.startswith("app/")):
             return True
         low_name = str(getattr(method, "name", "") or "").lower()
         return low_name in self._ALLOWLIST_METHODS

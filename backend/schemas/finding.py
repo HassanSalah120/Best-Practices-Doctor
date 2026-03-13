@@ -30,6 +30,13 @@ class Category(str, Enum):
     MAINTAINABILITY = "maintainability"
 
 
+class FindingClassification(str, Enum):
+    """High-level issue intent for UX and prioritization."""
+    DEFECT = "defect"
+    RISK = "risk"
+    ADVISORY = "advisory"
+
+
 class Finding(BaseModel):
     """
     A detected issue in the codebase.
@@ -45,6 +52,7 @@ class Finding(BaseModel):
     title: str
     category: Category
     severity: Severity
+    classification: FindingClassification = FindingClassification.RISK
     
     # Location
     file: str  # Relative path
@@ -97,7 +105,18 @@ SEVERITY_WEIGHTS: dict[Severity, int] = {
     Severity.INFO: 0,
 }
 
+CLASSIFICATION_WEIGHTS: dict[FindingClassification, float] = {
+    FindingClassification.DEFECT: 1.0,
+    FindingClassification.RISK: 1.0,
+    FindingClassification.ADVISORY: 0.35,
+}
+
 
 def get_severity_weight(severity: Severity) -> int:
     """Get score impact weight for a severity level."""
     return SEVERITY_WEIGHTS.get(severity, 0)
+
+
+def get_classification_weight(classification: FindingClassification) -> float:
+    """Get scoring multiplier for a finding classification."""
+    return CLASSIFICATION_WEIGHTS.get(classification, 0.35)

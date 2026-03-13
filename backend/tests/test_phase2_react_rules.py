@@ -44,6 +44,7 @@ def test_missing_key_on_list_render_positive_and_negative():
 def test_hardcoded_user_facing_strings_positive_and_negative():
     rule = HardcodedUserFacingStringsRule(RuleConfig())
     facts = Facts(project_path="x")
+    facts.project_context.has_i18n = True
 
     pos = "<h1>Patient Details</h1>"
     neg = "<h1>{t('patient.details')}</h1>"
@@ -77,6 +78,7 @@ def test_form_label_association_positive_and_negative():
 def test_hardcoded_user_facing_strings_ignores_key_like_tokens():
     rule = HardcodedUserFacingStringsRule(RuleConfig())
     facts = Facts(project_path="x")
+    facts.project_context.has_i18n = True
 
     key_like = "<div>ui.patient.details_title</div>"
     findings = rule.analyze_regex("resources/js/Pages/Patient.tsx", key_like, facts)
@@ -86,8 +88,17 @@ def test_hardcoded_user_facing_strings_ignores_key_like_tokens():
 def test_hardcoded_user_facing_strings_ignores_short_single_word_labels():
     rule = HardcodedUserFacingStringsRule(RuleConfig())
     facts = Facts(project_path="x")
+    facts.project_context.has_i18n = True
 
     findings = rule.analyze_regex("resources/js/Pages/Patient.tsx", "<button>Continue</button>", facts)
+    assert findings == []
+
+
+def test_hardcoded_user_facing_strings_skips_projects_without_i18n_context():
+    rule = HardcodedUserFacingStringsRule(RuleConfig())
+    facts = Facts(project_path="x")
+
+    findings = rule.analyze_regex("resources/js/Pages/Patient.tsx", "<h1>Patient Details</h1>", facts)
     assert findings == []
 
 

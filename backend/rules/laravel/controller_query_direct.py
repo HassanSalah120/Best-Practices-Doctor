@@ -6,7 +6,7 @@ This is distinct from repository-suggestion (advisory): this is a violation.
 """
 from schemas.facts import Facts, QueryUsage
 from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
+from schemas.finding import Finding, FindingClassification, Category, Severity
 from rules.base import Rule
 
 
@@ -23,6 +23,7 @@ class ControllerQueryDirectRule(Rule):
     description = "Detects direct Eloquent/DB query usage inside controllers"
     category = Category.LARAVEL_BEST_PRACTICE
     default_severity = Severity.HIGH
+    default_classification = FindingClassification.ADVISORY
     applicable_project_types = [
         "laravel_blade",
         "laravel_inertia_react",
@@ -102,6 +103,13 @@ class ControllerQueryDirectRule(Rule):
                         "4. Add unit tests for the extracted layer"
                     ),
                     tags=["laravel", "architecture", "controllers", "repositories", "queries"],
+                    classification=FindingClassification.ADVISORY,
+                    metadata={
+                        "overlap_group": "controller-layering",
+                        "overlap_scope": ctx,
+                        "overlap_rank": 300,
+                        "overlap_role": "child",
+                    },
                 )
             )
 

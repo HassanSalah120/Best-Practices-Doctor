@@ -18,6 +18,13 @@ OPTIONAL_POSITIVE_RULES = {
     "missing-auth-on-mutating-api-routes",
     "transaction-required-for-multi-write",
     "tenant-scope-enforcement",
+    # These still have direct positive tests, but engine-level overlap dedupe intentionally suppresses
+    # them behind a stronger parent finding in the mini regression fixtures.
+    "controller-query-direct",
+    "controller-business-logic",
+    "controller-inline-validation",
+    # This rule now requires an i18n-aware project context, which the lightweight golden fixtures do not model.
+    "hardcoded-user-facing-strings",
     "react-useeffect-deps",
     "react-no-array-index-key",
     "hooks-in-conditional-or-loop",

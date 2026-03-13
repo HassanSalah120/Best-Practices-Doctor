@@ -63,6 +63,7 @@ def _normalize_report(report_dict: dict) -> dict:
             "rule_id": f["rule_id"],
             "category": f["category"],
             "severity": f["severity"],
+            "classification": f.get("classification", "advisory"),
             "file": f["file"],
             "context": f.get("context", ""),
         }
@@ -80,6 +81,7 @@ def _normalize_report(report_dict: dict) -> dict:
                 "category": a.get("category", ""),
                 "priority": a.get("priority", 0.0),
                 "max_severity": a.get("max_severity", ""),
+                "classification": a.get("classification", "advisory"),
                 "finding_fingerprints": sorted(a.get("finding_fingerprints", []) or []),
                 "files": sorted(a.get("files", []) or []),
             }
@@ -90,6 +92,7 @@ def _normalize_report(report_dict: dict) -> dict:
     report_dict["findings_by_file"] = {}
     report_dict["findings_by_category"] = {}
     report_dict["findings_by_severity"] = {}
+    report_dict["findings_by_classification"] = {}
     report_dict["file_summaries"] = []
     report_dict["summary"] = ""
 

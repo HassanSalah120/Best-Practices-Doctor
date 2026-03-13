@@ -5,7 +5,7 @@ Flags inline validation inside controllers as a violation (suggest FormRequest).
 """
 from schemas.facts import Facts, ValidationUsage
 from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
+from schemas.finding import Finding, FindingClassification, Category, Severity
 from rules.base import Rule
 
 
@@ -21,6 +21,7 @@ class ControllerInlineValidationRule(Rule):
     description = "Detects inline validation inside controller actions (prefer FormRequest)"
     category = Category.VALIDATION
     default_severity = Severity.MEDIUM
+    default_classification = FindingClassification.ADVISORY
     applicable_project_types = [
         "laravel_blade",
         "laravel_inertia_react",
@@ -56,6 +57,7 @@ class ControllerInlineValidationRule(Rule):
         # Escalate to HIGH when validation rule-count is large.
         high_if_rules_ge = int(self.get_threshold("high_if_rules_ge", 6))
         has_form_requests = bool(facts.form_requests)
+        auth_flow_context = set(getattr(getattr(facts, "project_context", None), "auth_flow_paths", []) or [])
 
         grouped: dict[tuple[str, str], list[ValidationUsage]] = {}
         for v in facts.validations:
@@ -76,6 +78,8 @@ class ControllerInlineValidationRule(Rule):
             max_fields = max((len(v.rules) for v in vals), default=0)
 
             if self._is_small_auth_validation(file_path, method_name, vals, max_rules, max_fields):
+                continue
+            if self._matches_auth_flow_context(file_path, method_name, auth_flow_context):
                 continue
 
             confidence = self._confidence_for_validation(vals, max_rules, max_fields, has_form_requests, file_path, method_name)
@@ -114,9 +118,16 @@ class ControllerInlineValidationRule(Rule):
                         "3. Type-hint the FormRequest in the controller method\n"
                         "4. Use `$request->validated()`"
                     ),
+                    classification=FindingClassification.ADVISORY,
                     confidence=confidence,
                     severity=sev,
                     tags=["validation", "form-request", "controllers"],
+                    metadata={
+                        "overlap_group": "controller-layering",
+                        "overlap_scope": ctx,
+                        "overlap_rank": 250,
+                        "overlap_role": "child",
+                    },
                 )
             )
 
@@ -161,3 +172,21 @@ class ControllerInlineValidationRule(Rule):
         if not any(marker in low for marker in self._SMALL_AUTH_MARKERS):
             confidence += 0.05
         return min(0.92, confidence)
+
+    def _matches_auth_flow_context(
+        self,
+        file_path: str,
+        method_name: str,
+        auth_flow_context: set[str],
+    ) -> bool:
+        normalized_path = str(file_path or "").replace("\\", "/")
+        if normalized_path in auth_flow_context:
+            return True
+        tail = normalized_path.lower()
+        if any(marker in tail for marker in self._SMALL_AUTH_MARKERS):
+            return True
+        descriptors = {
+            method_name or "",
+            f"{normalized_path}:{method_name}",
+        }
+        return any(descriptor in auth_flow_context for descriptor in descriptors)

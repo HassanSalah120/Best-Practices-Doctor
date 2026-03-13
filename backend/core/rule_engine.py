@@ -14,7 +14,7 @@ from typing import Callable, Type
 
 from schemas.facts import Facts
 from schemas.metrics import MethodMetrics
-from schemas.finding import Finding
+from schemas.finding import Finding, FindingClassification, Severity
 from core.ruleset import Ruleset, RuleConfig
 from rules.base import Rule, RuleResult
 from core.path_utils import normalize_rel_path
@@ -182,6 +182,7 @@ class EngineResult:
     rules_run: int = 0
     rules_skipped: int = 0
     suppressed_count: int = 0
+    deduped_overlap_count: int = 0
     filtered_by_confidence: int = 0
     differential_filtered: int = 0
     execution_time_ms: float = 0.0
@@ -681,6 +682,10 @@ class RuleEngine:
         result.findings = self._apply_suppressions(result.findings, facts)
         result.suppressed_count = max(0, before_suppression - len(result.findings))
 
+        before_overlap = len(result.findings)
+        result.findings = self._apply_overlap_dedupe(result.findings)
+        result.deduped_overlap_count = max(0, before_overlap - len(result.findings))
+
         mode = differential_mode or (os.environ.get("BPD_DIFFERENTIAL_MODE", "").strip() == "1")
         if mode:
             changed = self._resolve_changed_files(changed_files)
@@ -723,10 +728,22 @@ class RuleEngine:
         out: list[Finding] = []
         for f in findings:
             floor = self._confidence_floor_for_rule(f.rule_id)
+            floor += self._classification_confidence_adjustment(getattr(f, "classification", FindingClassification.ADVISORY))
+            floor = max(0.0, min(1.0, floor))
             conf = float(getattr(f, "confidence", 1.0) or 0.0)
-            if conf >= floor:
+            if conf + 1e-9 >= floor:
                 out.append(f)
         return out
+
+    def _classification_confidence_adjustment(self, classification: FindingClassification | str) -> float:
+        key = classification.value if isinstance(classification, FindingClassification) else str(classification or "").strip().lower()
+        profile = str(getattr(self.ruleset, "name", "") or "").strip().lower()
+        adjustments = {
+            "startup": {"defect": 0.0, "risk": 0.02, "advisory": 0.05},
+            "balanced": {"defect": 0.0, "risk": 0.01, "advisory": 0.03},
+            "strict": {"defect": 0.0, "risk": 0.0, "advisory": 0.01},
+        }
+        return float(adjustments.get(profile, adjustments["balanced"]).get(key, 0.0))
 
     def _apply_suppressions(self, findings: list[Finding], facts: Facts) -> list[Finding]:
         root = Path(getattr(facts, "project_path", "") or ".").resolve()
@@ -737,6 +754,76 @@ class RuleEngine:
                 continue
             out.append(f)
         return out
+
+    def _apply_overlap_dedupe(self, findings: list[Finding]) -> list[Finding]:
+        grouped: dict[tuple[str, str], list[Finding]] = {}
+        primary_by_group: dict[tuple[str, str], Finding] = {}
+
+        for finding in findings:
+            metadata = getattr(finding, "metadata", {}) or {}
+            group = str(metadata.get("overlap_group", "") or "").strip()
+            scope = str(metadata.get("overlap_scope", "") or getattr(finding, "context", "") or "").strip()
+            if not group or not scope:
+                continue
+            key = (group, scope)
+            grouped.setdefault(key, []).append(finding)
+
+        for key, items in grouped.items():
+            if len(items) <= 1:
+                continue
+            primary = max(items, key=self._overlap_sort_key)
+            primary_by_group[key] = self._merge_overlap_metadata(primary, [item for item in items if item is not primary])
+
+        emitted_groups: set[tuple[str, str]] = set()
+        out: list[Finding] = []
+        for finding in findings:
+            metadata = getattr(finding, "metadata", {}) or {}
+            group = str(metadata.get("overlap_group", "") or "").strip()
+            scope = str(metadata.get("overlap_scope", "") or getattr(finding, "context", "") or "").strip()
+            if not group or not scope:
+                out.append(finding)
+                continue
+
+            key = (group, scope)
+            primary = primary_by_group.get(key)
+            if primary is None:
+                out.append(finding)
+                continue
+            if key in emitted_groups:
+                continue
+            emitted_groups.add(key)
+            out.append(primary)
+        return out
+
+    def _overlap_sort_key(self, finding: Finding) -> tuple[int, int, int, float, int]:
+        metadata = getattr(finding, "metadata", {}) or {}
+        overlap_rank = int(metadata.get("overlap_rank", 0) or 0)
+        classification_rank = {
+            FindingClassification.DEFECT: 3,
+            FindingClassification.RISK: 2,
+            FindingClassification.ADVISORY: 1,
+        }.get(getattr(finding, "classification", FindingClassification.ADVISORY), 0)
+        severity_rank = {
+            Severity.CRITICAL: 5,
+            Severity.HIGH: 4,
+            Severity.MEDIUM: 3,
+            Severity.LOW: 2,
+            Severity.INFO: 1,
+        }.get(getattr(finding, "severity", Severity.LOW), 0)
+        confidence = float(getattr(finding, "confidence", 0.0) or 0.0)
+        score_impact = int(getattr(finding, "score_impact", 0) or 0)
+        return (overlap_rank, classification_rank, severity_rank, confidence, score_impact)
+
+    def _merge_overlap_metadata(self, finding: Finding, suppressed: list[Finding]) -> Finding:
+        if not suppressed:
+            return finding
+        suppressed_rule_ids = sorted({item.rule_id for item in suppressed})
+        metadata = dict(getattr(finding, "metadata", {}) or {})
+        metadata["suppressed_overlap_rules"] = suppressed_rule_ids
+        evidence = list(getattr(finding, "evidence_signals", []) or [])
+        evidence.append(f"overlap_suppressed={','.join(suppressed_rule_ids)}")
+        deduped = list(dict.fromkeys(evidence))
+        return finding.model_copy(update={"metadata": metadata, "evidence_signals": deduped})
 
     def _is_suppressed(self, finding: Finding, root: Path, cache: dict[str, list[str]]) -> bool:
         rel = normalize_rel_path(str(getattr(finding, "file", "") or ""))

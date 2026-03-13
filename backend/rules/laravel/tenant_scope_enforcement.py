@@ -140,9 +140,13 @@ class TenantScopeEnforcementRule(Rule):
         findings: list[Finding] = []
         min_signals = int(self.get_threshold("min_project_signals", 5) or 5)
         min_method_queries = int(self.get_threshold("min_method_queries", 1) or 1)
+        tenant_mode = str(getattr(getattr(facts, "project_context", None), "tenant_mode", "unknown") or "unknown").lower()
+
+        if tenant_mode == "non_tenant":
+            return findings
 
         project_signal_score, project_strong_hits = self._project_tenant_signals(facts)
-        if project_signal_score < min_signals or project_strong_hits == 0:
+        if tenant_mode != "tenant" and (project_signal_score < min_signals or project_strong_hits == 0):
             return findings
 
         methods_by_key: dict[tuple[str, str], MethodInfo] = {

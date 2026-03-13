@@ -9,7 +9,7 @@ from typing import Any
 
 from schemas.facts import Facts
 from schemas.metrics import MethodMetrics, ProjectMetrics
-from schemas.finding import Finding, Category, Severity
+from schemas.finding import Finding, FindingClassification, Category, Severity
 from core.ruleset import RuleConfig
 from core.finding_templates import get_fix_template
 
@@ -40,6 +40,7 @@ class Rule(ABC):
     description: str = "Base rule description"
     category: Category = Category.ARCHITECTURE
     default_severity: Severity = Severity.MEDIUM
+    default_classification: FindingClassification | None = None
     # Rule execution type:
     # - "ast": uses Facts/Metrics only (structural/semantic rules)
     # - "regex": lightweight file-content scans (non-structural lint rules)
@@ -193,6 +194,7 @@ class Rule(ABC):
         context: str = "",
         code_example: str | None = None,
         severity: Severity | None = None,
+        classification: FindingClassification | None = None,
         confidence: float = 1.0,
         related_files: list[str] | None = None,
         related_methods: list[str] | None = None,
@@ -202,6 +204,8 @@ class Rule(ABC):
         score_impact: int = 0,
     ) -> Finding:
         """Helper to create a Finding with rule context."""
+        resolved_severity = severity or self.severity
+        resolved_classification = classification or self._default_finding_classification(resolved_severity)
         evidence: list[str] = []
         for s in evidence_signals or []:
             x = str(s or "").strip()
@@ -227,7 +231,8 @@ class Rule(ABC):
             title=title,
             context=context,
             category=self.category,
-            severity=severity or self.severity,
+            severity=resolved_severity,
+            classification=resolved_classification,
             file=file,
             line_start=line_start,
             line_end=line_end,
@@ -243,3 +248,30 @@ class Rule(ABC):
             evidence_signals=evidence,
             metadata=metadata or {},
         )
+
+    def _default_finding_classification(self, severity: Severity) -> FindingClassification:
+        """Infer a stable default classification when a rule does not set one explicitly."""
+        if self.default_classification is not None:
+            return self.default_classification
+
+        if self.category == Category.SECURITY:
+            return FindingClassification.RISK
+        if self.category in {Category.ACCESSIBILITY, Category.VALIDATION} and severity in {
+            Severity.CRITICAL,
+            Severity.HIGH,
+            Severity.MEDIUM,
+        }:
+            return FindingClassification.DEFECT
+        if severity in {Severity.LOW, Severity.INFO}:
+            return FindingClassification.ADVISORY
+        if self.category in {
+            Category.ARCHITECTURE,
+            Category.DRY,
+            Category.SRP,
+            Category.LARAVEL_BEST_PRACTICE,
+            Category.REACT_BEST_PRACTICE,
+            Category.PERFORMANCE,
+            Category.MAINTAINABILITY,
+        }:
+            return FindingClassification.ADVISORY
+        return FindingClassification.RISK

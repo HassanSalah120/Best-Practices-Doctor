@@ -8,7 +8,13 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from schemas.facts import Facts
-from schemas.finding import Finding, Category, Severity
+from schemas.finding import (
+    Finding,
+    FindingClassification,
+    Category,
+    Severity,
+    get_classification_weight,
+)
 from schemas.report import CategoryScore, QualityScores, ScanReport
 from core.ruleset import Ruleset
 
@@ -37,6 +43,12 @@ DEFAULT_SEVERITY_PENALTIES = {
     Severity.MEDIUM: 2,
     Severity.LOW: 1,
     Severity.INFO: 0,
+}
+
+DEFAULT_CLASSIFICATION_MULTIPLIERS = {
+    FindingClassification.DEFECT: 1.0,
+    FindingClassification.RISK: 1.0,
+    FindingClassification.ADVISORY: 0.35,
 }
 
 
@@ -68,9 +80,13 @@ class ScoringEngine:
         if ruleset and ruleset.scoring:
             self.category_weights, self._weights_explicit = self._normalize_category_weights(ruleset.scoring.weights)
             self.severity_penalties = ruleset.scoring.severity_penalties
+            self.classification_multipliers = ruleset.scoring.classification_multipliers
         else:
             self.category_weights = DEFAULT_CATEGORY_WEIGHTS
             self.severity_penalties = DEFAULT_SEVERITY_PENALTIES
+            self.classification_multipliers = {
+                cls.value: weight for cls, weight in DEFAULT_CLASSIFICATION_MULTIPLIERS.items()
+            }
 
     def _normalize_category_weights(self, weights: dict) -> tuple[dict, bool]:
         """Normalize weights keys and scale to 0-100 if user provided fractions.
@@ -204,6 +220,7 @@ class ScoringEngine:
                 penalty = float(finding.score_impact)
             else:
                 penalty = float(self._get_severity_penalty(finding.severity))
+            penalty *= self._get_classification_multiplier(getattr(finding, "classification", FindingClassification.ADVISORY))
 
             # For LOW/INFO severities, apply once per (file, rule) using max penalty.
             if cap_low_info and finding.severity in {Severity.LOW, Severity.INFO}:
@@ -255,6 +272,22 @@ class ScoringEngine:
                 return self.severity_penalties[severity.value]
         
         return DEFAULT_SEVERITY_PENALTIES.get(severity, 2)
+
+    def _get_classification_multiplier(self, classification: FindingClassification | str) -> float:
+        """Get scoring multiplier for a finding classification."""
+        key = classification.value if isinstance(classification, FindingClassification) else str(classification or "").strip().lower()
+        if isinstance(self.classification_multipliers, dict):
+            raw = self.classification_multipliers.get(key)
+            if raw is not None:
+                try:
+                    return max(0.0, float(raw))
+                except Exception:
+                    pass
+        try:
+            enum_value = classification if isinstance(classification, FindingClassification) else FindingClassification(key)
+            return get_classification_weight(enum_value)
+        except Exception:
+            return 0.35
     
     def _calculate_grade(self, score: float) -> str:
         """Calculate letter grade from score."""
@@ -347,6 +380,11 @@ class ScoringEngine:
             Severity.LOW: 2,
             Severity.INFO: 1,
         }
+        classification_rank = {
+            FindingClassification.DEFECT: 3,
+            FindingClassification.RISK: 2,
+            FindingClassification.ADVISORY: 1,
+        }
 
         by_rule: dict[str, list[Finding]] = {}
         for f in findings:
@@ -363,13 +401,22 @@ class ScoringEngine:
             total_penalty = 0.0
             for f in fs_sorted:
                 if f.score_impact > 0:
-                    total_penalty += float(f.score_impact)
+                    penalty = float(f.score_impact)
                 else:
-                    total_penalty += float(self._get_severity_penalty(f.severity))
+                    penalty = float(self._get_severity_penalty(f.severity))
+                penalty *= self._get_classification_multiplier(getattr(f, "classification", FindingClassification.ADVISORY))
+                total_penalty += penalty
 
             # Weighted "impact points". Keep rounding stable across platforms.
             priority = round(total_penalty * (cat_weight / 100.0), 2)
             max_sev = max(fs_sorted, key=lambda f: severity_rank.get(f.severity, 0)).severity
+            max_classification = max(
+                fs_sorted,
+                key=lambda f: classification_rank.get(
+                    getattr(f, "classification", FindingClassification.ADVISORY),
+                    0,
+                ),
+            ).classification
 
             fingerprints = sorted({f.fingerprint for f in fs_sorted})
             files = sorted({f.file for f in fs_sorted})
@@ -386,6 +433,7 @@ class ScoringEngine:
                     suggested_fix=sample.suggested_fix,
                     priority=priority,
                     max_severity=max_sev,
+                    classification=max_classification,
                     finding_fingerprints=fingerprints,
                     files=files,
                 )

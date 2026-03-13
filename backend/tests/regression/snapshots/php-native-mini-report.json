@@ -23,7 +23,7 @@
   "classes_found": 1,
   "methods_found": 64,
   "scores": {
-    "overall": 99.0,
+    "overall": 99.6,
     "grade": "A",
     "architecture": 100.0,
     "dry": 100.0,
@@ -31,8 +31,8 @@
     "react": 100.0,
     "complexity": 100.0,
     "security": 100.0,
-    "maintainability": 95.0,
-    "srp": 93.0,
+    "maintainability": 98.2,
+    "srp": 97.5,
     "validation": 100.0,
     "performance": 100.0
   },
@@ -43,6 +43,7 @@
       "rule_id": "long-method",
       "category": "srp",
       "severity": "low",
+      "classification": "advisory",
       "file": "src/Native.php",
       "context": "Native\\BigNative::huge"
     },
@@ -52,6 +53,7 @@
       "rule_id": "tests-missing",
       "category": "maintainability",
       "severity": "medium",
+      "classification": "advisory",
       "file": "index.php",
       "context": "project:test-suite"
     }
@@ -59,6 +61,7 @@
   "findings_by_file": {},
   "findings_by_category": {},
   "findings_by_severity": {},
+  "findings_by_classification": {},
   "file_summaries": [],
   "action_plan": [
     {
@@ -67,6 +70,7 @@
       "category": "srp",
       "priority": 0.0,
       "max_severity": "low",
+      "classification": "advisory",
       "finding_fingerprints": [
         "1911778ac367"
       ],
@@ -78,8 +82,9 @@
       "id": "action_fb9389e74bed",
       "rule_id": "tests-missing",
       "category": "maintainability",
-      "priority": 1.0,
+      "priority": 0.35,
       "max_severity": "medium",
+      "classification": "advisory",
       "finding_fingerprints": [
         "9533aa449b1e"
       ],
@@ -185,7 +190,7 @@
     "srp": {
       "category": "srp",
       "score": null,
-      "raw_score": 93.0,
+      "raw_score": 97.5,
       "weight": 0.0,
       "has_weight": false,
       "finding_count": 1
@@ -256,8 +261,8 @@
     },
     "maintainability": {
       "category": "maintainability",
-      "score": 95.0,
-      "raw_score": 95.0,
+      "score": 98.2,
+      "raw_score": 98.2,
       "weight": 20.0,
       "has_weight": true,
       "finding_count": 1

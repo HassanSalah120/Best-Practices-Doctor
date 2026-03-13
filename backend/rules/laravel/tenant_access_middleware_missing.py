@@ -59,8 +59,11 @@ class TenantAccessMiddlewareMissingRule(Rule):
     ) -> list[Finding]:
         findings: list[Finding] = []
         min_signals = int(self.get_threshold("min_project_signals", 5) or 5)
+        tenant_mode = str(getattr(getattr(facts, "project_context", None), "tenant_mode", "unknown") or "unknown").lower()
+        if tenant_mode == "non_tenant":
+            return findings
         project_signal_score, project_strong_hits = self._project_tenant_signals(facts)
-        if project_strong_hits == 0:
+        if tenant_mode != "tenant" and project_strong_hits == 0:
             return findings
 
         for route in facts.routes or []:

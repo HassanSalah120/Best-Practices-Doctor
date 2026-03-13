@@ -320,6 +320,23 @@ class ClassConstAccess(BaseModel):
     expression: str = ""
 
 
+class ProjectContext(BaseModel):
+    """Derived project-level context signals used to reduce false positives."""
+
+    tenant_mode: str = "unknown"  # tenant | non_tenant | unknown
+    tenant_signals: list[str] = Field(default_factory=list)
+
+    react_structure_mode: str = "unknown"  # feature-first | category-based | hybrid | unknown
+    react_shared_roots: list[str] = Field(default_factory=list)
+
+    has_i18n: bool = False
+    i18n_helpers: list[str] = Field(default_factory=list)
+
+    custom_head_wrappers: list[str] = Field(default_factory=list)
+    auth_flow_paths: list[str] = Field(default_factory=list)
+    shared_infra_roots: list[str] = Field(default_factory=list)
+
+
 class Facts(BaseModel):
     """
     Normalized representation of the entire codebase.
@@ -337,6 +354,7 @@ class Facts(BaseModel):
     # All files scanned (relative paths)
     files: list[str] = Field(default_factory=list)
     file_hashes: dict[str, str] = Field(default_factory=dict)  # path -> hash
+    project_context: ProjectContext = Field(default_factory=ProjectContext)
 
     # --- PHP File Metadata ---
     # Namespace per PHP file (relative path -> namespace string without leading "\"), if present.

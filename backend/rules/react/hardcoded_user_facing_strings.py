@@ -121,6 +121,9 @@ class HardcodedUserFacingStringsRule(Rule):
     ) -> list[Finding]:
         if self._is_allowlisted_path(file_path):
             return []
+        project_context = getattr(facts, "project_context", None)
+        if project_context is not None and not bool(getattr(project_context, "has_i18n", False)):
+            return []
 
         findings: list[Finding] = []
         lines = content.splitlines()

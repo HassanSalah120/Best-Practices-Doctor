@@ -25,18 +25,18 @@
   "classes_found": 24,
   "methods_found": 40,
   "scores": {
-    "overall": 64.4,
-    "grade": "D",
-    "architecture": 40.0,
-    "dry": 98.5,
-    "laravel": 75.0,
+    "overall": 74.8,
+    "grade": "C",
+    "architecture": 87.8,
+    "dry": 99.5,
+    "laravel": 96.5,
     "react": 100.0,
     "complexity": 100.0,
-    "security": 0.0,
-    "maintainability": 87.0,
+    "security": 10.0,
+    "maintainability": 95.5,
     "srp": 100.0,
-    "validation": 94.2,
-    "performance": 80.0
+    "validation": 95.0,
+    "performance": 93.0
   },
   "findings": [
     {
@@ -45,6 +45,7 @@
       "rule_id": "prefer-imports",
       "category": "maintainability",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Services/CoupledService.php",
       "context": "App\\Contracts\\UserServiceInterface"
     },
@@ -54,17 +55,9 @@
       "rule_id": "no-log-debug-in-app",
       "category": "maintainability",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Services/EnvBad.php",
       "context": "Log::debug"
-    },
-    {
-      "id": "finding_15aa7e9e68a5",
-      "fingerprint": "15aa7e9e68a5",
-      "rule_id": "static-helper-abuse",
-      "category": "architecture",
-      "severity": "medium",
-      "file": "app/Http/Controllers/FatController.php",
-      "context": "App\\Http\\Controllers\\FatController::index"
     },
     {
       "id": "finding_17c9a71c89c1",
@@ -72,6 +65,7 @@
       "rule_id": "dry-violation",
       "category": "dry",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Support/DupeA.php",
       "context": "dup:bc21f1df596d52ac"
     },
@@ -81,17 +75,9 @@
       "rule_id": "unused-private-method",
       "category": "maintainability",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Http/Controllers/FatController.php",
       "context": "App\\Http\\Controllers\\FatController::unusedHelper"
-    },
-    {
-      "id": "finding_37c5d15c6c07",
-      "fingerprint": "37c5d15c6c07",
-      "rule_id": "controller-business-logic",
-      "category": "architecture",
-      "severity": "high",
-      "file": "app/Http/Controllers/FatController.php",
-      "context": "App\\Http\\Controllers\\FatController::index"
     },
     {
       "id": "finding_3860c5a49ddf",
@@ -99,6 +85,7 @@
       "rule_id": "missing-form-request",
       "category": "validation",
       "severity": "medium",
+      "classification": "defect",
       "file": "app/Http/Controllers/FatController.php",
       "context": "index"
     },
@@ -108,26 +95,9 @@
       "rule_id": "blade-queries",
       "category": "performance",
       "severity": "medium",
+      "classification": "advisory",
       "file": "resources/views/users/index.blade.php",
       "context": "\\App\\Models\\User::all"
-    },
-    {
-      "id": "finding_4a0fe8094617",
-      "fingerprint": "4a0fe8094617",
-      "rule_id": "unsafe-file-upload",
-      "category": "security",
-      "severity": "high",
-      "file": "app/Http/Controllers/UploadController.php",
-      "context": "App\\Http\\Controllers\\UploadController::store"
-    },
-    {
-      "id": "finding_58c01a529494",
-      "fingerprint": "58c01a529494",
-      "rule_id": "fat-controller",
-      "category": "architecture",
-      "severity": "high",
-      "file": "app/Http/Controllers/FatController.php",
-      "context": "FatController::index"
     },
     {
       "id": "finding_5b752239f209",
@@ -135,17 +105,9 @@
       "rule_id": "prefer-imports",
       "category": "maintainability",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Services/CoupledService.php",
       "context": "App\\Http\\Controllers\\ThinController"
-    },
-    {
-      "id": "finding_5db12653b441",
-      "fingerprint": "5db12653b441",
-      "rule_id": "controller-inline-validation",
-      "category": "validation",
-      "severity": "low",
-      "file": "app/Http/Controllers/FatController.php",
-      "context": "App\\Http\\Controllers\\FatController::index"
     },
     {
       "id": "finding_614ad7940458",
@@ -153,6 +115,7 @@
       "rule_id": "mass-assignment-risk",
       "category": "security",
       "severity": "high",
+      "classification": "risk",
       "file": "app/Http/Controllers/FatController.php",
       "context": "App\\Http\\Controllers\\FatController::index"
     },
@@ -162,6 +125,7 @@
       "rule_id": "unsafe-unserialize",
       "category": "security",
       "severity": "high",
+      "classification": "risk",
       "file": "app/Http/Controllers/SecurityBadController.php",
       "context": "App\\Http\\Controllers\\SecurityBadController::run"
     },
@@ -171,6 +135,7 @@
       "rule_id": "prefer-imports",
       "category": "maintainability",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Services/CoupledService.php",
       "context": "App\\Models\\User"
     },
@@ -180,6 +145,7 @@
       "rule_id": "unsafe-eval",
       "category": "security",
       "severity": "high",
+      "classification": "risk",
       "file": "app/Http/Controllers/SecurityBadController.php",
       "context": "App\\Http\\Controllers\\SecurityBadController::run"
     },
@@ -189,6 +155,7 @@
       "rule_id": "no-closure-routes",
       "category": "architecture",
       "severity": "medium",
+      "classification": "advisory",
       "file": "routes/web.php",
       "context": "closure_route"
     },
@@ -198,6 +165,7 @@
       "rule_id": "prefer-imports",
       "category": "maintainability",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Services/CoupledService.php",
       "context": "App\\Exceptions\\UserNotFoundException"
     },
@@ -207,8 +175,19 @@
       "rule_id": "config-in-loop",
       "category": "performance",
       "severity": "medium",
+      "classification": "advisory",
       "file": "app/Http/Controllers/FatController.php",
       "context": "app/Http/Controllers/FatController.php:index:config_in_loop"
+    },
+    {
+      "id": "finding_756116b14b75",
+      "fingerprint": "756116b14b75",
+      "rule_id": "fat-controller",
+      "category": "architecture",
+      "severity": "high",
+      "classification": "advisory",
+      "file": "app/Http/Controllers/FatController.php",
+      "context": "App\\Http\\Controllers\\FatController::index"
     },
     {
       "id": "finding_86015089d412",
@@ -216,6 +195,7 @@
       "rule_id": "authorization-bypass-risk",
       "category": "security",
       "severity": "high",
+      "classification": "risk",
       "file": "app/Http/Controllers/FatController.php",
       "context": "App\\Http\\Controllers\\FatController::index"
     },
@@ -225,6 +205,7 @@
       "rule_id": "prefer-imports",
       "category": "maintainability",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Services/CoupledService.php",
       "context": "App\\Http\\Controllers\\FatController"
     },
@@ -234,6 +215,7 @@
       "rule_id": "prefer-imports",
       "category": "maintainability",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Services/CoupledService.php",
       "context": "App\\Support\\DupeA"
     },
@@ -243,6 +225,7 @@
       "rule_id": "enum-suggestion",
       "category": "dry",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Http/Controllers/FatController.php",
       "context": ""
     },
@@ -252,6 +235,7 @@
       "rule_id": "eager-loading",
       "category": "performance",
       "severity": "medium",
+      "classification": "advisory",
       "file": "app/Http/Controllers/FatController.php",
       "context": "index:User:find"
     },
@@ -261,6 +245,7 @@
       "rule_id": "prefer-imports",
       "category": "maintainability",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Services/CoupledService.php",
       "context": "App\\Models\\Massive"
     },
@@ -270,6 +255,7 @@
       "rule_id": "env-outside-config",
       "category": "laravel_best_practice",
       "severity": "medium",
+      "classification": "advisory",
       "file": "app/Services/EnvBad.php",
       "context": "return env(\"STRIPE_KEY\", \"\");"
     },
@@ -279,6 +265,7 @@
       "rule_id": "policy-coverage-on-mutations",
       "category": "security",
       "severity": "high",
+      "classification": "risk",
       "file": "app/Http/Controllers/FatController.php",
       "context": "App\\Http\\Controllers\\FatController::index"
     },
@@ -288,6 +275,7 @@
       "rule_id": "tests-missing",
       "category": "maintainability",
       "severity": "medium",
+      "classification": "advisory",
       "file": "composer.json",
       "context": "project:test-suite"
     },
@@ -297,6 +285,7 @@
       "rule_id": "prefer-imports",
       "category": "maintainability",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Services/CoupledService.php",
       "context": "App\\Http\\Controllers\\NewingController"
     },
@@ -306,6 +295,7 @@
       "rule_id": "too-many-dependencies",
       "category": "maintainability",
       "severity": "medium",
+      "classification": "advisory",
       "file": "app/Services/ManyDepsService.php",
       "context": "App\\Services\\ManyDepsService::__construct"
     },
@@ -315,6 +305,7 @@
       "rule_id": "no-json-encode-in-controllers",
       "category": "laravel_best_practice",
       "severity": "medium",
+      "classification": "advisory",
       "file": "app/Http/Controllers/FatController.php",
       "context": "json_encode_or_toJson"
     },
@@ -324,17 +315,9 @@
       "rule_id": "prefer-imports",
       "category": "maintainability",
       "severity": "low",
+      "classification": "advisory",
       "file": "routes/web.php",
       "context": "App\\Http\\Controllers\\FatController"
-    },
-    {
-      "id": "finding_be2539180f4e",
-      "fingerprint": "be2539180f4e",
-      "rule_id": "heavy-logic-in-routes",
-      "category": "architecture",
-      "severity": "medium",
-      "file": "routes/web.php",
-      "context": "routes_heavy_logic"
     },
     {
       "id": "finding_be5e21869ada",
@@ -342,6 +325,7 @@
       "rule_id": "command-injection-risk",
       "category": "security",
       "severity": "high",
+      "classification": "risk",
       "file": "app/Http/Controllers/SecurityBadController.php",
       "context": "App\\Http\\Controllers\\SecurityBadController::run"
     },
@@ -351,17 +335,9 @@
       "rule_id": "prefer-imports",
       "category": "maintainability",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Services/CoupledService.php",
       "context": "App\\Http\\Controllers\\ContractController"
-    },
-    {
-      "id": "finding_c7f6b486b121",
-      "fingerprint": "c7f6b486b121",
-      "rule_id": "controller-query-direct",
-      "category": "laravel_best_practice",
-      "severity": "high",
-      "file": "app/Http/Controllers/FatController.php",
-      "context": "App\\Http\\Controllers\\FatController::index"
     },
     {
       "id": "finding_ce84dfc66f70",
@@ -369,6 +345,7 @@
       "rule_id": "circular-dependency",
       "category": "architecture",
       "severity": "high",
+      "classification": "advisory",
       "file": "app/Services/CycleA.php",
       "context": "App\\Services\\CycleA|App\\Services\\CycleB"
     },
@@ -378,6 +355,7 @@
       "rule_id": "prefer-imports",
       "category": "maintainability",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Services/CoupledService.php",
       "context": "App\\Http\\Controllers\\UploadController"
     },
@@ -387,6 +365,7 @@
       "rule_id": "prefer-imports",
       "category": "maintainability",
       "severity": "low",
+      "classification": "advisory",
       "file": "app/Services/CoupledService.php",
       "context": "App\\Support\\DupeB"
     },
@@ -396,6 +375,7 @@
       "rule_id": "blade-queries",
       "category": "performance",
       "severity": "medium",
+      "classification": "advisory",
       "file": "resources/views/users/index.blade.php",
       "context": "@foreach(\\App\\Models\\User::all"
     }
@@ -403,6 +383,7 @@
   "findings_by_file": {},
   "findings_by_category": {},
   "findings_by_severity": {},
+  "findings_by_classification": {},
   "file_summaries": [],
   "action_plan": [
     {
@@ -411,6 +392,7 @@
       "category": "dry",
       "priority": 0.0,
       "max_severity": "low",
+      "classification": "advisory",
       "finding_fingerprints": [
         "17c9a71c89c1"
       ],
@@ -419,24 +401,12 @@
       ]
     },
     {
-      "id": "action_1446647f2d71",
-      "rule_id": "controller-business-logic",
-      "category": "architecture",
-      "priority": 0.0,
-      "max_severity": "high",
-      "finding_fingerprints": [
-        "37c5d15c6c07"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
       "id": "action_183cbd05e2c7",
       "rule_id": "unused-private-method",
       "category": "maintainability",
-      "priority": 0.15,
+      "priority": 0.05,
       "max_severity": "low",
+      "classification": "advisory",
       "finding_fingerprints": [
         "238ae9fa09c6"
       ],
@@ -450,6 +420,7 @@
       "category": "security",
       "priority": 3.75,
       "max_severity": "high",
+      "classification": "risk",
       "finding_fingerprints": [
         "62bbd21c8b55"
       ],
@@ -461,8 +432,9 @@
       "id": "action_251386ea0e3a",
       "rule_id": "no-log-debug-in-app",
       "category": "maintainability",
-      "priority": 0.15,
+      "priority": 0.05,
       "max_severity": "low",
+      "classification": "advisory",
       "finding_fingerprints": [
         "03e4b3f9393d"
       ],
@@ -474,8 +446,9 @@
       "id": "action_259922501e23",
       "rule_id": "blade-queries",
       "category": "performance",
-      "priority": 1.5,
+      "priority": 0.53,
       "max_severity": "medium",
+      "classification": "advisory",
       "finding_fingerprints": [
         "4996356c73ef",
         "fdbf4c04c3f5"
@@ -488,8 +461,9 @@
       "id": "action_35c7b54ffa82",
       "rule_id": "prefer-imports",
       "category": "maintainability",
-      "priority": 1.8,
+      "priority": 0.63,
       "max_severity": "low",
+      "classification": "advisory",
       "finding_fingerprints": [
         "0232ad212cbe",
         "5b752239f209",
@@ -515,6 +489,7 @@
       "category": "security",
       "priority": 3.75,
       "max_severity": "high",
+      "classification": "risk",
       "finding_fingerprints": [
         "be5e21869ada"
       ],
@@ -526,8 +501,9 @@
       "id": "action_59f7500b0ba6",
       "rule_id": "eager-loading",
       "category": "performance",
-      "priority": 0.75,
+      "priority": 0.26,
       "max_severity": "medium",
+      "classification": "advisory",
       "finding_fingerprints": [
         "988fb17e0f9e"
       ],
@@ -536,24 +512,12 @@
       ]
     },
     {
-      "id": "action_62b7ebc7fb9d",
-      "rule_id": "heavy-logic-in-routes",
-      "category": "architecture",
-      "priority": 0.0,
-      "max_severity": "medium",
-      "finding_fingerprints": [
-        "be2539180f4e"
-      ],
-      "files": [
-        "routes/web.php"
-      ]
-    },
-    {
       "id": "action_67865fd31d75",
       "rule_id": "authorization-bypass-risk",
       "category": "security",
       "priority": 3.75,
       "max_severity": "high",
+      "classification": "risk",
       "finding_fingerprints": [
         "86015089d412"
       ],
@@ -565,8 +529,9 @@
       "id": "action_6c9850cdc3d3",
       "rule_id": "no-json-encode-in-controllers",
       "category": "laravel_best_practice",
-      "priority": 1.0,
+      "priority": 0.35,
       "max_severity": "medium",
+      "classification": "advisory",
       "finding_fingerprints": [
         "b53f32f90e6f"
       ],
@@ -575,24 +540,12 @@
       ]
     },
     {
-      "id": "action_70693448ec26",
-      "rule_id": "unsafe-file-upload",
-      "category": "security",
-      "priority": 3.75,
-      "max_severity": "high",
-      "finding_fingerprints": [
-        "4a0fe8094617"
-      ],
-      "files": [
-        "app/Http/Controllers/UploadController.php"
-      ]
-    },
-    {
       "id": "action_7b70ffb2def9",
       "rule_id": "mass-assignment-risk",
       "category": "security",
       "priority": 3.75,
       "max_severity": "high",
+      "classification": "risk",
       "finding_fingerprints": [
         "614ad7940458"
       ],
@@ -606,21 +559,9 @@
       "category": "validation",
       "priority": 0.0,
       "max_severity": "medium",
+      "classification": "defect",
       "finding_fingerprints": [
         "3860c5a49ddf"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
-      "id": "action_8d70e9a66fcd",
-      "rule_id": "fat-controller",
-      "category": "architecture",
-      "priority": 0.0,
-      "max_severity": "high",
-      "finding_fingerprints": [
-        "58c01a529494"
       ],
       "files": [
         "app/Http/Controllers/FatController.php"
@@ -630,8 +571,9 @@
       "id": "action_a33ca64952f3",
       "rule_id": "too-many-dependencies",
       "category": "maintainability",
-      "priority": 1.0,
+      "priority": 0.35,
       "max_severity": "medium",
+      "classification": "advisory",
       "finding_fingerprints": [
         "b2e127f6adab"
       ],
@@ -643,8 +585,9 @@
       "id": "action_a39c961d46c5",
       "rule_id": "env-outside-config",
       "category": "laravel_best_practice",
-      "priority": 1.0,
+      "priority": 0.35,
       "max_severity": "medium",
+      "classification": "advisory",
       "finding_fingerprints": [
         "a219127177c0"
       ],
@@ -653,11 +596,26 @@
       ]
     },
     {
+      "id": "action_a746f3216ac9",
+      "rule_id": "fat-controller",
+      "category": "architecture",
+      "priority": 0.0,
+      "max_severity": "high",
+      "classification": "advisory",
+      "finding_fingerprints": [
+        "756116b14b75"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    },
+    {
       "id": "action_a7600d158eab",
       "rule_id": "unsafe-eval",
       "category": "security",
       "priority": 3.75,
       "max_severity": "high",
+      "classification": "risk",
       "finding_fingerprints": [
         "6617311876d6"
       ],
@@ -669,8 +627,9 @@
       "id": "action_a80a33ee22d9",
       "rule_id": "tests-missing",
       "category": "maintainability",
-      "priority": 1.0,
+      "priority": 0.35,
       "max_severity": "medium",
+      "classification": "advisory",
       "finding_fingerprints": [
         "a5c73f296c92"
       ],
@@ -684,6 +643,7 @@
       "category": "architecture",
       "priority": 0.0,
       "max_severity": "medium",
+      "classification": "advisory",
       "finding_fingerprints": [
         "6a1b6348dfa4"
       ],
@@ -695,23 +655,11 @@
       "id": "action_aac16a38847d",
       "rule_id": "config-in-loop",
       "category": "performance",
-      "priority": 0.75,
+      "priority": 0.26,
       "max_severity": "medium",
+      "classification": "advisory",
       "finding_fingerprints": [
         "74e0d7fbd2a7"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
-      "id": "action_b615f26c5f59",
-      "rule_id": "controller-query-direct",
-      "category": "laravel_best_practice",
-      "priority": 3.0,
-      "max_severity": "high",
-      "finding_fingerprints": [
-        "c7f6b486b121"
       ],
       "files": [
         "app/Http/Controllers/FatController.php"
@@ -723,6 +671,7 @@
       "category": "dry",
       "priority": 0.0,
       "max_severity": "low",
+      "classification": "advisory",
       "finding_fingerprints": [
         "9330e87f4073"
       ],
@@ -736,6 +685,7 @@
       "category": "architecture",
       "priority": 0.0,
       "max_severity": "high",
+      "classification": "advisory",
       "finding_fingerprints": [
         "ce84dfc66f70"
       ],
@@ -744,37 +694,12 @@
       ]
     },
     {
-      "id": "action_cbee788130ca",
-      "rule_id": "controller-inline-validation",
-      "category": "validation",
-      "priority": 0.0,
-      "max_severity": "low",
-      "finding_fingerprints": [
-        "5db12653b441"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
-      "id": "action_ce2fd3433c9e",
-      "rule_id": "static-helper-abuse",
-      "category": "architecture",
-      "priority": 0.0,
-      "max_severity": "medium",
-      "finding_fingerprints": [
-        "15aa7e9e68a5"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
       "id": "action_e936dbc2b736",
       "rule_id": "policy-coverage-on-mutations",
       "category": "security",
       "priority": 3.75,
       "max_severity": "high",
+      "classification": "risk",
       "finding_fingerprints": [
         "a2aef3d335bd"
       ],
@@ -872,7 +797,7 @@
     "dry": {
       "category": "dry",
       "score": null,
-      "raw_score": 98.5,
+      "raw_score": 99.5,
       "weight": 0.0,
       "has_weight": false,
       "finding_count": 2
@@ -888,34 +813,34 @@
     "validation": {
       "category": "validation",
       "score": null,
-      "raw_score": 94.2,
+      "raw_score": 95.0,
       "weight": 0.0,
       "has_weight": false,
-      "finding_count": 2
+      "finding_count": 1
     },
     "architecture": {
       "category": "architecture",
       "score": null,
-      "raw_score": 40.0,
+      "raw_score": 87.8,
       "weight": 0.0,
       "has_weight": false,
-      "finding_count": 6
+      "finding_count": 3
     },
     "performance": {
       "category": "performance",
-      "score": 80.0,
-      "raw_score": 80.0,
+      "score": 93.0,
+      "raw_score": 93.0,
       "weight": 15.0,
       "has_weight": true,
       "finding_count": 4
     },
     "security": {
       "category": "security",
-      "score": 0.0,
-      "raw_score": 0.0,
+      "score": 10.0,
+      "raw_score": 10.0,
       "weight": 25.0,
       "has_weight": true,
-      "finding_count": 7
+      "finding_count": 6
     },
     "accessibility": {
       "category": "accessibility",
@@ -927,11 +852,11 @@
     },
     "laravel_best_practice": {
       "category": "laravel_best_practice",
-      "score": 75.0,
-      "raw_score": 75.0,
+      "score": 96.5,
+      "raw_score": 96.5,
       "weight": 20.0,
       "has_weight": true,
-      "finding_count": 3
+      "finding_count": 2
     },
     "react_best_practice": {
       "category": "react_best_practice",
@@ -951,8 +876,8 @@
     },
     "maintainability": {
       "category": "maintainability",
-      "score": 87.0,
-      "raw_score": 87.0,
+      "score": 95.5,
+      "raw_score": 95.5,
       "weight": 20.0,
       "has_weight": true,
       "finding_count": 16

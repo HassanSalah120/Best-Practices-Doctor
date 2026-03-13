@@ -2,12 +2,21 @@ from pathlib import Path
 
 from core.rule_engine import ALL_RULES, RuleEngine
 from core.ruleset import RuleConfig, Ruleset
-from schemas.facts import Facts, MethodInfo
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.facts import Facts, ClassInfo, MethodInfo, QueryUsage, ValidationUsage
+from schemas.metrics import MethodMetrics
 
 
 def _ruleset_with_only(rule_id: str, config: RuleConfig | None = None) -> Ruleset:
     rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES.keys()}
     rules[rule_id] = config or RuleConfig(enabled=True)
+    return Ruleset(rules=rules, name="balanced")
+
+
+def _ruleset_with_enabled(rule_ids: list[str]) -> Ruleset:
+    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES.keys()}
+    for rule_id in rule_ids:
+        rules[rule_id] = RuleConfig(enabled=True)
     return Ruleset(rules=rules, name="balanced")
 
 
@@ -66,6 +75,29 @@ def test_rule_engine_startup_profile_filters_low_confidence_ast_advisory():
     assert res.filtered_by_confidence >= 1
 
 
+def test_rule_engine_keeps_findings_at_exact_confidence_floor():
+    rs = Ruleset(name="startup")
+    engine = RuleEngine(rs)
+    finding = Finding(
+        rule_id="dummy-advisory-rule",
+        title="Borderline advisory finding",
+        category=Category.MAINTAINABILITY,
+        severity=Severity.LOW,
+        classification=FindingClassification.ADVISORY,
+        file="app/Services/BillingService.php",
+        line_start=10,
+        context="App\\Services\\BillingService::run",
+        description="A finding that sits exactly on the startup advisory floor.",
+        why_it_matters="Threshold equality should be included, not dropped by float noise.",
+        suggested_fix="Keep inclusive threshold handling.",
+        confidence=0.70,
+    )
+
+    kept = engine._apply_confidence_filter([finding])
+
+    assert kept == [finding]
+
+
 def test_rule_engine_applies_bpd_ignore_with_expiry(tmp_path: Path):
     root = tmp_path / "proj"
     routes = root / "routes"
@@ -114,3 +146,89 @@ def test_rule_engine_differential_mode_filters_to_changed_files(tmp_path: Path):
     assert len(res.findings) == 1
     assert res.findings[0].file == "app/Services/A.php"
     assert res.differential_filtered >= 1
+
+
+def test_rule_engine_dedupes_overlapping_controller_findings():
+    facts = Facts(project_path=".")
+    controller_path = "app/Http/Controllers/PatientController.php"
+    facts.controllers.append(
+        ClassInfo(
+            name="PatientController",
+            fqcn="App\\Http\\Controllers\\PatientController",
+            file_path=controller_path,
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=200,
+        )
+    )
+    facts.methods.append(
+        MethodInfo(
+            name="store",
+            class_name="PatientController",
+            class_fqcn="App\\Http\\Controllers\\PatientController",
+            file_path=controller_path,
+            file_hash="deadbeef",
+            line_start=10,
+            line_end=120,
+            loc=111,
+            call_sites=["$request->validate([...])", "Patient::query()->create($data)"],
+        )
+    )
+    facts.validations.append(
+        ValidationUsage(
+            file_path=controller_path,
+            line_number=18,
+            method_name="store",
+            rules={"name": ["required", "string"], "email": ["required", "email"]},
+            validation_type="inline",
+        )
+    )
+    facts.queries.append(
+        QueryUsage(
+            file_path=controller_path,
+            line_number=30,
+            method_name="store",
+            model="Patient",
+            method_chain="query->create",
+            query_type="insert",
+        )
+    )
+
+    metrics = {
+        "App\\Http\\Controllers\\PatientController::store": MethodMetrics(
+            file_path=controller_path,
+            method_fqn="App\\Http\\Controllers\\PatientController::store",
+            cyclomatic_complexity=10,
+            cognitive_complexity=9,
+            nesting_depth=2,
+            has_validation=True,
+            has_query=True,
+            query_count=1,
+            validation_count=1,
+            conditional_count=4,
+            loop_count=0,
+            call_count=2,
+            has_business_logic=True,
+            business_logic_confidence=0.84,
+        )
+    }
+
+    engine = RuleEngine(
+        _ruleset_with_enabled(
+            [
+                "fat-controller",
+                "controller-query-direct",
+                "controller-business-logic",
+                "controller-inline-validation",
+            ]
+        )
+    )
+    result = engine.run(facts, metrics=metrics, project_type="laravel_api")
+
+    assert [finding.rule_id for finding in result.findings] == ["fat-controller"]
+    assert result.deduped_overlap_count >= 3
+    assert result.findings[0].metadata.get("suppressed_overlap_rules") == [
+        "controller-business-logic",
+        "controller-inline-validation",
+        "controller-query-direct",
+    ]

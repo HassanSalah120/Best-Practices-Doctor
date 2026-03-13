@@ -4,7 +4,7 @@ Detects controllers that violate SRP by containing validation, queries, and busi
 """
 from schemas.facts import Facts, MethodInfo
 from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
+from schemas.finding import Finding, FindingClassification, Category, Severity
 from rules.base import Rule
 
 
@@ -23,6 +23,7 @@ class FatControllerRule(Rule):
     description = "Detects controllers with too many responsibilities"
     category = Category.ARCHITECTURE
     default_severity = Severity.HIGH
+    default_classification = FindingClassification.ADVISORY
     applicable_project_types = [
         "laravel_blade",
         "laravel_inertia_react",
@@ -236,7 +237,7 @@ class FatControllerRule(Rule):
         if len(problems) >= 2:
             findings.append(self.create_finding(
                 title=f"Controller logic should be moved to service layers",
-                context=f"{method.class_name}::{method.name}",
+                context=method.method_fqn,
                 file=method.file_path,
                 line_start=method.line_start,
                 line_end=method.line_end,
@@ -252,6 +253,13 @@ class FatControllerRule(Rule):
                 code_example=self._generate_code_example(method),
                 related_methods=[method.method_fqn],
                 tags=["srp", "refactor", "architecture"],
+                classification=FindingClassification.ADVISORY,
+                metadata={
+                    "overlap_group": "controller-layering",
+                    "overlap_scope": method.method_fqn,
+                    "overlap_rank": 400,
+                    "overlap_role": "parent",
+                },
             ))
         
         return findings

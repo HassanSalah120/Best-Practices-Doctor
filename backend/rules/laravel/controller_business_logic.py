@@ -6,7 +6,7 @@ Uses derived metrics (complexity + business logic heuristics); does not parse so
 """
 from schemas.facts import Facts, MethodInfo
 from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
+from schemas.finding import Finding, FindingClassification, Category, Severity
 from rules.base import Rule
 
 
@@ -24,6 +24,7 @@ class ControllerBusinessLogicRule(Rule):
     description = "Detects complex/business logic inside controllers"
     category = Category.ARCHITECTURE
     default_severity = Severity.HIGH
+    default_classification = FindingClassification.ADVISORY
     applicable_project_types = [
         "laravel_blade",
         "laravel_inertia_react",
@@ -132,7 +133,14 @@ class ControllerBusinessLogicRule(Rule):
                         "4. Add unit tests for the extracted logic"
                     ),
                     tags=["architecture", "controllers", "services", "actions"],
+                    classification=FindingClassification.ADVISORY,
                     confidence=confidence,
+                    metadata={
+                        "overlap_group": "controller-layering",
+                        "overlap_scope": m.method_fqn,
+                        "overlap_rank": 200,
+                        "overlap_role": "child",
+                    },
                 )
             )
 

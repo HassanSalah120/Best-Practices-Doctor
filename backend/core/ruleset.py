@@ -76,6 +76,11 @@ class ScoringConfig(BaseModel):
         "high": 15.0,
         "critical": 40.0,
     })
+    classification_multipliers: dict[str, float] = Field(default_factory=lambda: {
+        "defect": 1.0,
+        "risk": 1.0,
+        "advisory": 0.35,
+    })
     # Noise reduction: for LOW/INFO findings, only apply the worst penalty once per file per rule.
     # This prevents e.g. long-method (low) from nuking a category due to many occurrences.
     cap_low_info_per_file_rule: bool = True

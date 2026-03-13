@@ -33,35 +33,27 @@
   "classes_found": 0,
   "methods_found": 0,
   "scores": {
-    "overall": 99.0,
+    "overall": 99.6,
     "grade": "A",
     "architecture": 100.0,
     "dry": 100.0,
     "laravel": 100.0,
-    "react": 53.5,
+    "react": 85.5,
     "complexity": 100.0,
     "security": 100.0,
-    "maintainability": 95.0,
+    "maintainability": 98.2,
     "srp": 100.0,
     "validation": 100.0,
     "performance": 100.0
   },
   "findings": [
     {
-      "id": "finding_02a1c2251d5c",
-      "fingerprint": "02a1c2251d5c",
-      "rule_id": "hardcoded-user-facing-strings",
-      "category": "react_best_practice",
-      "severity": "medium",
-      "file": "resources/js/Pages/BigPage.tsx",
-      "context": "file:resources/js/Pages/BigPage.tsx"
-    },
-    {
       "id": "finding_37175544b890",
       "fingerprint": "37175544b890",
       "rule_id": "inertia-page-missing-head",
       "category": "react_best_practice",
       "severity": "low",
+      "classification": "advisory",
       "file": "resources/js/Pages/SmallPage.tsx",
       "context": "file:resources/js/Pages/SmallPage.tsx"
     },
@@ -71,6 +63,7 @@
       "rule_id": "inertia-page-missing-head",
       "category": "react_best_practice",
       "severity": "low",
+      "classification": "advisory",
       "file": "resources/js/Pages/BigPage.tsx",
       "context": "file:resources/js/Pages/BigPage.tsx"
     },
@@ -80,6 +73,7 @@
       "rule_id": "react-useeffect-fetch-without-abort",
       "category": "react_best_practice",
       "severity": "medium",
+      "classification": "advisory",
       "file": "resources/js/Pages/BigPage.tsx",
       "context": "resources/js/Pages/BigPage.tsx:14:useeffect-fetch"
     },
@@ -89,6 +83,7 @@
       "rule_id": "inline-api-logic",
       "category": "react_best_practice",
       "severity": "high",
+      "classification": "advisory",
       "file": "resources/js/Pages/BigPage.tsx",
       "context": "BigPage"
     },
@@ -98,6 +93,7 @@
       "rule_id": "inline-api-logic",
       "category": "react_best_practice",
       "severity": "high",
+      "classification": "advisory",
       "file": "resources/js/Pages/BigPage.tsx",
       "context": "BigPage"
     },
@@ -107,6 +103,7 @@
       "rule_id": "large-react-component",
       "category": "react_best_practice",
       "severity": "medium",
+      "classification": "advisory",
       "file": "resources/js/Pages/BigPage.tsx",
       "context": "BigPage"
     },
@@ -116,6 +113,7 @@
       "rule_id": "tests-missing",
       "category": "maintainability",
       "severity": "medium",
+      "classification": "advisory",
       "file": "package.json",
       "context": "project:test-suite"
     }
@@ -123,27 +121,16 @@
   "findings_by_file": {},
   "findings_by_category": {},
   "findings_by_severity": {},
+  "findings_by_classification": {},
   "file_summaries": [],
   "action_plan": [
-    {
-      "id": "action_08e755def8f3",
-      "rule_id": "hardcoded-user-facing-strings",
-      "category": "react_best_practice",
-      "priority": 0.0,
-      "max_severity": "medium",
-      "finding_fingerprints": [
-        "02a1c2251d5c"
-      ],
-      "files": [
-        "resources/js/Pages/BigPage.tsx"
-      ]
-    },
     {
       "id": "action_21f8eb9d8cb5",
       "rule_id": "inertia-page-missing-head",
       "category": "react_best_practice",
       "priority": 0.0,
       "max_severity": "low",
+      "classification": "advisory",
       "finding_fingerprints": [
         "37175544b890",
         "4353f1e36957"
@@ -159,6 +146,7 @@
       "category": "react_best_practice",
       "priority": 0.0,
       "max_severity": "medium",
+      "classification": "advisory",
       "finding_fingerprints": [
         "5e90b443681d"
       ],
@@ -170,8 +158,9 @@
       "id": "action_712df1254314",
       "rule_id": "tests-missing",
       "category": "maintainability",
-      "priority": 1.0,
+      "priority": 0.35,
       "max_severity": "medium",
+      "classification": "advisory",
       "finding_fingerprints": [
         "e255b1ef5e9f"
       ],
@@ -185,6 +174,7 @@
       "category": "react_best_practice",
       "priority": 0.0,
       "max_severity": "high",
+      "classification": "advisory",
       "finding_fingerprints": [
         "5e96c98a6e90"
       ],
@@ -198,6 +188,7 @@
       "category": "react_best_practice",
       "priority": 0.0,
       "max_severity": "medium",
+      "classification": "advisory",
       "finding_fingerprints": [
         "7e0a6e030e4d"
       ],
@@ -359,10 +350,10 @@
     "react_best_practice": {
       "category": "react_best_practice",
       "score": null,
-      "raw_score": 53.5,
+      "raw_score": 85.5,
       "weight": 0.0,
       "has_weight": false,
-      "finding_count": 7
+      "finding_count": 6
     },
     "complexity": {
       "category": "complexity",
@@ -374,8 +365,8 @@
     },
     "maintainability": {
       "category": "maintainability",
-      "score": 95.0,
-      "raw_score": 95.0,
+      "score": 98.2,
+      "raw_score": 98.2,
       "weight": 20.0,
       "has_weight": true,
       "finding_count": 1

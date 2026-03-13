@@ -25,7 +25,7 @@
   "classes_found": 1,
   "methods_found": 2,
   "scores": {
-    "overall": 99.0,
+    "overall": 99.6,
     "grade": "A",
     "architecture": 100.0,
     "dry": 100.0,
@@ -33,7 +33,7 @@
     "react": 100.0,
     "complexity": 100.0,
     "security": 100.0,
-    "maintainability": 95.0,
+    "maintainability": 98.2,
     "srp": 100.0,
     "validation": 100.0,
     "performance": 100.0
@@ -45,6 +45,7 @@
       "rule_id": "tests-missing",
       "category": "maintainability",
       "severity": "medium",
+      "classification": "advisory",
       "file": "composer.json",
       "context": "project:test-suite"
     }
@@ -52,14 +53,16 @@
   "findings_by_file": {},
   "findings_by_category": {},
   "findings_by_severity": {},
+  "findings_by_classification": {},
   "file_summaries": [],
   "action_plan": [
     {
       "id": "action_a80a33ee22d9",
       "rule_id": "tests-missing",
       "category": "maintainability",
-      "priority": 1.0,
+      "priority": 0.35,
       "max_severity": "medium",
+      "classification": "advisory",
       "finding_fingerprints": [
         "a5c73f296c92"
       ],
@@ -236,8 +239,8 @@
     },
     "maintainability": {
       "category": "maintainability",
-      "score": 95.0,
-      "raw_score": 95.0,
+      "score": 98.2,
+      "raw_score": 98.2,
       "weight": 20.0,
       "has_weight": true,
       "finding_count": 1

@@ -224,6 +224,7 @@ class FactsBuilder:
         
         # Find enum candidates from string literals
         self._analyze_string_literals()
+        self._analyze_project_context()
         
         logger.info(
             f"Built facts: {len(self._facts.classes)} classes, "
@@ -435,11 +436,12 @@ class FactsBuilder:
             self._init_treesitter()
             
             parsed = False
+            ts_had_errors = False
 
             # Tree-sitter is the primary parser.
             if self._local.php_parser:
                 try:
-                    self._parse_php_treesitter(rel_path, content, file_hash, rel_path, True)
+                    ts_had_errors = self._parse_php_treesitter(rel_path, content, file_hash, rel_path, True)
                     parsed = True
                 except Exception as e:
                     logger.error(f"Tree-sitter parsing failed for {rel_path}: {e}")
@@ -447,6 +449,17 @@ class FactsBuilder:
             # Fallback to regex parsing only if Tree-sitter is unavailable/failed.
             if not parsed:
                 self._parse_php_basic(rel_path, content, file_hash, rel_path)
+            elif ts_had_errors:
+                # Parse-error salvage: recover obvious class-scope members without
+                # duplicating routes/string-literal extraction or clean AST facts.
+                self._parse_php_basic(
+                    rel_path,
+                    content,
+                    file_hash,
+                    rel_path,
+                    include_shared_extracts=False,
+                    dedupe_existing=True,
+                )
 
             # Supplemental heuristics (allowed) that don't compete with structural AST parsing.
             # These run in both Tree-sitter and fallback mode.
@@ -458,13 +471,14 @@ class FactsBuilder:
             logger.warning(f"Error processing {file_path}: {e}")
             self.progress.errors.append(f"{file_path}: {e}")
 
-    def _parse_php_treesitter(self, file_path: str, content: str, file_hash: str, rel_path: str, is_ts: bool = False):
+    def _parse_php_treesitter(self, file_path: str, content: str, file_hash: str, rel_path: str, is_ts: bool = False) -> bool:
         """Parse PHP using Tree-sitter."""
         import tree_sitter
         
         content_bytes = bytes(content, "utf8")
         tree = self._local.php_parser.parse(content_bytes)
         root_node = tree.root_node
+        has_errors = bool(getattr(root_node, "has_error", False))
         
         # --- 1. Basic Queries ---
         
@@ -749,6 +763,7 @@ class FactsBuilder:
                 self._extract_ts_script(root_node, namespace, file_path, file_hash, content)
         except Exception:
             pass
+        return has_errors
 
     def _extract_calls_from_node(self, body_node, content: str) -> tuple[list[str], list[str], list[str]]:
         """Extract call sites/instantiations/throws from a Tree-sitter node (body)."""
@@ -1061,7 +1076,16 @@ class FactsBuilder:
             caps[tag].append(node)
         return caps
 
-    def _parse_php_basic(self, file_path: str, content: str, file_hash: str, rel_path: str):
+    def _parse_php_basic(
+        self,
+        file_path: str,
+        content: str,
+        file_hash: str,
+        rel_path: str,
+        *,
+        include_shared_extracts: bool = True,
+        dedupe_existing: bool = False,
+    ):
         """Basic regex-based PHP parsing (fallback for Tree-sitter)."""
         import re
         
@@ -1092,11 +1116,12 @@ class FactsBuilder:
             # Approximate class location by matching braces.
             cls_line_start = content[:class_match.start()].count("\n") + 1
             cls_line_end = cls_line_start
+            open_brace = -1
+            end_idx = None
             try:
                 open_brace = content.find("{", class_match.end())
                 if open_brace != -1:
                     depth = 0
-                    end_idx = None
                     for i in range(open_brace, len(content)):
                         ch = content[i]
                         if ch == "{":
@@ -1125,12 +1150,15 @@ class FactsBuilder:
                 line_end=cls_line_end,
             )
             
-            self._facts.classes.append(class_info)
+            if not dedupe_existing or not self._has_existing_class_fact(file_path, fqcn):
+                self._facts.classes.append(class_info)
             
             if is_controller:
-                self._facts.controllers.append(class_info)
+                if not dedupe_existing or not self._has_existing_class_fact(file_path, fqcn, bucket="controllers"):
+                    self._facts.controllers.append(class_info)
             elif is_model:
-                self._facts.models.append(class_info)
+                if not dedupe_existing or not self._has_existing_class_fact(file_path, fqcn, bucket="models"):
+                    self._facts.models.append(class_info)
             
             # Find methods
             method_pattern = re.compile(
@@ -1142,6 +1170,11 @@ class FactsBuilder:
                 visibility = match.group(1)
                 method_name = match.group(2)
                 params = match.group(3)
+                if open_brace != -1:
+                    if match.start() < open_brace or (end_idx is not None and match.start() > end_idx):
+                        continue
+                    if self._php_class_scope_depth(content, open_brace, match.start()) != 1:
+                        continue
                 
                 # Find method location
                 method_start = content[:match.start()].count("\n") + 1
@@ -1189,6 +1222,9 @@ class FactsBuilder:
                 
                 method_fqn = f"{namespace}\\{class_name}::{method_name}" if namespace else f"{class_name}::{method_name}"
                 
+                if dedupe_existing and self._has_existing_method_fact(file_path, method_fqn):
+                    continue
+
                 method_info = MethodInfo(
                     name=method_name,
                     class_name=class_name,
@@ -1221,12 +1257,38 @@ class FactsBuilder:
 
                 self._collect_duplicate_candidate(file_path, method_start, method_end, method_body)
         
-        # Check for routes file
-        if "routes/" in rel_path or "routes\\" in rel_path:
-            self._extract_routes(file_path, content)
-        
-        # Collect string literals
-        self._collect_string_literals(file_path, content, lines)
+        if include_shared_extracts:
+            # Check for routes file
+            if "routes/" in rel_path or "routes\\" in rel_path:
+                self._extract_routes(file_path, content)
+            
+            # Collect string literals
+            self._collect_string_literals(file_path, content, lines)
+
+    def _has_existing_class_fact(self, file_path: str, fqcn: str, bucket: str = "classes") -> bool:
+        items = getattr(self._facts, bucket, []) or []
+        return any(
+            str(getattr(item, "file_path", "") or "") == file_path
+            and str(getattr(item, "fqcn", "") or "") == fqcn
+            for item in items
+        )
+
+    def _has_existing_method_fact(self, file_path: str, method_fqn: str) -> bool:
+        return any(
+            str(getattr(item, "file_path", "") or "") == file_path
+            and str(getattr(item, "method_fqn", "") or "") == method_fqn
+            for item in (self._facts.methods or [])
+        )
+
+    def _php_class_scope_depth(self, content: str, class_open_brace: int, position: int) -> int:
+        depth = 1
+        for idx in range(class_open_brace + 1, min(position, len(content))):
+            ch = content[idx]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth = max(0, depth - 1)
+        return depth
     
     def _extract_validation(self, file_path: str, method_name: str, body: str, line_num: int):
         """Extract validation rules from method body."""
@@ -3254,3 +3316,299 @@ class FactsBuilder:
             # Important: do NOT mark literals as enum candidates solely due to frequency.
             # That creates a lot of noise for config keys, cache drivers, etc. We only mark
             # known domain-like values here; rules can still group/score by patterns.
+
+    def _analyze_project_context(self) -> None:
+        """Derive coarse project context signals for noise-aware rules."""
+        context = getattr(self._facts, "project_context", None)
+        if context is None:
+            return
+
+        tenant_mode, tenant_signals = self._detect_tenant_context()
+        context.tenant_mode = tenant_mode
+        context.tenant_signals = tenant_signals[:12]
+
+        react_mode, shared_roots = self._detect_react_structure_context()
+        context.react_structure_mode = react_mode
+        context.react_shared_roots = shared_roots[:12]
+
+        has_i18n, i18n_helpers = self._detect_i18n_context()
+        context.has_i18n = has_i18n
+        context.i18n_helpers = i18n_helpers[:12]
+
+        context.custom_head_wrappers = self._detect_custom_head_wrappers()[:12]
+        context.auth_flow_paths = self._detect_auth_flow_paths()[:20]
+        context.shared_infra_roots = self._detect_shared_infra_roots()[:20]
+
+    def _detect_tenant_context(self) -> tuple[str, list[str]]:
+        strong_markers = (
+            "tenant",
+            "tenant_id",
+            "clinic",
+            "clinic_id",
+            "workspace",
+            "workspace_id",
+            "organization",
+            "organization_id",
+            "tenant_access",
+            "clinic_access",
+        )
+        weak_markers = ("account", "account_id", "practice", "branch")
+
+        strong_hits = 0
+        signals: list[str] = []
+
+        for rel_path in getattr(self._facts, "files", []) or []:
+            low = str(rel_path or "").lower().replace("\\", "/")
+            for marker in strong_markers:
+                if marker in low:
+                    strong_hits += 1
+                    signals.append(f"file:{rel_path}#{marker}")
+                    break
+
+        for route in getattr(self._facts, "routes", []) or []:
+            route_text = " ".join(
+                [
+                    str(getattr(route, "uri", "") or ""),
+                    str(getattr(route, "controller", "") or ""),
+                    " ".join(str(item or "") for item in (getattr(route, "middleware", []) or [])),
+                ]
+            ).lower()
+            for marker in strong_markers:
+                if marker in route_text:
+                    strong_hits += 1
+                    signals.append(f"route:{getattr(route, 'uri', '')}#{marker}")
+                    break
+
+        weak_only = False
+        if strong_hits == 0:
+            for rel_path in getattr(self._facts, "files", []) or []:
+                low = str(rel_path or "").lower().replace("\\", "/")
+                if any(marker in low for marker in weak_markers):
+                    weak_only = True
+                    signals.append(f"weak-file:{rel_path}")
+                    break
+            if not weak_only:
+                for route in getattr(self._facts, "routes", []) or []:
+                    route_text = " ".join(
+                        [
+                            str(getattr(route, "uri", "") or ""),
+                            str(getattr(route, "controller", "") or ""),
+                            str(getattr(route, "action", "") or ""),
+                        ]
+                    ).lower()
+                    if any(marker in route_text for marker in weak_markers):
+                        weak_only = True
+                        signals.append(f"weak-route:{getattr(route, 'uri', '')}")
+                        break
+
+        if strong_hits >= 3 or (strong_hits >= 2 and any("route:" in signal for signal in signals)):
+            return ("tenant", signals)
+        if strong_hits == 0:
+            return ("non_tenant", signals)
+        return ("unknown", signals)
+
+    def _detect_react_structure_context(self) -> tuple[str, list[str]]:
+        import re
+
+        category_roots = {"hooks", "services", "utils", "helpers", "types", "constants", "schemas", "validators"}
+        feature_roots = {"features", "feature", "domains", "domain", "modules", "module"}
+        presentational_roots = {"pages", "page", "layouts", "layout", "components", "component", "screens", "screen"}
+        shared_roots = {"shared", "common", "core"}
+        generic_roots = {"src", "app", "resources", "js", "ts", "frontend", "client", "web", "ui"}
+        support_name_re = re.compile(r"(^use[A-Z])|((?:utils?|helpers?|services?|types?|constants?|schemas?|validators?)$)", re.IGNORECASE)
+
+        frontend_files = [
+            str(path or "")
+            for path in (getattr(self._facts, "files", []) or [])
+            if str(path or "").lower().endswith((".js", ".jsx", ".ts", ".tsx"))
+        ]
+        category_root_hits = 0
+        feature_root_hits = 0
+        colocated_support_hits = 0
+        detected_shared_roots: set[str] = set()
+
+        for file_path in frontend_files:
+            segments = self._strip_frontend_root_segments(file_path)
+            if not segments:
+                continue
+            first = segments[0].lower()
+            stem = Path(file_path).stem
+
+            if first in category_roots:
+                category_root_hits += 1
+                detected_shared_roots.add(first)
+            elif first in shared_roots:
+                detected_shared_roots.add(first)
+
+            if first in feature_roots:
+                feature_root_hits += 1
+
+            if first in presentational_roots and support_name_re.search(stem):
+                colocated_support_hits += 1
+
+            if len(segments) > 1 and segments[0].lower() in category_roots and segments[1].lower() not in generic_roots:
+                detected_shared_roots.add(f"{segments[0].lower()}/{segments[1].lower()}")
+
+        if (feature_root_hits >= 2 and category_root_hits >= 2) or (colocated_support_hits >= 2 and category_root_hits >= 1):
+            return ("hybrid", sorted(detected_shared_roots))
+        if feature_root_hits >= 2 or colocated_support_hits >= 3:
+            return ("feature-first", sorted(detected_shared_roots))
+        if category_root_hits >= 3:
+            return ("category-based", sorted(detected_shared_roots))
+        return ("unknown", sorted(detected_shared_roots))
+
+    def _detect_i18n_context(self) -> tuple[bool, list[str]]:
+        import re
+
+        helpers: set[str] = set()
+        has_i18n = False
+        package_markers = {
+            "i18next": "i18next",
+            "react-i18next": "useTranslation",
+            "react-intl": "formatMessage",
+            "@lingui": "lingui",
+            "next-intl": "next-intl",
+        }
+
+        for rel_path in getattr(self._facts, "files", []) or []:
+            low = str(rel_path or "").lower().replace("\\", "/")
+            if any(marker in low for marker in ("/lang/", "/locales/", "/i18n/", "/translations/")):
+                has_i18n = True
+            if low.endswith("package.json"):
+                content = self._read_project_file(str(rel_path))
+                low_content = content.lower()
+                for marker, helper in package_markers.items():
+                    if marker in low_content:
+                        has_i18n = True
+                        helpers.add(helper)
+
+        for rel_path in list(getattr(self._facts, "files", []) or [])[:120]:
+            low = str(rel_path or "").lower()
+            if not low.endswith((".js", ".jsx", ".ts", ".tsx")):
+                continue
+            content = self._read_project_file(str(rel_path))
+            if not content:
+                continue
+            if "useTranslation" in content:
+                has_i18n = True
+                helpers.add("useTranslation")
+            if "formatMessage(" in content:
+                has_i18n = True
+                helpers.add("formatMessage")
+            if "<Trans" in content:
+                has_i18n = True
+                helpers.add("<Trans")
+            if re.search(r"\bt\s*\(\s*['\"]", content):
+                has_i18n = True
+                helpers.add("t")
+
+        return has_i18n, sorted(helpers)
+
+    def _detect_custom_head_wrappers(self) -> list[str]:
+        import re
+
+        wrappers: set[str] = set()
+        component_name_re = re.compile(r"\bexport\s+(?:default\s+)?(?:function|const)\s+([A-Z][A-Za-z0-9_]*)")
+        name_hint_re = re.compile(r"(Head|Seo|Meta|MetaTags)$")
+
+        for rel_path in getattr(self._facts, "files", []) or []:
+            low = str(rel_path or "").lower().replace("\\", "/")
+            if not low.endswith((".js", ".jsx", ".ts", ".tsx")):
+                continue
+            if not any(token in low for token in ("/seo/", "/head/", "/meta/", "seo", "head", "meta")):
+                continue
+            content = self._read_project_file(str(rel_path))
+            if not content:
+                continue
+            for name in component_name_re.findall(content):
+                if name == "Head":
+                    continue
+                if name_hint_re.search(name):
+                    wrappers.add(name)
+
+        return sorted(wrappers)
+
+    def _detect_auth_flow_paths(self) -> list[str]:
+        auth_markers = ("auth", "login", "logout", "register", "password", "reset", "forgot", "verify", "verification", "twofactor", "confirm")
+        found: set[str] = set()
+
+        for rel_path in getattr(self._facts, "files", []) or []:
+            low = str(rel_path or "").lower().replace("\\", "/")
+            if any(marker in low for marker in auth_markers):
+                found.add(str(rel_path))
+
+        for route in getattr(self._facts, "routes", []) or []:
+            route_bits = " ".join(
+                [
+                    str(getattr(route, "uri", "") or ""),
+                    str(getattr(route, "controller", "") or ""),
+                    str(getattr(route, "action", "") or ""),
+                ]
+            ).lower()
+            if any(marker in route_bits for marker in auth_markers):
+                if getattr(route, "file_path", None):
+                    found.add(str(route.file_path))
+                controller = str(getattr(route, "controller", "") or "").strip()
+                action = str(getattr(route, "action", "") or "").strip()
+                if controller and action:
+                    found.add(f"{controller}::{action}")
+
+        for method in getattr(self._facts, "methods", []) or []:
+            method_bits = " ".join(
+                [
+                    str(getattr(method, "file_path", "") or ""),
+                    str(getattr(method, "class_name", "") or ""),
+                    str(getattr(method, "name", "") or ""),
+                ]
+            ).lower().replace("\\", "/")
+            if any(marker in method_bits for marker in auth_markers):
+                found.add(str(method.file_path))
+                found.add(method.method_fqn)
+
+        return sorted(found)
+
+    def _detect_shared_infra_roots(self) -> list[str]:
+        markers = (
+            ("app/Providers/", "app/Providers"),
+            ("app/Console/", "app/Console"),
+            ("app/Exceptions/", "app/Exceptions"),
+            ("app/Http/Middleware/", "app/Http/Middleware"),
+            ("app/Policies/", "app/Policies"),
+            ("app/Listeners/", "app/Listeners"),
+            ("resources/js/layouts/", "resources/js/layouts"),
+            ("resources/js/components/", "resources/js/components"),
+            ("resources/js/shared/", "resources/js/shared"),
+            ("resources/js/i18n/", "resources/js/i18n"),
+            ("resources/js/hooks/", "resources/js/hooks"),
+            ("resources/js/utils/", "resources/js/utils"),
+        )
+        found: set[str] = set()
+        for rel_path in getattr(self._facts, "files", []) or []:
+            low = str(rel_path or "").replace("\\", "/")
+            for marker, normalized in markers:
+                if low.startswith(marker):
+                    found.add(normalized)
+        return sorted(found)
+
+    def _strip_frontend_root_segments(self, file_path: str) -> list[str]:
+        segments = [segment for segment in normalize_rel_path(file_path).split("/") if segment]
+        prefix_pairs = (
+            ("resources", "js"),
+            ("resources", "ts"),
+            ("frontend", "src"),
+            ("client", "src"),
+            ("web", "src"),
+            ("ui", "src"),
+        )
+        for first, second in prefix_pairs:
+            if len(segments) >= 2 and segments[0].lower() == first and segments[1].lower() == second:
+                return segments[2:]
+        if segments and segments[0].lower() in {"src", "app"}:
+            return segments[1:]
+        return segments
+
+    def _read_project_file(self, rel_path: str) -> str:
+        try:
+            return (self.project_path / normalize_rel_path(rel_path)).read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            return ""

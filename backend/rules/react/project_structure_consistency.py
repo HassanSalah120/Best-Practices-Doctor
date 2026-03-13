@@ -201,7 +201,8 @@ class ReactProjectStructureConsistencyRule(Rule):
 
         scale = self._project_scale(frontend_files, candidates, facts)
         importers = self._resolve_importers(facts, frontend_files)
-        pattern = self._infer_pattern(candidates)
+        context_pattern = self._pattern_from_project_context(facts)
+        pattern = context_pattern or self._infer_pattern(candidates)
 
         kind_issues = self._build_kind_issues(candidates, pattern, scale)
         buried_shared = self._find_buried_shared_files(candidates, importers)
@@ -232,7 +233,11 @@ class ReactProjectStructureConsistencyRule(Rule):
 
         findings: list[Finding] = []
 
-        if issue_score >= self._overall_threshold(scale, candidates):
+        threshold = self._overall_threshold(scale, candidates)
+        if context_pattern and context_pattern != "mixed-chaotic":
+            threshold += 1
+
+        if issue_score >= threshold:
             examples = self._overall_examples(kind_issues, buried_shared, global_single_domain, duplicate_groups, naming_issues)
             severity = self._severity_from_score(issue_score)
             findings.append(
@@ -299,6 +304,21 @@ class ReactProjectStructureConsistencyRule(Rule):
                 continue
             files.append(file_path)
         return sorted(set(files))
+
+    def _pattern_from_project_context(self, facts: Facts) -> str | None:
+        project_context = getattr(facts, "project_context", None)
+        if project_context is None:
+            return None
+
+        mode = str(getattr(project_context, "react_structure_mode", "unknown") or "unknown").strip().lower()
+        shared_roots = set(getattr(project_context, "react_shared_roots", []) or [])
+        if mode == "category-based":
+            return "category-based"
+        if mode == "hybrid":
+            return "hybrid"
+        if mode == "feature-first":
+            return "hybrid-feature-with-shared" if shared_roots else "feature-based"
+        return None
 
     def _build_candidate(self, file_path: str) -> StructureCandidate | None:
         segments = tuple(self._strip_frontend_root(file_path))

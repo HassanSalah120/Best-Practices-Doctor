@@ -25,35 +25,27 @@
   "classes_found": 1,
   "methods_found": 1,
   "scores": {
-    "overall": 92.2,
+    "overall": 95.9,
     "grade": "A",
-    "architecture": 70.0,
+    "architecture": 94.8,
     "dry": 100.0,
-    "laravel": 85.0,
+    "laravel": 100.0,
     "react": 100.0,
     "complexity": 100.0,
     "security": 85.0,
-    "maintainability": 95.0,
+    "maintainability": 98.2,
     "srp": 100.0,
-    "validation": 80.0,
+    "validation": 95.0,
     "performance": 100.0
   },
   "findings": [
-    {
-      "id": "finding_00e4760daacd",
-      "fingerprint": "00e4760daacd",
-      "rule_id": "controller-query-direct",
-      "category": "laravel_best_practice",
-      "severity": "high",
-      "file": "app/Http/Controllers/UserController.php",
-      "context": "App\\Http\\Controllers\\UserController::store"
-    },
     {
       "id": "finding_13f9115493f6",
       "fingerprint": "13f9115493f6",
       "rule_id": "missing-form-request",
       "category": "validation",
       "severity": "medium",
+      "classification": "defect",
       "file": "app/Http/Controllers/UserController.php",
       "context": "store"
     },
@@ -63,15 +55,7 @@
       "rule_id": "policy-coverage-on-mutations",
       "category": "security",
       "severity": "high",
-      "file": "app/Http/Controllers/UserController.php",
-      "context": "App\\Http\\Controllers\\UserController::store"
-    },
-    {
-      "id": "finding_4f20c26b9306",
-      "fingerprint": "4f20c26b9306",
-      "rule_id": "controller-business-logic",
-      "category": "architecture",
-      "severity": "high",
+      "classification": "risk",
       "file": "app/Http/Controllers/UserController.php",
       "context": "App\\Http\\Controllers\\UserController::store"
     },
@@ -81,54 +65,50 @@
       "rule_id": "low-coverage-files",
       "category": "maintainability",
       "severity": "medium",
+      "classification": "advisory",
       "file": "app/Http/Controllers/UserController.php",
       "context": "coverage:below-threshold"
     },
     {
-      "id": "finding_6e610b72b2b6",
-      "fingerprint": "6e610b72b2b6",
-      "rule_id": "controller-inline-validation",
-      "category": "validation",
-      "severity": "high",
-      "file": "app/Http/Controllers/UserController.php",
-      "context": "App\\Http\\Controllers\\UserController::store"
-    },
-    {
-      "id": "finding_9f6b6af6a582",
-      "fingerprint": "9f6b6af6a582",
+      "id": "finding_66f69b5556b2",
+      "fingerprint": "66f69b5556b2",
       "rule_id": "fat-controller",
       "category": "architecture",
       "severity": "high",
+      "classification": "advisory",
       "file": "app/Http/Controllers/UserController.php",
-      "context": "UserController::store"
+      "context": "App\\Http\\Controllers\\UserController::store"
     }
   ],
   "findings_by_file": {},
   "findings_by_category": {},
   "findings_by_severity": {},
+  "findings_by_classification": {},
   "file_summaries": [],
   "action_plan": [
     {
-      "id": "action_1936eab75081",
-      "rule_id": "policy-coverage-on-mutations",
-      "category": "security",
-      "priority": 3.75,
+      "id": "action_10a802afa1a3",
+      "rule_id": "fat-controller",
+      "category": "architecture",
+      "priority": 0.0,
       "max_severity": "high",
+      "classification": "advisory",
       "finding_fingerprints": [
-        "408c140509bb"
+        "66f69b5556b2"
       ],
       "files": [
         "app/Http/Controllers/UserController.php"
       ]
     },
     {
-      "id": "action_2baa1a272c43",
-      "rule_id": "controller-inline-validation",
-      "category": "validation",
-      "priority": 0.0,
+      "id": "action_1936eab75081",
+      "rule_id": "policy-coverage-on-mutations",
+      "category": "security",
+      "priority": 3.75,
       "max_severity": "high",
+      "classification": "risk",
       "finding_fingerprints": [
-        "6e610b72b2b6"
+        "408c140509bb"
       ],
       "files": [
         "app/Http/Controllers/UserController.php"
@@ -140,47 +120,9 @@
       "category": "validation",
       "priority": 0.0,
       "max_severity": "medium",
+      "classification": "defect",
       "finding_fingerprints": [
         "13f9115493f6"
-      ],
-      "files": [
-        "app/Http/Controllers/UserController.php"
-      ]
-    },
-    {
-      "id": "action_d5a2f5ccaecb",
-      "rule_id": "controller-query-direct",
-      "category": "laravel_best_practice",
-      "priority": 3.0,
-      "max_severity": "high",
-      "finding_fingerprints": [
-        "00e4760daacd"
-      ],
-      "files": [
-        "app/Http/Controllers/UserController.php"
-      ]
-    },
-    {
-      "id": "action_e44f3e6a2c11",
-      "rule_id": "controller-business-logic",
-      "category": "architecture",
-      "priority": 0.0,
-      "max_severity": "high",
-      "finding_fingerprints": [
-        "4f20c26b9306"
-      ],
-      "files": [
-        "app/Http/Controllers/UserController.php"
-      ]
-    },
-    {
-      "id": "action_e8b3e57b3027",
-      "rule_id": "fat-controller",
-      "category": "architecture",
-      "priority": 0.0,
-      "max_severity": "high",
-      "finding_fingerprints": [
-        "9f6b6af6a582"
       ],
       "files": [
         "app/Http/Controllers/UserController.php"
@@ -190,8 +132,9 @@
       "id": "action_f5fb2f2ee7f8",
       "rule_id": "low-coverage-files",
       "category": "maintainability",
-      "priority": 1.0,
+      "priority": 0.35,
       "max_severity": "medium",
+      "classification": "advisory",
       "finding_fingerprints": [
         "592690769583"
       ],
@@ -305,18 +248,18 @@
     "validation": {
       "category": "validation",
       "score": null,
-      "raw_score": 80.0,
+      "raw_score": 95.0,
       "weight": 0.0,
       "has_weight": false,
-      "finding_count": 2
+      "finding_count": 1
     },
     "architecture": {
       "category": "architecture",
       "score": null,
-      "raw_score": 70.0,
+      "raw_score": 94.8,
       "weight": 0.0,
       "has_weight": false,
-      "finding_count": 2
+      "finding_count": 1
     },
     "performance": {
       "category": "performance",
@@ -344,11 +287,11 @@
     },
     "laravel_best_practice": {
       "category": "laravel_best_practice",
-      "score": 85.0,
-      "raw_score": 85.0,
+      "score": 100.0,
+      "raw_score": 100.0,
       "weight": 20.0,
       "has_weight": true,
-      "finding_count": 1
+      "finding_count": 0
     },
     "react_best_practice": {
       "category": "react_best_practice",
@@ -368,8 +311,8 @@
     },
     "maintainability": {
       "category": "maintainability",
-      "score": 95.0,
-      "raw_score": 95.0,
+      "score": 98.2,
+      "raw_score": 98.2,
       "weight": 20.0,
       "has_weight": true,
       "finding_count": 1

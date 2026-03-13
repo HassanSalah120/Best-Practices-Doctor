@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from typing import Any
 
 from .finding import Finding
+from .finding import FindingClassification
 from .finding import Severity
 from .project_type import ProjectInfo
 
@@ -104,6 +105,7 @@ class ActionItem(BaseModel):
     # Prioritization (higher = do sooner)
     priority: float = 0.0
     max_severity: Severity = Severity.LOW
+    classification: FindingClassification = FindingClassification.ADVISORY
 
     # Traceability
     finding_fingerprints: list[str] = Field(default_factory=list)
@@ -172,6 +174,7 @@ class ScanReport(BaseModel):
     findings_by_file: dict[str, list[str]] = Field(default_factory=dict)  # file -> finding IDs
     findings_by_category: dict[str, list[str]] = Field(default_factory=dict)  # category -> finding IDs
     findings_by_severity: dict[str, int] = Field(default_factory=dict)  # severity -> count
+    findings_by_classification: dict[str, int] = Field(default_factory=dict)  # classification -> count
     
     # File summaries
     file_summaries: list[FileSummary] = Field(default_factory=list)
@@ -201,6 +204,7 @@ class ScanReport(BaseModel):
         self.findings_by_file.clear()
         self.findings_by_category.clear()
         self.findings_by_severity.clear()
+        self.findings_by_classification.clear()
         
         for finding in self.findings:
             # By file
@@ -217,3 +221,9 @@ class ScanReport(BaseModel):
             # By severity
             sev = finding.severity.value
             self.findings_by_severity[sev] = self.findings_by_severity.get(sev, 0) + 1
+
+            # By classification
+            classification = finding.classification.value
+            self.findings_by_classification[classification] = (
+                self.findings_by_classification.get(classification, 0) + 1
+            )
