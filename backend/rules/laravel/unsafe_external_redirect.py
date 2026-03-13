@@ -64,6 +64,12 @@ class UnsafeExternalRedirectRule(Rule):
         "redirector",
         "validatedredirect",
         "safaredirect",
+        "sanitize(",
+        "isallowed(",
+        "resolvedashboardurl",
+        "resolvepayment",
+        "resolvepaymentredirect",
+        "resolveredirect",
     )
     _SIMPLE_VAR = re.compile(r"^\$(?P<name>[A-Za-z_][A-Za-z0-9_]*)$")
 
@@ -90,7 +96,8 @@ class UnsafeExternalRedirectRule(Rule):
             if "$" not in expr:
                 continue
             local_window, line = self._local_window(text, match.start())
-            if self._is_trusted_redirect(expr, local_window):
+            method_window = self._method_window(text, match.start())
+            if self._is_trusted_redirect(expr, local_window, method_window):
                 continue
             return [
                 self.create_finding(
@@ -132,16 +139,29 @@ class UnsafeExternalRedirectRule(Rule):
         matches.sort(key=lambda item: item[0].start())
         return matches
 
-    def _local_window(self, text: str, start_idx: int, before: int = 8, after: int = 4) -> tuple[str, int]:
+    def _local_window(self, text: str, start_idx: int, before: int = 16, after: int = 8) -> tuple[str, int]:
         lines = text.splitlines()
         line = text.count("\n", 0, start_idx) + 1
         start_line = max(0, line - before - 1)
         end_line = min(len(lines), line + after)
         return ("\n".join(lines[start_line:end_line]), line)
 
-    def _is_trusted_redirect(self, expr: str, local_window: str) -> bool:
+    def _method_window(self, text: str, start_idx: int) -> str:
+        before = text.rfind("function", 0, start_idx)
+        start = 0 if before == -1 else before
+        after = text.find("\n    public function", start_idx)
+        if after == -1:
+            after = text.find("\n    protected function", start_idx)
+        if after == -1:
+            after = text.find("\n    private function", start_idx)
+        if after == -1:
+            after = len(text)
+        return text[start:after]
+
+    def _is_trusted_redirect(self, expr: str, local_window: str, method_window: str) -> bool:
         expr_low = expr.lower()
         window_low = local_window.lower()
+        method_low = (method_window or "").lower()
 
         if any(builder.lower() in expr_low for builder in self._TRUSTED_URL_BUILDERS):
             return True
@@ -160,12 +180,18 @@ class UnsafeExternalRedirectRule(Rule):
             for signal in self._LOCAL_VALIDATION_SIGNALS:
                 if re.search(
                     rf"\${re.escape(var_name)}\b[^\n]*{re.escape(signal)}",
-                    local_window,
+                    method_window,
                     re.IGNORECASE,
                 ):
                     return True
+            if re.search(
+                rf"\${re.escape(var_name)}\s*=\s*[^;\n]*(resolve[a-z0-9_]*url|sanitize|trusted[a-z0-9_]*redirect|route\(|to_route\(|url\()",
+                method_window,
+                re.IGNORECASE,
+            ):
+                return True
 
-        return any(signal.lower() in window_low for signal in self._LOCAL_VALIDATION_SIGNALS)
+        return any(signal.lower() in window_low or signal.lower() in method_low for signal in self._LOCAL_VALIDATION_SIGNALS)
 
     def _extract_simple_var_name(self, expr: str) -> str | None:
         match = self._SIMPLE_VAR.match(expr.strip())

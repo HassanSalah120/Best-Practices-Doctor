@@ -53,7 +53,7 @@ class EnumSuggestionRule(Rule):
         "required", "nullable", "sometimes", "unique", "exists",
         "action", "cancelled", "id", "name", "email", "password",
         "iso2", "dial_code", "name_en", "name_ar", "max_users", "max_patients",
-        "id", "ip_address", "date", "type", "action", "clinic",
+        "id", "ip_address", "date", "type", "action", "clinic", "like", "asc", "desc",
     }
     _NOISE_CONTEXTS = {
         "heading",
@@ -243,6 +243,8 @@ class EnumSuggestionRule(Rule):
         normalized = re.sub(r"[^a-z0-9_]+", "_", raw).strip("_")
         if not normalized or normalized in self._FRAMEWORK_NOISE or normalized in self._NOISE_CONTEXTS:
             return ""
+        if normalized.endswith("_name") or normalized.endswith("_title") or normalized.endswith("_label"):
+            return ""
         return normalized
 
     def _is_actionable_context_cluster(
@@ -257,6 +259,8 @@ class EnumSuggestionRule(Rule):
         if any(value.isdigit() for value in cleaned_values):
             return False
         if cleaned_values.issubset(self._NOISE_VALUES):
+            return False
+        if any(self._looks_like_column_identifier(value) for value in cleaned_values):
             return False
         if any(value[:1].isupper() for value in values if value) and context in {"headings", "labels", "columns"}:
             return False
@@ -277,6 +281,18 @@ class EnumSuggestionRule(Rule):
             or normalized.endswith(f"_{hint}")
             or normalized.startswith(f"{hint}_")
             for hint in self._ENUM_CONTEXT_HINTS
+        )
+
+    def _looks_like_column_identifier(self, value: str) -> bool:
+        normalized = str(value or "").strip().lower()
+        if not normalized:
+            return False
+        if normalized in self._FRAMEWORK_NOISE:
+            return True
+        if normalized in {"first_name", "last_name", "full_name", "clinic_name", "email", "phone_number"}:
+            return True
+        return bool(re.fullmatch(r"[a-z]+(?:_[a-z0-9]+)+", normalized)) and normalized.endswith(
+            ("_id", "_name", "_email", "_title", "_label", "_at", "_code")
         )
 
     def _tokenize_enum_name(self, enum_name: str) -> set[str]:

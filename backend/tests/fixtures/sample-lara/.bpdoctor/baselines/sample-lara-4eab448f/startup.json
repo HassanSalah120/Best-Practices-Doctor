@@ -1,28 +1,16 @@
 {
   "counts_by_rule": {
-    "controller-business-logic": 1,
-    "controller-inline-validation": 1,
-    "controller-query-direct": 1,
     "fat-controller": 1,
     "low-coverage-files": 1,
     "missing-form-request": 1,
     "policy-coverage-on-mutations": 1
   },
   "counts_by_severity": {
-    "high": 5,
+    "high": 2,
     "medium": 2
   },
-  "finding_count": 7,
+  "finding_count": 4,
   "findings": [
-    {
-      "category": "laravel_best_practice",
-      "confidence": 1.0,
-      "file": "app/Http/Controllers/UserController.php",
-      "fingerprint": "00e4760daacd",
-      "line_start": 19,
-      "rule_id": "controller-query-direct",
-      "severity": "high"
-    },
     {
       "category": "validation",
       "confidence": 1.0,
@@ -42,15 +30,6 @@
       "severity": "high"
     },
     {
-      "category": "architecture",
-      "confidence": 0.825,
-      "file": "app/Http/Controllers/UserController.php",
-      "fingerprint": "4f20c26b9306",
-      "line_start": 11,
-      "rule_id": "controller-business-logic",
-      "severity": "high"
-    },
-    {
       "category": "maintainability",
       "confidence": 0.8,
       "file": "app/Http/Controllers/UserController.php",
@@ -60,37 +39,25 @@
       "severity": "medium"
     },
     {
-      "category": "validation",
-      "confidence": 0.8300000000000001,
-      "file": "app/Http/Controllers/UserController.php",
-      "fingerprint": "6e610b72b2b6",
-      "line_start": 13,
-      "rule_id": "controller-inline-validation",
-      "severity": "high"
-    },
-    {
       "category": "architecture",
       "confidence": 1.0,
       "file": "app/Http/Controllers/UserController.php",
-      "fingerprint": "9f6b6af6a582",
+      "fingerprint": "66f69b5556b2",
       "line_start": 11,
       "rule_id": "fat-controller",
       "severity": "high"
     }
   ],
   "fingerprints": [
-    "00e4760daacd",
     "13f9115493f6",
     "408c140509bb",
-    "4f20c26b9306",
     "592690769583",
-    "6e610b72b2b6",
-    "9f6b6af6a582"
+    "66f69b5556b2"
   ],
   "profile": "startup",
   "project_path": "G:/Best-Practices-Doctor/backend/tests/fixtures/sample-lara",
   "project_slug": "sample-lara-4eab448f",
-  "report_hash": "fcab30f04102",
+  "report_hash": "59b8ace7c033",
   "schema_version": 2,
-  "updated_at": "2026-03-13T16:30:17.310885+00:00"
+  "updated_at": "2026-03-13T19:55:09.885425+00:00"
 }

@@ -259,6 +259,54 @@ class TwoFactorEmailController {
     assert findings == []
 
 
+def test_unsafe_external_redirect_skips_resolved_dashboard_url_action():
+    rule = UnsafeExternalRedirectRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+<?php
+class TwoFactorEmailController {
+    public function create(Request $request) {
+        $dashboardUrl = $this->resolveDashboardUrl->execute($request);
+
+        if (session('two_factor_email_verified')) {
+            return redirect()->to($dashboardUrl);
+        }
+
+        return redirect()->to($dashboardUrl);
+    }
+}
+"""
+
+    findings = rule.analyze_regex("app/Http/Controllers/Auth/TwoFactorEmailController.php", content, facts)
+    assert findings == []
+
+
+def test_unsafe_external_redirect_skips_method_scoped_redirect_validation():
+    rule = UnsafeExternalRedirectRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+<?php
+class PatientFinancialController {
+    public function initiatePayment(Request $request) {
+        $redirectUrl = $this->initiatePayment->execute($request);
+
+        if (! is_string($redirectUrl)) {
+            abort(422);
+        }
+
+        if (! $this->redirectValidator->isAllowed($redirectUrl)) {
+            abort(422);
+        }
+
+        return redirect()->away($redirectUrl);
+    }
+}
+"""
+
+    findings = rule.analyze_regex("app/Http/Controllers/PatientFinancialController.php", content, facts)
+    assert findings == []
+
+
 def test_unsafe_external_redirect_still_flags_signed_request_driven_redirect():
     rule = UnsafeExternalRedirectRule(RuleConfig())
     facts = Facts(project_path=".")

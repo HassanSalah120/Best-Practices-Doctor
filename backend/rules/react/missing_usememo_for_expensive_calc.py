@@ -94,6 +94,9 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
         re.compile(r"format[A-Z][a-zA-Z]*\s*\(", re.IGNORECASE),
         re.compile(r"to[A-Z][a-zA-Z]*String\s*\(", re.IGNORECASE),
         re.compile(r"parse[A-Z][a-zA-Z]*\s*\(", re.IGNORECASE),
+        # Small object tag/metadata rendering is usually cheap.
+        re.compile(r"Object\.entries\s*\(\s*[^)]*\?\?\s*\{\s*\}\s*\)\s*\.\s*map", re.IGNORECASE),
+        re.compile(r"Object\.entries\s*\(\s*[^)]*\b(meta|metadata|attrs|attributes|params|query)\b[^)]*\)\s*\.\s*map", re.IGNORECASE),
     ]
     
     # Files that should be excluded (not React components)

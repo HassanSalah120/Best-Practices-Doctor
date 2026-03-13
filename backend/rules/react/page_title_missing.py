@@ -106,6 +106,7 @@ class PageTitleMissingRule(Rule):
         re.compile(r"\.utils?\.tsx?$", re.IGNORECASE),  # Utility files (e.g., Show.utils.ts)
         re.compile(r"/utils?\.tsx?$", re.IGNORECASE),  # Standalone utils.ts files
         re.compile(r"/utils?/", re.IGNORECASE),  # Utils directory
+        re.compile(r"/utilities?/", re.IGNORECASE),  # Utilities directory
         re.compile(r"[A-Z][a-zA-Z]*Utils\.ts$", re.IGNORECASE),  # XxUtils.ts (e.g., invoiceUtils.ts)
         re.compile(r"\.helpers?\.tsx?$", re.IGNORECASE),  # Helper files (e.g., branding.helpers.ts)
         re.compile(r"/helpers?\.tsx?$", re.IGNORECASE),  # Standalone helpers.ts files

@@ -8,6 +8,7 @@ from rules.laravel.controller_query_direct import ControllerQueryDirectRule
 from rules.laravel.controller_validation_inline import ControllerInlineValidationRule
 from rules.laravel.custom_exception_suggestion import CustomExceptionSuggestionRule
 from rules.laravel.massive_model import MassiveModelRule
+from rules.php.too_many_dependencies import TooManyDependenciesRule
 from schemas.facts import Facts, ClassInfo, MethodInfo, QueryUsage, RouteInfo, ValidationUsage
 from schemas.metrics import MethodMetrics
 
@@ -585,6 +586,65 @@ def test_controller_business_logic_skips_tiny_service_delegation():
     }
 
     findings = ControllerBusinessLogicRule(RuleConfig()).analyze(facts, metrics)
+    assert findings == []
+
+
+def test_controller_business_logic_skips_auth_flow_action_orchestration():
+    facts = Facts(project_path=".")
+    controller_path = "app/Http/Controllers/Auth/EmailVerificationNotificationController.php"
+    controller = _controller("EmailVerificationNotificationController", controller_path)
+    method = _method(
+        "EmailVerificationNotificationController",
+        "store",
+        controller.file_path,
+        call_sites=["$this->sendVerification->execute($request->user())", "redirect()->intended(route('dashboard'))"],
+    )
+    method.loc = 24
+    facts.controllers.append(controller)
+    facts.methods.append(method)
+    facts.project_context.auth_flow_paths = [controller_path, method.method_fqn]
+    metrics = {
+        method.method_fqn: MethodMetrics(
+            method_fqn=method.method_fqn,
+            file_path=method.file_path,
+            cyclomatic_complexity=3,
+            conditional_count=2,
+            query_count=0,
+            validation_count=0,
+            loop_count=0,
+            has_business_logic=True,
+            business_logic_confidence=0.8,
+        )
+    }
+
+    findings = ControllerBusinessLogicRule(RuleConfig()).analyze(facts, metrics)
+    assert findings == []
+
+
+def test_too_many_dependencies_skips_controller_facade_orchestrator_pattern():
+    facts = Facts(project_path=".")
+    ctor = MethodInfo(
+        name="__construct",
+        class_name="CommunicationController",
+        class_fqcn="App\\Http\\Controllers\\Clinic\\CommunicationController",
+        file_path="app/Http/Controllers/Clinic/CommunicationController.php",
+        file_hash="deadbeef",
+        line_start=10,
+        line_end=18,
+        loc=9,
+        parameters=[
+            "CommunicationServiceInterface $communication",
+            "ClinicMailServiceInterface $clinicMail",
+            "PatientServiceInterface $patients",
+            "SendManualMessageAction $sendMessage",
+            "GetConnectionStatusAction $getConnectionStatus",
+            "SendTestMessageAction $sendTestMessage",
+            "SendTestEmailAction $sendTestEmail",
+        ],
+    )
+    facts.methods.append(ctor)
+
+    findings = TooManyDependenciesRule(RuleConfig()).analyze(facts)
     assert findings == []
 
 

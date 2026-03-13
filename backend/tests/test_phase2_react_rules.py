@@ -181,3 +181,15 @@ export const columns = [
 """
     findings = rule.analyze_regex("resources/js/Pages/Patients/Show.tsx", content, facts)
     assert findings == []
+
+
+def test_page_title_missing_skips_utilities_index_module():
+    rule = PageTitleMissingRule(RuleConfig())
+    facts = Facts(project_path="x")
+    content = """
+export const DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
+export const DAY_ABBREV = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+"""
+
+    findings = rule.analyze_regex("resources/js/utilities/schedule/index.ts", content, facts)
+    assert findings == []

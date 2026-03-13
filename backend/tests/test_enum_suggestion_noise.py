@@ -175,3 +175,16 @@ def test_string_literal_collection_extracts_comparison_context_for_enum_detectio
         pending_literal = next((s for s in facts.string_literals if s.value == "pending"), None)
         assert pending_literal is not None
         assert any((occ.context or "") == "status" for occ in pending_literal.occurrences)
+
+
+def test_enum_suggestion_skips_column_name_contexts():
+    facts = Facts(project_path="x")
+    facts.string_literals = [
+        StringLiteral(value="Clinic", occurrences=[("app/Repositories/PatientRepository.php", 46, "last_name")]),
+        StringLiteral(value="Owner", occurrences=[("app/Repositories/PatientRepository.php", 47, "last_name")]),
+        StringLiteral(value="like", occurrences=[("app/Repositories/PatientRepository.php", 47, "last_name")]),
+    ]
+
+    rule = EnumSuggestionRule(RuleConfig())
+    findings = rule.run(facts, project_type="laravel_blade").findings
+    assert all(f.rule_id != "enum-suggestion" for f in findings)

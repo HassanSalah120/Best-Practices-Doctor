@@ -419,6 +419,11 @@ class ReactProjectStructureConsistencyRule(Rule):
             return "feature-category"
 
         if self._filename_implies_kind(kind, basename):
+            if low[0] in self._PRESENTATION_ROOTS:
+                domain = self._infer_domain(segments)
+                if domain in {None, "shared"}:
+                    return "shared-colocated"
+                return "feature-colocated"
             domain = self._infer_domain(segments)
             if domain == "shared":
                 return "shared-colocated"
@@ -803,6 +808,8 @@ class ReactProjectStructureConsistencyRule(Rule):
             importer_domains.discard(None)
             importer_domains.discard("shared")
             if len(importer_domains) != 1:
+                continue
+            if candidate.kind in {"hooks", "services", "types"} and len(importer_paths) < 2:
                 continue
 
             only_domain = next(iter(importer_domains))

@@ -315,6 +315,30 @@ export { utils };
     assert len(findings) == 0
 
 
+def test_object_entries_meta_render_is_not_treated_as_expensive():
+    rule = MissingUseMemoForExpensiveCalcRule(RuleConfig())
+    content = """
+function TimelineItem({ item }) {
+    return (
+        <div>
+            {Object.entries(item.meta ?? {}).map(([k, v]) => (
+                <span key={`${item.id}-${k}`}>{v}</span>
+            ))}
+        </div>
+    );
+}
+"""
+
+    findings = rule.analyze_regex(
+        file_path="resources/js/pages/Patients/Show.tsx",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert findings == []
+
+
 # ============== Missing UseCallback Tests ==============
 
 def test_inline_onclick_without_usecallback():

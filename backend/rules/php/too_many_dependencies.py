@@ -20,6 +20,19 @@ class TooManyDependenciesRule(Rule):
     category = Category.MAINTAINABILITY
     default_severity = Severity.MEDIUM
     applicable_project_types: list[str] = []  # all
+    _SERVICE_LIKE_PARAM_MARKERS = (
+        "action",
+        "service",
+        "coordinator",
+        "workflow",
+        "orchestrator",
+        "validator",
+        "redirector",
+        "interface",
+        "manager",
+        "gateway",
+        "repository",
+    )
 
     def analyze(
         self,
@@ -40,6 +53,8 @@ class TooManyDependenciesRule(Rule):
             
             # Skip orchestrators/coordinators - they intentionally coordinate multiple services
             if self._is_orchestrator(m, facts):
+                continue
+            if self._is_controller_facade_orchestrator(m):
                 continue
             
             dep_count = len(m.parameters or [])
@@ -127,3 +142,24 @@ class TooManyDependenciesRule(Rule):
         
         return False
 
+    def _is_controller_facade_orchestrator(self, method: MethodInfo) -> bool:
+        path_lower = str(method.file_path or "").lower().replace("\\", "/")
+        if "/controller" not in path_lower and "/controllers/" not in path_lower:
+            return False
+
+        params = [str(param or "").lower() for param in (method.parameters or [])]
+        if len(params) < 6:
+            return False
+
+        service_like = sum(
+            1
+            for param in params
+            if any(marker in param for marker in self._SERVICE_LIKE_PARAM_MARKERS)
+        )
+        if service_like < max(4, len(params) - 1):
+            return False
+
+        if any(marker in param for param in params for marker in ("coordinator", "orchestrator", "facade")):
+            return True
+
+        return len(params) <= 7

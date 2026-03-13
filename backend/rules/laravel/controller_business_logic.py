@@ -34,6 +34,25 @@ class ControllerBusinessLogicRule(Rule):
     ]
 
     _RESTFUL_READ_METHODS = {"index", "show", "create", "edit"}
+    _INFRA_CONTROLLER_MARKERS = ("webhook", "callback", "verification", "twofactor", "two_factor", "notification")
+    _DELEGATION_CALL_MARKERS = (
+        "->execute(",
+        "service->",
+        "services->",
+        "action->",
+        "actions->",
+        "coordinator->",
+        "workflow->",
+        "processor->",
+        "redirector->",
+        "redirectvalidator->",
+        "validatesignature->",
+        "processwebhook->",
+        "sendverification->",
+        "sendcode->",
+        "resolve",
+        "sanitize(",
+    )
 
     def analyze(
         self,
@@ -51,6 +70,7 @@ class ControllerBusinessLogicRule(Rule):
         min_cyclomatic = int(self.get_threshold("min_cyclomatic", 8))
         min_loc = int(self.get_threshold("min_loc", 60))
         min_conf = float(self.get_threshold("min_confidence", 0.6))
+        auth_flow_context = set(getattr(getattr(facts, "project_context", None), "auth_flow_paths", []) or [])
 
         # Best-effort map file -> controller fqcn.
         fqcn_by_file: dict[str, str] = {}
@@ -82,6 +102,8 @@ class ControllerBusinessLogicRule(Rule):
                 and (mm.conditional_count >= 4 or mm.loop_count >= 1)
             )
             if not has_business_signal and not has_structural_signal:
+                continue
+            if self._looks_like_thin_orchestration(m, mm, auth_flow_context):
                 continue
             if self._looks_like_restful_read_controller_method(m, mm) and not has_business_signal:
                 continue
@@ -156,4 +178,41 @@ class ControllerBusinessLogicRule(Rule):
             and not metrics.has_external_api_calls
             and not metrics.has_file_operations
             and metrics.loop_count == 0
+        )
+
+    def _looks_like_thin_orchestration(
+        self,
+        method: MethodInfo,
+        metrics: MethodMetrics,
+        auth_flow_context: set[str],
+    ) -> bool:
+        if metrics.loop_count > 0 or metrics.has_file_operations:
+            return False
+
+        call_sites = [str(call or "").lower() for call in (method.call_sites or [])]
+        has_delegation = any(marker in call for call in call_sites for marker in self._DELEGATION_CALL_MARKERS)
+        if not has_delegation:
+            return False
+
+        normalized_path = str(method.file_path or "").replace("\\", "/").lower()
+        method_fqn = str(method.method_fqn or "")
+        is_auth_flow = (
+            method_fqn in auth_flow_context
+            or str(method.file_path or "") in auth_flow_context
+            or any(marker in normalized_path for marker in self._INFRA_CONTROLLER_MARKERS)
+        )
+
+        simple_guards = (
+            metrics.cyclomatic_complexity <= 4
+            and metrics.conditional_count <= 3
+            and metrics.query_count <= 1
+            and metrics.validation_count <= 1
+        )
+        if is_auth_flow and simple_guards:
+            return True
+
+        return (
+            simple_guards
+            and (method.loc or 0) <= 45
+            and not metrics.has_external_api_calls
         )
