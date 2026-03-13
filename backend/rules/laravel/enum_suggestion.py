@@ -4,7 +4,7 @@ Detects repeated string literals that should be PHP enums.
 """
 import re
 from collections import defaultdict
-from schemas.facts import Facts, StringLiteral
+from schemas.facts import Facts, StringLiteral, StringOccurrence
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
