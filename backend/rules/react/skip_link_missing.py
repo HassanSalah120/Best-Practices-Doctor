@@ -44,12 +44,24 @@ class SkipLinkMissingRule(Rule):
         re.compile(r'id=["\']main-content["\']', re.IGNORECASE),
     ]
     
-    # Page-like files (layouts, pages)
-    _PAGE_PATTERNS = [
-        re.compile(r"Layout", re.IGNORECASE),
-        re.compile(r"Page", re.IGNORECASE),
-        re.compile(r"Screen", re.IGNORECASE),
-        re.compile(r"App", re.IGNORECASE),
+    # Page-like files (layouts, pages) - only layouts need skip links
+    _LAYOUT_PATTERNS = [
+        re.compile(r"/layouts?/", re.IGNORECASE),
+        re.compile(r"Layout\.tsx?$", re.IGNORECASE),
+        re.compile(r"[A-Z][a-zA-Z]*Layout\.tsx?$"),  # XxLayout.tsx
+        re.compile(r"/App\.tsx?$", re.IGNORECASE),  # Main App component
+        re.compile(r"/_app\.tsx?$", re.IGNORECASE),  # Next.js _app
+        re.compile(r"/_document\.tsx?$", re.IGNORECASE),  # Next.js _document
+    ]
+    
+    # Files that should be excluded
+    _NON_LAYOUT_FILES = [
+        re.compile(r"/pages/", re.IGNORECASE),  # Individual pages don't need skip links
+        re.compile(r"/components/", re.IGNORECASE),
+        re.compile(r"/hooks/", re.IGNORECASE),
+        re.compile(r"/types/", re.IGNORECASE),
+        re.compile(r"/utils?/", re.IGNORECASE),
+        re.compile(r"/i18n/", re.IGNORECASE),
     ]
     
     _ALLOWLIST_PATHS = (
@@ -79,10 +91,15 @@ class SkipLinkMissingRule(Rule):
             return []
 
         findings: list[Finding] = []
-        
-        # Check if this is a page-like file
-        is_page_like = any(p.search(file_path) for p in self._PAGE_PATTERNS)
-        if not is_page_like:
+        norm_path = (file_path or "").replace("\\", "/").lower()
+
+        # Skip non-layout files
+        if any(p.search(norm_path) for p in self._NON_LAYOUT_FILES):
+            return findings
+
+        # Check if this is a layout file
+        is_layout = any(p.search(norm_path) for p in self._LAYOUT_PATTERNS)
+        if not is_layout:
             return findings
         
         # Check if file has main content landmark

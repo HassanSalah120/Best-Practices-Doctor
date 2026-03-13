@@ -229,6 +229,18 @@ rules:
     severity: medium
     thresholds: {}
     version: 1
+  react-project-structure-consistency:
+    category: architecture
+    enabled: true
+    severity: medium
+    thresholds: {}
+    version: 1
+  typescript-type-check:
+    category: maintainability
+    enabled: true
+    severity: high
+    thresholds: {}
+    version: 1
   ioc-instead-of-new:
     category: architecture
     enabled: true

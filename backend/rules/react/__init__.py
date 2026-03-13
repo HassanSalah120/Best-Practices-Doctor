@@ -15,6 +15,7 @@ from .safe_target_blank import SafeTargetBlankRule
 from .no_inline_hooks import NoInlineHooksRule
 from .no_inline_types import NoInlineTypesRule
 from .no_inline_services import NoInlineServicesRule
+from .project_structure_consistency import ReactProjectStructureConsistencyRule
 from .inertia_page_missing_head import InertiaPageMissingHeadRule
 from .inertia_internal_link_anchor import InertiaInternalLinkAnchorRule
 from .inertia_form_uses_fetch import InertiaFormUsesFetchRule
@@ -50,6 +51,12 @@ from .autoplay_media import AutoplayMediaRule
 from .redundant_entry import RedundantEntryRule
 from .accessible_authentication import AccessibleAuthenticationRule
 from .focus_not_obscured import FocusNotObscuredRule
+# AST-based rules (higher accuracy)
+from .usecallback_ast import UseCallbackASTRule
+from .usememo_ast import UseMemoASTRule
+from .exhaustive_deps_ast import ExhaustiveDepsASTRule
+# Process-based rules (external tools)
+from .typescript_type_check import TypeScriptTypeCheckRule
 
 __all__ = [
     "LargeComponentRule",
@@ -68,6 +75,7 @@ __all__ = [
     "NoInlineHooksRule",
     "NoInlineTypesRule",
     "NoInlineServicesRule",
+    "ReactProjectStructureConsistencyRule",
     "InertiaPageMissingHeadRule",
     "InertiaInternalLinkAnchorRule",
     "InertiaFormUsesFetchRule",
@@ -103,4 +111,10 @@ __all__ = [
     "RedundantEntryRule",
     "AccessibleAuthenticationRule",
     "FocusNotObscuredRule",
+    # AST-based rules (higher accuracy)
+    "UseCallbackASTRule",
+    "UseMemoASTRule",
+    "ExhaustiveDepsASTRule",
+    # Process-based rules (external tools)
+    "TypeScriptTypeCheckRule",
 ]

@@ -36,6 +36,17 @@ class TouchTargetSizeRule(Rule):
         re.IGNORECASE | re.DOTALL,
     )
 
+    # Custom UI components that typically have built-in proper touch targets
+    _CUSTOM_BUTTON_COMPONENTS = [
+        re.compile(r"<Button\b", re.IGNORECASE),
+        re.compile(r"<IconButton\b", re.IGNORECASE),
+        re.compile(r"<Link\b", re.IGNORECASE),
+        re.compile(r"<NavLink\b", re.IGNORECASE),
+        re.compile(r"<ActionButton\b", re.IGNORECASE),
+        re.compile(r"<MenuButton\b", re.IGNORECASE),
+        re.compile(r"<DropdownButton\b", re.IGNORECASE),
+    ]
+
     # Size patterns in className or style
     _SIZE_CLASS_PATTERN = re.compile(
         r"(?:w|h|width|height|size)-(?P<value>\d+)",
@@ -95,6 +106,16 @@ class TouchTargetSizeRule(Rule):
                 
                 # Skip inputs that are hidden/checkbox/radio (usually styled differently)
                 if tag == "input" and re.search(r'type=["\'](?:hidden|checkbox|radio)["\']', attrs, re.IGNORECASE):
+                    continue
+                
+                # Skip form inputs with h-10 (40px) - standard size with padding that meets 44px
+                # Date inputs, selects, and text inputs with h-10 have padding that expands touch target
+                if tag in ("input", "select") and re.search(r'\bh-10\b', attrs, re.IGNORECASE):
+                    continue
+                
+                # Skip custom UI components that typically have proper touch targets
+                line_content = content.split("\n")[line - 1] if line > 0 else ""
+                if any(p.search(line_content) for p in self._CUSTOM_BUTTON_COMPONENTS):
                     continue
                 
                 # Try to detect size
@@ -214,6 +235,36 @@ class TouchTargetSizeRule(Rule):
                     if padding >= 11:  # p-3 or more gives decent touch target
                         return None  # Likely OK
             return None  # Can't determine size
+
+        # If size is detected but below 44px, check if padding expands it enough
+        if width is not None and height is not None and (width < 44 or height < 44):
+            # Check for padding that would expand the touch target
+            px_match = re.search(r"\bpx-(?P<val>\d+)\b", attrs)
+            py_match = re.search(r"\bpy-(?P<val>\d+)\b", attrs)
+            p_match = re.search(r"\bp-(?P<val>\d+)\b", attrs)
+
+            extra_width = 0
+            extra_height = 0
+
+            if p_match:
+                val = p_match.group("val")
+                if val in self._TAILWIND_SIZE_MAP:
+                    padding = self._TAILWIND_SIZE_MAP[val]
+                    extra_width = padding * 2
+                    extra_height = padding * 2
+            else:
+                if px_match:
+                    val = px_match.group("val")
+                    if val in self._TAILWIND_SIZE_MAP:
+                        extra_width = self._TAILWIND_SIZE_MAP[val] * 2
+                if py_match:
+                    val = py_match.group("val")
+                    if val in self._TAILWIND_SIZE_MAP:
+                        extra_height = self._TAILWIND_SIZE_MAP[val] * 2
+
+            # If padding expands touch target to >= 44px, it's OK
+            if (width + extra_width >= 44) and (height + extra_height >= 44):
+                return None  # Padding makes it large enough
 
         # Default unknown dimension to detected one (square assumption)
         if width is None:

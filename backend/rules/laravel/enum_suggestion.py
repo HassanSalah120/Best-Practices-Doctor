@@ -73,6 +73,7 @@ class EnumSuggestionRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings = []
+        existing_enums = self._existing_enum_names(facts)
         
         # 1. Group values by context
         context_to_values = defaultdict(set)
@@ -104,6 +105,8 @@ class EnumSuggestionRule(Rule):
                 # Skip if it looks like a list of headings or labels
                 if any(v[0].isupper() for v in values if v) and ctx_lower in ["headings", "labels", "columns"]:
                     continue
+                if self._matching_enum_exists(ctx_lower, existing_enums):
+                    continue
 
                 occs = context_to_occurrences[context]
                 findings.append(self._create_cluster_finding(context, list(values), occs))
@@ -119,6 +122,9 @@ class EnumSuggestionRule(Rule):
         for pf in pattern_findings:
             p_values = tuple(sorted(pf.metadata.get("values", [])))
             if p_values not in detected_values:
+                context = str((pf.metadata or {}).get("context", "") or "").lower()
+                if self._matching_enum_exists(context, existing_enums):
+                    continue
                 # If enums are already used extensively, lower confidence
                 if has_enum_usage:
                     pf.confidence = 0.3  # Lower confidence since enums are already in use
@@ -126,6 +132,28 @@ class EnumSuggestionRule(Rule):
                 detected_values.add(p_values)
 
         return findings
+
+    def _existing_enum_names(self, facts: Facts) -> set[str]:
+        names = {
+            re.sub(r"[^a-z0-9]+", "", str(getattr(enum_info, "name", "") or "").lower())
+            for enum_info in getattr(facts, "enums", []) or []
+            if getattr(enum_info, "name", None)
+        }
+        for file_path in getattr(facts, "files", []) or []:
+            normalized = str(file_path or "").replace("\\", "/")
+            if not normalized.lower().endswith("enum.php"):
+                continue
+            stem = normalized.split("/")[-1].rsplit(".", 1)[0]
+            clean = re.sub(r"[^a-z0-9]+", "", stem.lower())
+            if clean:
+                names.add(clean)
+        return names
+
+    def _matching_enum_exists(self, context: str, existing_enums: set[str]) -> bool:
+        normalized = re.sub(r"[^a-z0-9]+", "", context.lower())
+        if not normalized:
+            return False
+        return any(normalized in enum_name for enum_name in existing_enums)
     
     def _check_for_existing_enum_usage(self, facts: Facts) -> bool:
         """Check if the codebase already uses enums extensively."""

@@ -114,7 +114,18 @@ class Ruleset(BaseModel):
         """Load ruleset from YAML file."""
         path = Path(path)
         if not path.exists():
-            raise FileNotFoundError(f"Ruleset not found: {path}")
+            if path.name == "ruleset.default.yaml":
+                try:
+                    backend_root = Path(__file__).resolve().parents[1]
+                    fallback = backend_root / "ruleset.default.yaml"
+                    if fallback.exists():
+                        path = fallback
+                    else:
+                        raise FileNotFoundError(f"Ruleset not found: {path}")
+                except Exception:
+                    raise FileNotFoundError(f"Ruleset not found: {path}")
+            else:
+                raise FileNotFoundError(f"Ruleset not found: {path}")
         
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
@@ -280,7 +291,11 @@ class Ruleset(BaseModel):
     
     def get_rule_config(self, rule_id: str) -> RuleConfig:
         """Get config for a rule, with defaults if not specified."""
-        return self.rules.get(rule_id, RuleConfig())
+        if rule_id in self.rules:
+            return self.rules[rule_id]
+        if self.rules:
+            return RuleConfig(enabled=False)
+        return RuleConfig()
     
     def is_rule_enabled(self, rule_id: str) -> bool:
         """Check if a rule is enabled."""

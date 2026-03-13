@@ -229,6 +229,12 @@ rules:
     category: react_best_practice
     version: 1
     thresholds: {}
+  react-project-structure-consistency:
+    enabled: true
+    severity: low
+    category: architecture
+    version: 1
+    thresholds: {}
   ioc-instead-of-new:
     enabled: false
     severity: medium

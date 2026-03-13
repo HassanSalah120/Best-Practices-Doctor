@@ -51,6 +51,15 @@ class ErrorMessageMissingRule(Rule):
         re.compile(r'errorMessage', re.IGNORECASE),
         re.compile(r'errorText', re.IGNORECASE),
     ]
+
+    # Custom input components that handle error association internally
+    _CUSTOM_INPUT_COMPONENTS = [
+        re.compile(r'<Input\b', re.IGNORECASE),  # Custom Input component
+        re.compile(r'<FormInput\b', re.IGNORECASE),  # Form input component
+        re.compile(r'<TextField\b', re.IGNORECASE),
+        re.compile(r'<FormField\b', re.IGNORECASE),
+        re.compile(r'<FormControl\b', re.IGNORECASE),
+    ]
     
     _ALLOWLIST_PATHS = (
         "/tests/",
@@ -98,6 +107,11 @@ class ErrorMessageMissingRule(Rule):
             # Check if field has validation
             has_validation = any(p.search(attrs) for p in self._VALIDATION_PATTERNS)
             if not has_validation:
+                continue
+            
+            # Skip custom input components that handle errors internally
+            line_content = content.split("\n")[line - 1] if line > 0 else ""
+            if any(p.search(line_content) for p in self._CUSTOM_INPUT_COMPONENTS):
                 continue
             
             # Check if field has error message association

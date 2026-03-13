@@ -24,18 +24,28 @@ class StatusMessageAnnouncementRule(Rule):
     applicable_project_types: list[str] = []
     regex_file_extensions = [".js", ".jsx", ".ts", ".tsx"]
 
-    # Status message patterns (common patterns that show status)
+    # Status message patterns (actual status DISPLAY patterns, not useState setters)
+    # Note: toast() is excluded here - checked separately after sonner detection
+    # These patterns look for FUNCTION CALLS or COMPONENT USAGE, not just the word "error"
     _STATUS_PATTERNS = [
-        re.compile(r"(success|error|warning|info|loading|saving|deleting|updating)\s*(message|text|toast|alert|notification)", re.IGNORECASE),
+        # Function calls that display status
+        re.compile(r"notify\s*\([^)]*\)", re.IGNORECASE),  # notify() function call
+        re.compile(r"showToast\s*\([^)]*\)", re.IGNORECASE),  # showToast() call
+        re.compile(r"showNotification\s*\([^)]*\)", re.IGNORECASE),  # showNotification() call
+        re.compile(r"showMessage\s*\([^)]*\)", re.IGNORECASE),  # showMessage() call
+        re.compile(r"displayError\s*\(", re.IGNORECASE),  # displayError() call
+        re.compile(r"displaySuccess\s*\(", re.IGNORECASE),  # displaySuccess() call
+        # Status message variables being rendered
+        re.compile(r"\{[^}]*(success|error|warning|info)Message[^}]*\}", re.IGNORECASE),  # {errorMessage} in JSX
+        re.compile(r"<StatusMessage", re.IGNORECASE),  # <StatusMessage> component
+        re.compile(r"<Alert[^>]*(success|error|warning|info)", re.IGNORECASE),  # <Alert type="error">
+    ]
+    
+    # Toast patterns - checked separately after sonner detection
+    _TOAST_PATTERNS = [
         re.compile(r"toast\s*\(", re.IGNORECASE),
-        re.compile(r"notify\s*\(", re.IGNORECASE),
-        re.compile(r"showToast", re.IGNORECASE),
-        re.compile(r"showNotification", re.IGNORECASE),
-        re.compile(r"showMessage", re.IGNORECASE),
-        re.compile(r"setMessage", re.IGNORECASE),
-        re.compile(r"setStatus", re.IGNORECASE),
-        re.compile(r"setError", re.IGNORECASE),
-        re.compile(r"setSuccess", re.IGNORECASE),
+        re.compile(r"toast\.(success|error|warning|info|loading|promise)\s*\(", re.IGNORECASE),
+        re.compile(r"toast\.custom\s*\(", re.IGNORECASE),
     ]
     
     # ARIA live region patterns (good)
@@ -48,15 +58,48 @@ class StatusMessageAnnouncementRule(Rule):
         re.compile(r'<Notification\b', re.IGNORECASE),
         re.compile(r'<Snackbar\b', re.IGNORECASE),
         re.compile(r'<StatusMessage\b', re.IGNORECASE),
+        # aria-invalid and aria-errormessage for form validation errors
+        re.compile(r'aria-invalid=["\']true["\']', re.IGNORECASE),
+        re.compile(r'aria-errormessage', re.IGNORECASE),
     ]
     
     # Common toast/notification libraries (usually have a11y built-in)
     _A11Y_LIBRARIES = [
         re.compile(r"react-hot-toast", re.IGNORECASE),
         re.compile(r"react-toastify", re.IGNORECASE),
-        re.compile(r"sonner", re.IGNORECASE),
         re.compile(r"@radix-ui/react-toast", re.IGNORECASE),
         re.compile(r"chakra-ui.*toast", re.IGNORECASE),
+    ]
+    
+    # Sonner-specific patterns (sonner has built-in accessibility)
+    _SONNER_PATTERNS = [
+        re.compile(r"from\s+['\"]sonner['\"]", re.IGNORECASE),  # Direct sonner import
+        re.compile(r"import\s+\{[^}]*toast[^}]*\}\s+from\s+['\"]sonner['\"]", re.IGNORECASE),
+        re.compile(r"import\s+\*\s+as\s+\w+\s+from\s+['\"]sonner['\"]", re.IGNORECASE),
+        re.compile(r"<Toaster\b", re.IGNORECASE),  # Toaster component from sonner
+        re.compile(r"toast\.(success|error|warning|info|loading|promise|custom)\s*\(", re.IGNORECASE),  # sonner API
+        re.compile(r"useFlashToast", re.IGNORECASE),  # Custom hook wrapping sonner
+    ]
+    
+    # Inertia/Laravel flash message patterns (handled by layout with toast)
+    _INERTIA_FLASH_PATTERNS = [
+        re.compile(r"page\.props\.flash", re.IGNORECASE),  # Inertia flash messages
+        re.compile(r"props\.flash", re.IGNORECASE),  # Flash from props
+        re.compile(r"flash\.(success|error|warning|info)", re.IGNORECASE),  # Flash types
+        re.compile(r"usePage\s*\(\s*\)\.props\.flash", re.IGNORECASE),  # usePage hook
+    ]
+    
+    # Files that should be excluded (don't render status messages)
+    _NON_RENDERING_FILES = [
+        re.compile(r"/hooks/", re.IGNORECASE),  # Hooks don't render
+        re.compile(r"/use[A-Z]", re.IGNORECASE),  # useXxx files
+        re.compile(r"\.types\.tsx?$", re.IGNORECASE),  # Type definitions
+        re.compile(r"/types/", re.IGNORECASE),  # Types directory
+        re.compile(r"\.utils?\.tsx?$", re.IGNORECASE),  # Utility files
+        re.compile(r"/utils?/", re.IGNORECASE),
+        re.compile(r"/i18n/", re.IGNORECASE),  # i18n config
+        re.compile(r"/constants?/", re.IGNORECASE),
+        re.compile(r"/config/", re.IGNORECASE),
     ]
     
     _ALLOWLIST_PATHS = (
@@ -84,11 +127,31 @@ class StatusMessageAnnouncementRule(Rule):
         if self._is_allowlisted_path(file_path):
             return []
 
+        # Skip non-rendering files (hooks, types, utils - they don't render status messages)
+        norm_path = (file_path or "").replace("\\", "/").lower()
+        if any(p.search(norm_path) for p in self._NON_RENDERING_FILES):
+            return []
+
         findings: list[Finding] = []
+        
+        # Check if file uses sonner (has built-in accessibility)
+        uses_sonner = any(p.search(content) for p in self._SONNER_PATTERNS)
+        if uses_sonner:
+            return findings
+        
         
         # Check if file has status message patterns
         has_status = any(p.search(content) for p in self._STATUS_PATTERNS)
-        if not has_status:
+        
+        # Also check for generic toast() calls (but only if not using sonner)
+        has_toast = any(p.search(content) for p in self._TOAST_PATTERNS)
+        
+        if not has_status and not has_toast:
+            return findings
+        
+        # Check if file uses Inertia flash messages (handled by layout with toast)
+        uses_inertia_flash = any(p.search(content) for p in self._INERTIA_FLASH_PATTERNS)
+        if uses_inertia_flash:
             return findings
         
         # Check if file uses accessible notification library

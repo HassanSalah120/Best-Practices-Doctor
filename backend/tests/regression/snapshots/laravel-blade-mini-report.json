@@ -25,11 +25,11 @@
   "classes_found": 24,
   "methods_found": 40,
   "scores": {
-    "overall": 60.4,
+    "overall": 63.4,
     "grade": "D",
     "architecture": 25.0,
     "dry": 98.5,
-    "laravel": 60.0,
+    "laravel": 75.0,
     "react": 100.0,
     "complexity": 100.0,
     "security": 0.0,
@@ -211,15 +211,6 @@
       "context": "app/Http/Controllers/FatController.php:index:config_in_loop"
     },
     {
-      "id": "finding_750278cba712",
-      "fingerprint": "750278cba712",
-      "rule_id": "controller-query-direct",
-      "category": "laravel_best_practice",
-      "severity": "high",
-      "file": "app/Http/Controllers/SecurityBadController.php",
-      "context": "App\\Http\\Controllers\\SecurityBadController::run"
-    },
-    {
       "id": "finding_86015089d412",
       "fingerprint": "86015089d412",
       "rule_id": "authorization-bypass-risk",
@@ -310,15 +301,6 @@
       "context": "App\\Http\\Controllers\\NewingController"
     },
     {
-      "id": "finding_acd40c6d2613",
-      "fingerprint": "acd40c6d2613",
-      "rule_id": "raw-sql",
-      "category": "security",
-      "severity": "high",
-      "file": "app/Http/Controllers/SecurityBadController.php",
-      "context": "run:DB:select"
-    },
-    {
       "id": "finding_af4fe242efae",
       "fingerprint": "af4fe242efae",
       "rule_id": "massive-model",
@@ -398,15 +380,6 @@
       "severity": "high",
       "file": "app/Services/CycleA.php",
       "context": "App\\Services\\CycleA|App\\Services\\CycleB"
-    },
-    {
-      "id": "finding_d61125952ec0",
-      "fingerprint": "d61125952ec0",
-      "rule_id": "raw-sql",
-      "category": "security",
-      "severity": "high",
-      "file": "app/Http/Controllers/FatController.php",
-      "context": "index:DB:select"
     },
     {
       "id": "finding_edde5f110dac",
@@ -672,21 +645,6 @@
       ]
     },
     {
-      "id": "action_8d5d65274647",
-      "rule_id": "controller-query-direct",
-      "category": "laravel_best_practice",
-      "priority": 6.0,
-      "max_severity": "high",
-      "finding_fingerprints": [
-        "750278cba712",
-        "c7f6b486b121"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php",
-        "app/Http/Controllers/SecurityBadController.php"
-      ]
-    },
-    {
       "id": "action_8d70e9a66fcd",
       "rule_id": "fat-controller",
       "category": "architecture",
@@ -778,6 +736,19 @@
       ]
     },
     {
+      "id": "action_b615f26c5f59",
+      "rule_id": "controller-query-direct",
+      "category": "laravel_best_practice",
+      "priority": 3.0,
+      "max_severity": "high",
+      "finding_fingerprints": [
+        "c7f6b486b121"
+      ],
+      "files": [
+        "app/Http/Controllers/FatController.php"
+      ]
+    },
+    {
       "id": "action_c6cf2fedae12",
       "rule_id": "enum-suggestion",
       "category": "dry",
@@ -827,21 +798,6 @@
       ],
       "files": [
         "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
-      "id": "action_d8e52b0a6487",
-      "rule_id": "raw-sql",
-      "category": "security",
-      "priority": 7.5,
-      "max_severity": "high",
-      "finding_fingerprints": [
-        "acd40c6d2613",
-        "d61125952ec0"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php",
-        "app/Http/Controllers/SecurityBadController.php"
       ]
     },
     {
@@ -945,13 +901,9 @@
     "hardcoded-user-facing-strings",
     "interactive-element-a11y",
     "form-label-association",
-    "no-nested-components",
-    "no-dangerously-set-inner-html",
-    "img-alt-missing",
-    "safe-target-blank",
-    "no-inline-hooks",
     "no-inline-types",
     "no-inline-services",
+    "react-project-structure-consistency",
     "inertia-page-missing-head",
     "inertia-internal-link-anchor",
     "inertia-form-uses-fetch",
@@ -1007,7 +959,7 @@
       "raw_score": 0.0,
       "weight": 25.0,
       "has_weight": true,
-      "finding_count": 9
+      "finding_count": 7
     },
     "accessibility": {
       "category": "accessibility",
@@ -1019,11 +971,11 @@
     },
     "laravel_best_practice": {
       "category": "laravel_best_practice",
-      "score": 60.0,
-      "raw_score": 60.0,
+      "score": 75.0,
+      "raw_score": 75.0,
       "weight": 20.0,
       "has_weight": true,
-      "finding_count": 4
+      "finding_count": 3
     },
     "react_best_practice": {
       "category": "react_best_practice",

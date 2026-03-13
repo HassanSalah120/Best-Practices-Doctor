@@ -288,7 +288,7 @@ class TenantScopeEnforcementRule(Rule):
             return True
         
         # Check docblock for scheduled task indicators
-        doc_comment = (method.doc_comment or "").lower()
+        doc_comment = str(getattr(method, "doc_comment", "") or "").lower()
         if any(kw in doc_comment for kw in ["scheduled", "cron", "console", "command", "system-wide", "background"]):
             return True
         

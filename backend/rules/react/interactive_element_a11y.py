@@ -114,6 +114,22 @@ class InteractiveElementA11yRule(Rule):
         
         return None  # No closing > found
 
+    def _has_visible_text_label(self, content: str, end_pos: int, tag: str) -> bool:
+        """Treat visible inner text as the accessible name for simple interactive wrappers."""
+        close_tag = f"</{tag}>"
+        close_pos = content.find(close_tag, end_pos + 1)
+        if close_pos == -1:
+            return False
+
+        inner = content[end_pos + 1:close_pos]
+        if not inner.strip():
+            return False
+
+        inner = re.sub(r"\{[^{}]*\}", " ", inner)
+        inner = re.sub(r"<[^>]+>", " ", inner)
+        inner = re.sub(r"\s+", " ", inner).strip()
+        return bool(re.search(r"[A-Za-z0-9]", inner))
+
     def analyze_regex(
         self,
         file_path: str,
@@ -152,17 +168,18 @@ class InteractiveElementA11yRule(Rule):
             has_key_handler = any(k in attrs_lower for k in ["onkeydown", "onkeyup", "onkeypress"])
             has_tabindex = "tabindex=" in attrs_lower
             has_aria_label = "aria-label=" in attrs_lower or "aria-labelledby=" in attrs_lower
+            tag = str(m.group("tag") or "").lower()
+            has_visible_text_label = self._has_visible_text_label(content, end_pos, tag)
+            has_accessible_name = has_aria_label or has_visible_text_label
             
             # Check if the element already has complete accessibility support
-            # Must have ALL of: role, keyboard handler, tabIndex, and accessible label
-            if has_role and has_key_handler and has_tabindex and has_aria_label:
+            # Visible text can provide the accessible name; aria-label is not always required.
+            if has_role and has_key_handler and has_tabindex and has_accessible_name:
                 continue
             
             # If it has some accessibility, check for the full set
             if has_role and has_key_handler and has_tabindex:
-                # Has core keyboard accessibility but missing label - still more accessible than nothing
-                # Check for any aria attribute indicating accessible purpose
-                if "aria-" in attrs_lower:
+                if "aria-" in attrs_lower or has_visible_text_label:
                     continue
 
             missing: list[str] = []
@@ -172,11 +189,10 @@ class InteractiveElementA11yRule(Rule):
                 missing.append("keyboard handler")
             if not has_tabindex:
                 missing.append("tabIndex")
-            if not has_aria_label:
-                missing.append("aria-label or aria-labelledby")
+            if not has_accessible_name:
+                missing.append("accessible name")
 
             line = content.count("\n", 0, start_pos) + 1
-            tag = str(m.group("tag") or "").lower()
             evidence = [
                 f"tag={tag}",
                 "onclick_present=true",
@@ -187,8 +203,8 @@ class InteractiveElementA11yRule(Rule):
                 evidence.append("keyboard_handler_missing=true")
             if not has_tabindex:
                 evidence.append("tabindex_missing=true")
-            if not has_aria_label:
-                evidence.append("aria_label_missing=true")
+            if not has_accessible_name:
+                evidence.append("accessible_name_missing=true")
 
             findings.append(
                 self.create_finding(

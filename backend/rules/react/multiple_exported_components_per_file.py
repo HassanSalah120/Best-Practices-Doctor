@@ -30,6 +30,18 @@ class MultipleExportedComponentsPerFileRule(Rule):
     )
     _EXPORT_DEFAULT = re.compile(r"^\s*export\s+default\s+(?:function\s+)?([A-Z][A-Za-z0-9_]*)?", re.MULTILINE)
     _TYPE_EXPORT = re.compile(r"^\s*export\s+type\s+\{?\s*([A-Z][A-Za-z0-9_]*)?", re.MULTILINE)
+    _VARIANT_TOKENS = (
+        "Single",
+        "Multi",
+        "Default",
+        "Base",
+        "Primary",
+        "Secondary",
+        "Desktop",
+        "Mobile",
+        "Compact",
+        "Expanded",
+    )
 
     def analyze(
         self,
@@ -47,6 +59,8 @@ class MultipleExportedComponentsPerFileRule(Rule):
     ) -> list[Finding]:
         norm = (file_path or "").replace("\\", "/").lower()
         if any(x in norm for x in [".test.", ".spec.", "__tests__", ".stories."]):
+            return []
+        if ".components." in norm:
             return []
 
         # Get all exported names
@@ -91,18 +105,16 @@ class MultipleExportedComponentsPerFileRule(Rule):
                 )
             ]
         
-        # Check if there are multiple named component exports beyond just variants
-        # Allow one main component + related variants (e.g., SingleSelect, MultiSelect)
-        if len(all_exported) <= 2:
-            # 1-2 exported components is acceptable (main + variant)
+        if len(all_exported) <= 1:
             return []
         
-        # More than 2 exported components - check if they seem related
         names = sorted(all_exported)
-        base_names = [n.replace("Multi", "").replace("Single", "").replace("Default", "") for n in names]
+        base_names = [self._variant_base_name(n) for n in names]
         
         # If all components share a common base name, they're likely variants
         if len(set(base_names)) == 1:
+            return []
+        if self._share_file_prefix(file_path, names):
             return []
 
         line = 1
@@ -129,3 +141,34 @@ class MultipleExportedComponentsPerFileRule(Rule):
                 evidence_signals=[f"exported_components={len(all_exported)}"],
             )
         ]
+
+    @classmethod
+    def _variant_base_name(cls, name: str) -> str:
+        normalized = name
+        for token in cls._VARIANT_TOKENS:
+            normalized = normalized.replace(token, "")
+        return normalized.lower()
+
+    @staticmethod
+    def _split_tokens(name: str) -> list[str]:
+        text = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", name)
+        return [part for part in re.split(r"[^A-Za-z0-9]+", text) if part]
+
+    @classmethod
+    def _share_file_prefix(cls, file_path: str, names: list[str]) -> bool:
+        stem = (file_path or "").replace("\\", "/").split("/")[-1].split(".")[0]
+        stem_prefix = "".join(cls._split_tokens(stem)).lower()
+        if len(names) == 2 and any(name.lower() == stem_prefix for name in names):
+            return True
+        if stem_prefix and all(name.lower().startswith(stem_prefix) for name in names):
+            return True
+
+        tokenized = [cls._split_tokens(name) for name in names]
+        shared_prefix: list[str] = []
+        for parts in zip(*tokenized):
+            if len(set(parts)) != 1:
+                break
+            shared_prefix.append(parts[0])
+
+        prefix_text = "".join(shared_prefix).lower()
+        return len(prefix_text) >= 4

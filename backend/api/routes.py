@@ -30,6 +30,7 @@ class ScanRequest(BaseModel):
     changed_files: list[str] | None = None
     pr_mode: bool = False
     pr_gate_preset: str | None = None
+    selected_rules: list[str] | None = None  # For advanced profile: only run these rules
 
 
 class ScanResponse(BaseModel):
@@ -79,6 +80,7 @@ async def run_scan(
     changed_files: list[str] | None,
     pr_mode: bool,
     pr_gate_preset: str | None,
+    selected_rules: list[str] | None,
     job_id: str,
     token: CancellationToken,
     manager: JobManager,
@@ -183,7 +185,7 @@ async def run_scan(
     token.check()
     
     # Create rule engine with ruleset
-    rule_engine = create_engine(ruleset=ruleset)
+    rule_engine = create_engine(ruleset=ruleset, selected_rules=selected_rules)
     
     # Progress callback for rule execution - maps 55% to 80% range
     def on_rule_progress(fraction: float, rules_done: int, rules_total: int):
@@ -360,6 +362,7 @@ async def start_scan(request: ScanRequest):
         request.changed_files,
         request.pr_mode,
         request.pr_gate_preset,
+        request.selected_rules,
     )
     
     return ScanResponse(job_id=job_id, status="running")
@@ -683,6 +686,16 @@ async def update_ruleset(ruleset_data: dict):
         return {"status": "updated", "ruleset": ruleset.model_dump()}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid ruleset: {str(e)}")
+
+
+@router.get("/rules/metadata")
+async def get_rule_metadata():
+    """Get rule metadata grouped by layer and category for advanced profile configuration."""
+    try:
+        from core.rule_metadata import get_rules_grouped_for_ui
+        return get_rules_grouped_for_ui()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load rule metadata: {e}")
 
 
 # --- Suppression Management ---

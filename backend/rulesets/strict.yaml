@@ -229,6 +229,18 @@ rules:
     category: react_best_practice
     version: 1
     thresholds: {}
+  react-project-structure-consistency:
+    enabled: true
+    severity: medium
+    category: architecture
+    version: 1
+    thresholds: {}
+  typescript-type-check:
+    enabled: true
+    severity: high
+    category: maintainability
+    version: 1
+    thresholds: {}
   ioc-instead-of-new:
     enabled: true
     severity: medium
@@ -715,7 +727,8 @@ rules:
     severity: medium
     category: react_best_practice
     version: 1
-    thresholds: {}
+    thresholds:
+      min_confidence: 0.8
   missing-usememo-for-expensive-calc:
     enabled: true
     severity: medium
@@ -812,7 +825,8 @@ rules:
     severity: low
     category: performance
     version: 1
-    thresholds: {}
+    thresholds:
+      min_confidence: 0.8
   null-filtering-suggestion:
     enabled: true
     severity: low

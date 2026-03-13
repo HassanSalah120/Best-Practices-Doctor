@@ -45,6 +45,28 @@ class ModalTrapFocusRule(Rule):
         re.compile(r"@react-aria/focus", re.IGNORECASE),
         re.compile(r"FocusScope", re.IGNORECASE),
         re.compile(r"aria-modal", re.IGNORECASE),  # Implies focus management
+        re.compile(r"@headlessui/react", re.IGNORECASE),  # Headless UI has built-in focus trap
+        re.compile(r"Dialog\s*=\s*require\(['\"]@headlessui", re.IGNORECASE),
+        re.compile(r"from\s+['\"]@headlessui/react['\"]", re.IGNORECASE),
+        re.compile(r"radix-ui.*dialog", re.IGNORECASE),  # Radix UI has focus trap
+        re.compile(r"@radix-ui/react-dialog", re.IGNORECASE),
+        re.compile(r"@radix-ui/react-alert-dialog", re.IGNORECASE),
+        re.compile(r"DialogContent", re.IGNORECASE),  # shadcn/ui Dialog
+        re.compile(r"AlertDialogContent", re.IGNORECASE),  # shadcn/ui AlertDialog
+        # Manual focus trap implementation patterns
+        re.compile(r"FOCUSABLE_SELECTOR", re.IGNORECASE),  # Focusable element selector constant
+        re.compile(r"getFocusableElements", re.IGNORECASE),  # Function to get focusable elements
+        re.compile(r"handleKeyDown.*Tab", re.IGNORECASE),  # Tab key handler for focus wrap
+        re.compile(r"e\.key.*Tab.*focusable", re.IGNORECASE),  # Tab trap logic
+        re.compile(r"previousActiveElement", re.IGNORECASE),  # Focus restoration pattern
+    ]
+
+    # Patterns indicating file uses a Modal component (inherits focus trap)
+    _MODAL_USAGE_PATTERNS = [
+        re.compile(r"from\s+['\"].*/components/UI/Modal['\"]", re.IGNORECASE),
+        re.compile(r"from\s+['\"].*/Modal['\"]", re.IGNORECASE),
+        re.compile(r"import.*Modal.*from", re.IGNORECASE),
+        re.compile(r"<Modal\b", re.IGNORECASE),  # Using Modal component
     ]
     
     # Close button patterns
@@ -90,6 +112,11 @@ class ModalTrapFocusRule(Rule):
         # Check if focus trap is implemented
         has_focus_trap = any(p.search(content) for p in self._FOCUS_TRAP_PATTERNS)
         if has_focus_trap:
+            return findings
+
+        # Check if file uses a Modal component that has built-in focus trap
+        uses_modal_component = any(p.search(content) for p in self._MODAL_USAGE_PATTERNS)
+        if uses_modal_component:
             return findings
         
         # Find modal location for line number

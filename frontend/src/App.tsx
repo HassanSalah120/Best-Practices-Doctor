@@ -3,10 +3,11 @@ import { WelcomeScreen } from "@/screens/WelcomeScreen";
 import { ProgressScreen } from "@/screens/ProgressScreen";
 import { ReportScreen } from "@/screens/ReportScreen";
 import { RulesetScreen } from "@/screens/RulesetScreen";
+import { AdvancedProfileConfig } from "@/components/AdvancedProfileConfig";
 import { ApiClient } from "@/lib/api";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 
-type ViewState = "welcome" | "progress" | "report" | "ruleset";
+type ViewState = "welcome" | "progress" | "report" | "ruleset" | "advanced";
 type BackendStatus = "checking" | "ready" | "offline";
 
 const VIEW_COPY: Record<ViewState, { title: string; description: string }> = {
@@ -26,6 +27,10 @@ const VIEW_COPY: Record<ViewState, { title: string; description: string }> = {
     title: "Ruleset controls",
     description: "Tune boundaries and thresholds before the next scan without losing the rest of the workspace context.",
   },
+  advanced: {
+    title: "Advanced profile configuration",
+    description: "Select specific rules to run for a custom scan profile.",
+  },
 };
 
 const FLOW_STEPS: Array<{ id: "welcome" | "progress" | "report"; label: string }> = [
@@ -39,6 +44,7 @@ function App() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [activeProfile, setActiveProfile] = useState<string>("startup");
   const [backendStatus, setBackendStatus] = useState<BackendStatus>("checking");
+  const [selectedRules, setSelectedRules] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -70,14 +76,15 @@ function App() {
     };
   }, []);
 
-  const startScan = async (path: string, selectedProfile: string) => {
+  const startScan = async (path: string, selectedProfile: string, rules?: Set<string>) => {
     try {
-      if (selectedProfile) {
+      // Only set active profile on backend for real YAML profiles (not 'advanced')
+      if (selectedProfile && selectedProfile !== "advanced") {
         await ApiClient.setActiveRulesetProfile(selectedProfile);
         setActiveProfile(selectedProfile);
       }
 
-      const { job_id } = await ApiClient.startScan(path);
+      const { job_id } = await ApiClient.startScan(path, undefined, rules ? Array.from(rules) : undefined);
       setJobId(job_id);
       setView("progress");
     } catch (err) {
@@ -95,7 +102,7 @@ function App() {
     setView("welcome");
   };
 
-  const flowView = view === "ruleset" ? (jobId ? "report" : "welcome") : view;
+  const flowView = view === "ruleset" || view === "advanced" ? (jobId ? "report" : "welcome") : view;
   const currentViewCopy = VIEW_COPY[view];
   const activeFlowIndex = FLOW_STEPS.findIndex((step) => step.id === flowView);
 
@@ -145,6 +152,8 @@ function App() {
           initialProfile={activeProfile}
           onProfileChange={setActiveProfile}
           onOpenRuleset={() => setView("ruleset")}
+          onOpenAdvancedConfig={() => setView("advanced")}
+          selectedRules={selectedRules}
         />
       )}
       {view === "progress" && jobId && (
@@ -154,6 +163,13 @@ function App() {
         <ReportScreen jobId={jobId} onBack={reset} onRescan={rescan} />
       )}
       {view === "ruleset" && <RulesetScreen onBack={() => setView(jobId ? "report" : "welcome")} />}
+      {view === "advanced" && (
+        <AdvancedProfileConfig
+          selectedRules={selectedRules}
+          onSelectedRulesChange={setSelectedRules}
+          onBack={() => setView("welcome")}
+        />
+      )}
     </WorkspaceShell>
   );
 }

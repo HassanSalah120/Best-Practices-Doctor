@@ -229,6 +229,18 @@ rules:
     category: react_best_practice
     version: 1
     thresholds: {}
+  react-project-structure-consistency:
+    enabled: true
+    severity: medium
+    category: architecture
+    version: 1
+    thresholds: {}
+  typescript-type-check:
+    enabled: true
+    severity: high
+    category: maintainability
+    version: 1
+    thresholds: {}
   ioc-instead-of-new:
     enabled: true
     severity: low

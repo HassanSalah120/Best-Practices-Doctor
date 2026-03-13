@@ -99,8 +99,17 @@ class AutocompleteMissingRule(Rule):
             if re.search(r'type=["\'](?:hidden|submit|button|reset|file|image|checkbox|radio)["\']', attrs, re.IGNORECASE):
                 continue
             
-            # Check if already has autocomplete
+            # Check if already has autocomplete attribute
             if re.search(r'\bautocomplete=["\'][^"\']+["\']', attrs, re.IGNORECASE):
+                continue
+            
+            # Skip if uses {...field} spread (react-hook-form) - autocomplete may be in spread
+            if re.search(r'\{\s*\.\.\.\s*field\s*\}', attrs, re.IGNORECASE):
+                continue
+            
+            # Skip custom Input components that handle autocomplete internally
+            line_content = content.split("\n")[line - 1] if line > 0 else ""
+            if re.search(r'<Input\b', line_content, re.IGNORECASE):
                 continue
             
             # Determine suggested autocomplete value

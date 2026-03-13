@@ -36,9 +36,10 @@ class LanguageAttributeMissingRule(Rule):
         re.IGNORECASE,
     )
     
-    # Document.documentElement.lang
+    # Document.documentElement.lang or setAttribute('lang')
     _JS_LANG_PATTERN = re.compile(
-        r"document\.documentElement\.lang\s*=",
+        r"document\.documentElement\.lang\s*=|"
+        r"setAttribute\s*\(\s*[\"']lang[\"']",
         re.IGNORECASE,
     )
     
@@ -48,6 +49,43 @@ class LanguageAttributeMissingRule(Rule):
         re.IGNORECASE,
     )
     
+    # Patterns that should NEVER be flagged (non-page/non-layout files)
+    _NON_HTML_FILES = [
+        re.compile(r"\.types\.tsx?$", re.IGNORECASE),  # Type definition files
+        re.compile(r"\.type\.tsx?$", re.IGNORECASE),
+        re.compile(r"/types/", re.IGNORECASE),  # Types directory
+        re.compile(r"/i18n/", re.IGNORECASE),  # i18n configuration files
+        re.compile(r"/hooks/", re.IGNORECASE),  # Hook files
+        re.compile(r"/use[A-Z]", re.IGNORECASE),  # useXxx files
+        re.compile(r"/utils?\.tsx?$", re.IGNORECASE),  # Standalone utils.ts files
+        re.compile(r"\.utils?\.tsx?$", re.IGNORECASE),  # Utility files (e.g., Show.utils.ts)
+        re.compile(r"/helpers?\.tsx?$", re.IGNORECASE),
+        re.compile(r"/constants?\.tsx?$", re.IGNORECASE),
+        re.compile(r"/config\.tsx?$", re.IGNORECASE),
+        re.compile(r"/api\.tsx?$", re.IGNORECASE),
+        re.compile(r"/service[s]?\.tsx?$", re.IGNORECASE),
+        re.compile(r"/context\.tsx?$", re.IGNORECASE),
+        re.compile(r"/[A-Z][a-zA-Z]*Context\.tsx?$"),  # XxContext.tsx
+        re.compile(r"/[A-Z][a-zA-Z]*Provider\.tsx?$"),  # XxProvider.tsx
+        re.compile(r"/components/", re.IGNORECASE),  # Reusable components (not pages)
+        re.compile(r"/modals?/", re.IGNORECASE),  # Modal files
+        re.compile(r"/dialogs?/", re.IGNORECASE),  # Dialog files
+        # React/Inertia page components - they inherit lang from layout
+        re.compile(r"/pages/", re.IGNORECASE),  # Individual pages use layouts
+        re.compile(r"/screens/", re.IGNORECASE),  # Screen components use layouts
+        re.compile(r"/views/", re.IGNORECASE),  # View components use layouts
+    ]
+    
+    # Only these files should be checked for lang attribute
+    _HTML_ROOT_FILES = [
+        re.compile(r"/layouts?/", re.IGNORECASE),  # Layout files define <html>
+        re.compile(r"/_document\.tsx?$", re.IGNORECASE),  # Next.js _document
+        re.compile(r"/_app\.tsx?$", re.IGNORECASE),  # Next.js _app
+        re.compile(r"/app/layout\.tsx?$", re.IGNORECASE),  # Next.js app router layout
+        re.compile(r"/index\.html$", re.IGNORECASE),  # Static HTML files
+        re.compile(r"\.html$", re.IGNORECASE),  # Any HTML file
+    ]
+
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
@@ -74,8 +112,20 @@ class LanguageAttributeMissingRule(Rule):
         if self._is_allowlisted_path(file_path):
             return []
 
+        norm_path = (file_path or "").replace("\\", "/").lower()
+
+        # Skip non-HTML files (types, hooks, utils, components, etc.)
+        if any(p.search(norm_path) for p in self._NON_HTML_FILES):
+            return []
+
         findings: list[Finding] = []
-        
+
+        # Only check files that are HTML root files (layouts, _document, .html files)
+        # Individual page components inherit lang from their layout
+        is_html_root = any(p.search(norm_path) for p in self._HTML_ROOT_FILES)
+        if not is_html_root:
+            return findings
+
         # Only check files that have <html> element
         has_html = "<html" in content.lower()
         if not has_html:

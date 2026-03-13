@@ -31,16 +31,48 @@ class ColorContrastRatioRule(Rule):
         re.IGNORECASE,
     )
     
-    # Low contrast color patterns (gray-400, gray-300, etc. on white)
+    # Low contrast color patterns (gray-300, gray-400 are definitely too light)
+    # gray-500 on white is 4.6:1 which PASSES AA - so we don't flag it
+    # gray-600/slate-600 on white is 6.6:1 which PASSES AA - don't flag
+    # gray-700/slate-700 on white is 9.5:1 which PASSES AA - don't flag
     _LOW_CONTRAST_TAILWIND = [
-        re.compile(r'text-gray-[3-5]00\b', re.IGNORECASE),
-        re.compile(r'text-slate-[3-5]00\b', re.IGNORECASE),
-        re.compile(r'text-zinc-[3-5]00\b', re.IGNORECASE),
-        re.compile(r'text-neutral-[3-5]00\b', re.IGNORECASE),
-        re.compile(r'text-stone-[3-5]00\b', re.IGNORECASE),
-        re.compile(r'text-muted', re.IGNORECASE),
-        re.compile(r'text-muted-foreground', re.IGNORECASE),
+        re.compile(r'text-gray-[23]00\b', re.IGNORECASE),  # gray-200 (1.9:1), gray-300 (2.9:1)
+        re.compile(r'text-slate-[23]00\b', re.IGNORECASE),  # slate-200 (2.0:1), slate-300 (3.0:1)
+        re.compile(r'text-zinc-[23]00\b', re.IGNORECASE),
+        re.compile(r'text-neutral-[23]00\b', re.IGNORECASE),
+        re.compile(r'text-stone-[23]00\b', re.IGNORECASE),
+        # gray-400, slate-400 etc are borderline (3.0-3.1:1) - flag with lower confidence
+        re.compile(r'text-gray-400\b', re.IGNORECASE),  # 3.1:1
+        re.compile(r'text-slate-400\b', re.IGNORECASE),  # 3.0:1
+        re.compile(r'text-zinc-400\b', re.IGNORECASE),
+        re.compile(r'text-neutral-400\b', re.IGNORECASE),
+        re.compile(r'text-stone-400\b', re.IGNORECASE),
+        # Semantic muted colors (depends on theme, but often too light)
+        re.compile(r'text-muted\b', re.IGNORECASE),
+        re.compile(r'text-muted-foreground\b', re.IGNORECASE),
+        # NOTE: text-app-* are semantic theme colors that adapt to light/dark mode
+        # They should NOT be flagged as they're designed for their context
+        # NOTE: gray-500/600/700, slate-500/600/700 all PASS WCAG AA (4.5:1+)
     ]
+
+    # Borderline colors that might be okay depending on background
+    _BORDERLINE_CONTRAST = [
+        re.compile(r'text-gray-400\b', re.IGNORECASE),  # 3.1:1 - borderline
+        re.compile(r'text-slate-400\b', re.IGNORECASE),  # 3.0:1 - borderline
+        re.compile(r'text-zinc-400\b', re.IGNORECASE),
+        re.compile(r'text-neutral-400\b', re.IGNORECASE),
+        re.compile(r'text-stone-400\b', re.IGNORECASE),
+        # NOTE: gray-500 (4.6:1), slate-500 (4.9:1) PASS AA
+        # NOTE: gray-600 (6.6:1), slate-600 (7.1:1) PASS AA
+        # NOTE: gray-700 (9.5:1), slate-700 (9.5:1) PASS AA
+        # NOTE: text-app-* removed - semantic theme colors
+    ]
+
+    # Pattern to detect colored backgrounds (bg-X-100, bg-X-50) - text might be okay on these
+    _COLORED_BG_PATTERN = re.compile(r'bg-[a-z]+-[15]0\b', re.IGNORECASE)
+    
+    # Dark mode pattern - colors with dark: prefix are for dark backgrounds
+    _DARK_MODE_PATTERN = re.compile(r'dark:', re.IGNORECASE)
     
     # Inline style color patterns
     _STYLE_COLOR = re.compile(
@@ -92,13 +124,41 @@ class ColorContrastRatioRule(Rule):
             
             # Check for low contrast Tailwind classes
             low_contrast_class = None
+            is_borderline = False
             for pattern in self._LOW_CONTRAST_TAILWIND:
                 match = pattern.search(attrs)
                 if match:
+                    # Check if this match is part of a dark: variant
+                    # dark:text-slate-200 is for dark mode and should not be flagged
+                    pos = match.start()
+                    if pos >= 5 and attrs[pos-5:pos] == 'dark:':
+                        continue  # Skip dark mode variant
+                    if pos >= 6 and attrs[pos-6:pos] == 'dark:':
+                        continue  # Skip dark mode variant (with space)
+                    
                     low_contrast_class = match.group(0)
+                    # Check if this is a borderline color
+                    is_borderline = any(p.search(attrs) for p in self._BORDERLINE_CONTRAST)
                     break
-            
+
             if low_contrast_class:
+                # Skip if element has a colored background (contrast might be fine)
+                has_colored_bg = bool(self._COLORED_BG_PATTERN.search(attrs))
+
+                # Adjust confidence based on context
+                if has_colored_bg and is_borderline:
+                    # Likely okay - colored background with borderline text
+                    continue
+                elif has_colored_bg:
+                    # Colored background - lower confidence
+                    confidence = 0.50
+                elif is_borderline:
+                    # Borderline on white/light bg - medium confidence
+                    confidence = 0.60
+                else:
+                    # Definitely too light (gray-200, gray-300)
+                    confidence = 0.80
+
                 seen_lines.add(line)
                 findings.append(
                     self.create_finding(
@@ -123,10 +183,11 @@ class ColorContrastRatioRule(Rule):
                             "3. Ensure 4.5:1 ratio for normal text, 3:1 for large text"
                         ),
                         tags=["ux", "a11y", "contrast", "accessibility", "wcag"],
-                        confidence=0.70,
+                        confidence=confidence,
                         evidence_signals=[
                             f"tag={tag}",
                             f"low_contrast_class={low_contrast_class}",
+                            f"has_colored_bg={has_colored_bg}",
                         ],
                     )
                 )

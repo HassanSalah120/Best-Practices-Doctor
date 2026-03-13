@@ -58,7 +58,7 @@ class HardcodedSecretsRule(Rule):
         re.compile(r"['\"]private_key['\"]\s*=>\s*['\"][^'\"]+['\"]", re.IGNORECASE),
     ]
 
-    # Values that should NOT be flagged (placeholders, empty, env calls)
+    # Values that should NOT be flagged (placeholders, empty, env calls, Laravel patterns)
     _SAFE_VALUES = re.compile(
         r"env\s*\(|"
         r"config\s*\(|"
@@ -70,8 +70,113 @@ class HardcodedSecretsRule(Rule):
         r"['\"]placeholder['\"]|"
         r"['\"]changeme['\"]|"
         r"['\"]secret[_-]?here['\"]|"
-        r"['\"]\s*['\"]"  # Empty string
+        r"['\"]\s*['\"]|"  # Empty string
+        # Laravel validation rules
+        r"['\"]required['\"]|"
+        r"['\"]required_with['\"]|"
+        r"['\"]required_if['\"]|"
+        r"['\"]nullable['\"]|"
+        r"['\"]sometimes['\"]|"
+        r"['\"]filled['\"]|"
+        r"['\"]present['\"]|"
+        r"['\"]string['\"]|"
+        r"['\"]email['\"]|"
+        r"['\"]unique['\"]|"
+        r"['\"]exists['\"]|"
+        r"['\"]confirmed['\"]|"
+        r"['\"]min:\d+['\"]|"
+        r"['\"]max:\d+['\"]|"
+        r"['\"]between:\d+,\d+['\"]|"
+        r"[\"']\w+:\w+[\"']|"  # validation rule with colon like "min:8"
+        # Laravel cast types
+        r"['\"]hashed['\"]|"
+        r"['\"]datetime['\"]|"
+        r"['\"]date['\"]|"
+        r"['\"]timestamp['\"]|"
+        r"['\"]array['\"]|"
+        r"['\"]json['\"]|"
+        r"['\"]object['\"]|"
+        r"['\"]collection['\"]|"
+        r"['\"]boolean['\"]|"
+        r"['\"]bool['\"]|"
+        r"['\"]integer['\"]|"
+        r"['\"]int['\"]|"
+        r"['\"]real['\"]|"
+        r"['\"]float['\"]|"
+        r"['\"]double['\"]|"
+        r"['\"]decimal:\d+['\"]|"
+        r"['\"]encrypted['\"]|"
+        r"['\"]encrypted:array['\"]|"
+        r"['\"]immutable_date['\"]|"
+        r"['\"]immutable_datetime['\"]"
     )
+
+    # Patterns that indicate an ACTUAL secret (high entropy, API keys, etc.)
+    _ACTUAL_SECRET_INDICATORS = [
+        # API key prefixes
+        re.compile(r"sk-[a-zA-Z0-9]{20,}", re.IGNORECASE),  # Stripe keys
+        re.compile(r"pk-[a-zA-Z0-9]{20,}", re.IGNORECASE),  # Stripe public keys
+        re.compile(r"AKIA[0-9A-Z]{16}", re.IGNORECASE),  # AWS access keys
+        re.compile(r"gh[pousr]_[A-Za-z0-9_]{36}", re.IGNORECASE),  # GitHub tokens
+        re.compile(r"glpat-[A-Za-z0-9-]{20}", re.IGNORECASE),  # GitLab tokens
+        re.compile(r"Bearer\s+[a-zA-Z0-9_-]{20,}", re.IGNORECASE),  # Bearer tokens
+        # High entropy patterns (random strings that look like secrets)
+        re.compile(r"[a-zA-Z0-9]{20,}", re.IGNORECASE),  # Long alphanumeric strings
+        re.compile(r"[a-z0-9]{32,}", re.IGNORECASE),  # MD5-like hashes
+        re.compile(r"[a-f0-9]{40,}", re.IGNORECASE),  # SHA1-like hashes
+        re.compile(r"[a-f0-9]{64,}", re.IGNORECASE),  # SHA256-like hashes
+        # Base64 patterns (common for encoded secrets)
+        re.compile(r"[A-Za-z0-9+/]{40,}={0,2}", re.IGNORECASE),
+    ]
+
+    # Common weak passwords that should be flagged
+    _WEAK_PASSWORDS = re.compile(
+        r"['\"](password|admin|123456|qwerty|letmein|welcome|monkey|dragon)['\"]\d*",
+        re.IGNORECASE
+    )
+
+    def _looks_like_actual_secret(self, value: str) -> bool:
+        """
+        Determine if a value looks like an actual secret vs a Laravel pattern.
+        Returns True if the value appears to be a real secret.
+        """
+        # If it matches weak passwords, it's a secret (bad practice)
+        if self._WEAK_PASSWORDS.search(value):
+            return True
+
+        # If it has high entropy or API key patterns, it's a secret
+        for pattern in self._ACTUAL_SECRET_INDICATORS:
+            if pattern.search(value):
+                return True
+
+        # Laravel validation rules often have colons (min:8, max:255)
+        if re.search(r"\w+:\d+", value):
+            return False
+
+        # Laravel casts and validation rules are typically lowercase single words
+        # that are in our safe values list - but if we get here, it wasn't matched
+        # Check for simple lowercase words (likely Laravel patterns)
+        if re.match(r"^[a-z_]+$", value.strip("'\"")):
+            return False
+
+        # If the value is short (less than 8 chars), probably not a secret
+        if len(value.strip("'\"")) < 8:
+            return False
+
+        # Default: if it looks complex enough, treat as secret
+        return len(value) >= 10
+
+    def _extract_value_from_match(self, matched: str) -> str:
+        """Extract the actual value from a pattern match like 'password' => 'value'."""
+        # Look for the value after =>
+        value_match = re.search(r"=>\s*['\"]([^'\"]+)['\"]", matched)
+        if value_match:
+            return value_match.group(1)
+        # Look for the value after =
+        value_match = re.search(r"=\s*['\"]([^'\"]+)['\"]", matched)
+        if value_match:
+            return value_match.group(1)
+        return matched
 
     _ALLOWLIST_PATHS = (
         "/tests/",
@@ -116,12 +221,17 @@ class HardcodedSecretsRule(Rule):
                 if not match:
                     continue
 
-                # Check if it's a safe value (env, config, placeholder)
+                # Check if it's a safe value (env, config, placeholder, Laravel patterns)
                 if self._SAFE_VALUES.search(line):
                     continue
 
-                # Extract the matched text
+                # Extract the matched text and value
                 matched = match.group(0)
+                value = self._extract_value_from_match(matched)
+
+                # Check if it looks like an actual secret (not Laravel validation/cast)
+                if not self._looks_like_actual_secret(value):
+                    continue
 
                 findings.append(
                     self.create_finding(

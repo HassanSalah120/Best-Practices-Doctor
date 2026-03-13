@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   Sparkles,
   Workflow,
+  Sliders,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { ApiClient } from "@/lib/api";
@@ -18,10 +19,12 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 interface WelcomeScreenProps {
-  onStartScan: (path: string, profile: string) => void;
+  onStartScan: (path: string, profile: string, selectedRules?: Set<string>) => void;
   initialProfile?: string;
   onProfileChange?: (profile: string) => void;
   onOpenRuleset?: () => void;
+  onOpenAdvancedConfig?: () => void;
+  selectedRules?: Set<string>;
 }
 
 const PROFILE_COPY: Record<string, { title: string; description: string; tone: string }> = {
@@ -39,6 +42,11 @@ const PROFILE_COPY: Record<string, { title: string; description: string; tone: s
     title: "High scrutiny",
     description: "Closer to a quality gate. Better for mature codebases and security-focused review cycles.",
     tone: "border-amber-400/25 bg-amber-400/10 text-amber-100",
+  },
+  advanced: {
+    title: "Custom selection",
+    description: "Fine-tune which rules to run. Select entire groups or individual rules for precise control.",
+    tone: "border-purple-400/25 bg-purple-400/10 text-purple-100",
   },
 };
 
@@ -65,16 +73,24 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   initialProfile = "startup",
   onProfileChange,
   onOpenRuleset,
+  onOpenAdvancedConfig,
+  selectedRules,
 }) => {
   const [path, setPath] = useState("");
   const [selecting, setSelecting] = useState(false);
-  const [profiles, setProfiles] = useState<string[]>(["startup", "balanced", "strict"]);
+  const [profiles, setProfiles] = useState<string[]>(["startup", "balanced", "strict", "advanced"]);
   const [activeProfile, setActiveProfile] = useState<string>(initialProfile);
   const [profilesLoading, setProfilesLoading] = useState(false);
   const isTauri = isTauriRuntime();
 
   useEffect(() => {
-    setActiveProfile(initialProfile);
+    // Sync from parent prop, but preserve 'advanced' selection
+    setActiveProfile((current) => {
+      if (current === "advanced" && initialProfile !== "advanced") {
+        return current;
+      }
+      return initialProfile;
+    });
   }, [initialProfile]);
 
   useEffect(() => {
@@ -92,11 +108,23 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         }
 
         if (Array.isArray(response?.profiles) && response.profiles.length > 0) {
-          setProfiles(response.profiles);
+          // Always add 'advanced' as a special profile option
+          const allProfiles = [...response.profiles];
+          if (!allProfiles.includes("advanced")) {
+            allProfiles.push("advanced");
+          }
+          setProfiles(allProfiles);
         }
 
+        // Only set active profile from backend if user hasn't selected 'advanced'
         if (typeof response?.active_profile === "string" && response.active_profile) {
-          setActiveProfile(response.active_profile);
+          setActiveProfile((current) => {
+            // Preserve 'advanced' selection
+            if (current === "advanced") {
+              return current;
+            }
+            return response.active_profile;
+          });
         }
       })
       .catch(() => {
@@ -133,7 +161,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
   const handleStart = () => {
     if (path.trim()) {
-      onStartScan(path.trim(), activeProfile);
+      onStartScan(path.trim(), activeProfile, activeProfile === "advanced" ? selectedRules : undefined);
     }
   };
 
@@ -277,11 +305,25 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
                   const isSelected = activeProfile === profile;
 
+                  // Special handling for advanced profile
+                  const handleProfileClick = () => {
+                    if (profile === "advanced") {
+                      setActiveProfile("advanced");
+                      onProfileChange?.("advanced"); // Notify parent immediately
+                      if (onOpenAdvancedConfig) {
+                        onOpenAdvancedConfig();
+                      }
+                    } else {
+                      setActiveProfile(profile);
+                      onProfileChange?.(profile); // Notify parent immediately
+                    }
+                  };
+
                   return (
                     <button
                       key={profile}
                       type="button"
-                      onClick={() => setActiveProfile(profile)}
+                      onClick={handleProfileClick}
                       disabled={profilesLoading}
                       className={cn(
                         "rounded-[1.5rem] border px-4 py-4 text-left transition-all duration-300",
@@ -292,15 +334,24 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                       )}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-semibold capitalize text-white">{profile}</div>
-                          <div className="mt-1 text-sm text-white/55">{profileDetails.title}</div>
+                        <div className="flex items-center gap-2">
+                          {profile === "advanced" && <Sliders className="h-4 w-4 text-purple-300" />}
+                          <div>
+                            <div className="text-sm font-semibold capitalize text-white">{profile}</div>
+                            <div className="mt-1 text-sm text-white/55">{profileDetails.title}</div>
+                          </div>
                         </div>
                         <div className={cn("rounded-full border px-3 py-1 text-xs font-semibold", profileDetails.tone)}>
                           {isSelected ? "Selected" : "Available"}
                         </div>
                       </div>
                       <div className="mt-3 text-sm leading-6 text-white/65">{profileDetails.description}</div>
+                      {profile === "advanced" && isSelected && selectedRules && (
+                        <div className="mt-2 flex items-center gap-2 text-xs text-purple-300">
+                          <Sliders className="h-3 w-3" />
+                          {selectedRules.size} rules selected
+                        </div>
+                      )}
                     </button>
                   );
                 })}

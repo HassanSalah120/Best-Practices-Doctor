@@ -11,6 +11,13 @@ def _ruleset_with_only(rule_id: str, config: RuleConfig | None = None) -> Rulese
     return Ruleset(rules=rules, name="balanced")
 
 
+def test_explicit_ruleset_disables_unspecified_rules():
+    ruleset = Ruleset(rules={"no-log-debug-in-app": RuleConfig(enabled=True)}, name="balanced")
+
+    assert ruleset.get_rule_config("no-log-debug-in-app").enabled is True
+    assert ruleset.get_rule_config("fat-controller").enabled is False
+
+
 def test_rule_engine_confidence_floor_filters_low_confidence_regex_findings(tmp_path: Path):
     root = tmp_path / "proj"
     routes = root / "routes"

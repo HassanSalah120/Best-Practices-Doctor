@@ -102,10 +102,15 @@ export class ApiClient {
   static async startScan(
     projectPath: string,
     ruleset?: string,
+    selectedRules?: string[],
   ): Promise<{ job_id: string }> {
     return this.request("/scan", {
       method: "POST",
-      body: JSON.stringify({ path: projectPath, ruleset_path: ruleset }),
+      body: JSON.stringify({
+        path: projectPath,
+        ruleset_path: ruleset,
+        selected_rules: selectedRules,
+      }),
     });
   }
 
@@ -197,6 +202,10 @@ export class ApiClient {
       method: "PUT",
       body: JSON.stringify({ name }),
     });
+  }
+
+  static async getRuleMetadata(): Promise<RuleMetadataResponse> {
+    return this.request("/rules/metadata");
   }
 
   static async subscribeToJob(
@@ -504,4 +513,25 @@ export interface AstCacheStats {
   total_size_bytes: number;
   oldest_entry: string | null;
   newest_entry: string | null;
+}
+
+export interface RuleMetadataResponse {
+  layers: Array<{
+    id: string;
+    label: string;
+    description: string;
+    icon: string;
+    categories: Array<{
+      id: string;
+      label: string;
+      description: string;
+      rules: Array<{
+        id: string;
+        name: string;
+        description: string;
+        severity: string;
+        tags: string[];
+      }>;
+    }>;
+  }>;
 }

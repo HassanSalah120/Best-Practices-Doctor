@@ -38,7 +38,7 @@ def test_no_inline_services_flags_ast_component_metadata():
             line_end=80,
             loc=80,
             has_inline_helper_fns=True,
-            inline_helper_names=["buildRows", "normalizePatient"],
+            inline_helper_names=["fetchPatientRows", "persistPatientDraft"],
         )
     )
 
@@ -59,6 +59,63 @@ def test_no_inline_services_skips_trivial_ui_handlers():
             loc=60,
             has_inline_helper_fns=True,
             inline_helper_names=["handleBack", "toggleMenu", "focusIndex", "emitValue"],
+        )
+    )
+
+    findings = NoInlineServicesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
+    assert findings == []
+
+
+def test_no_inline_types_skips_hook_modules():
+    facts = Facts(project_path=".")
+    facts.react_components.append(
+        ReactComponentInfo(
+            name="usePatientSearch",
+            file_path="resources/js/hooks/usePatientSearch.ts",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=80,
+            loc=80,
+            has_inline_type_defs=True,
+            inline_type_names=["PatientSearchParams"],
+        )
+    )
+
+    findings = NoInlineTypesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
+    assert findings == []
+
+
+def test_no_inline_services_skips_colocated_utils_modules():
+    facts = Facts(project_path=".")
+    facts.react_components.append(
+        ReactComponentInfo(
+            name="IndexUtils",
+            file_path="resources/js/pages/Portal/Subscriptions/utils.ts",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=60,
+            loc=60,
+            has_inline_helper_fns=True,
+            inline_helper_names=["formatPlanPrice"],
+        )
+    )
+
+    findings = NoInlineServicesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
+    assert findings == []
+
+
+def test_no_inline_services_skips_pure_local_utilities_inside_component():
+    facts = Facts(project_path=".")
+    facts.react_components.append(
+        ReactComponentInfo(
+            name="Modal",
+            file_path="resources/js/components/UI/Modal.tsx",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=120,
+            loc=120,
+            has_inline_helper_fns=True,
+            inline_helper_names=["getFocusableElements"],
         )
     )
 

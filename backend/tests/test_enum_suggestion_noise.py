@@ -1,4 +1,4 @@
-from schemas.facts import Facts, StringLiteral
+from schemas.facts import Facts, StringLiteral, ClassInfo
 from core.ruleset import RuleConfig
 from rules.laravel.enum_suggestion import EnumSuggestionRule
 
@@ -101,3 +101,38 @@ def test_enum_suggestion_counts_only_non_lang_occurrences():
     rule = EnumSuggestionRule(RuleConfig())
     findings = rule.run(facts, project_type="laravel_blade").findings
     assert any(f.rule_id == "enum-suggestion" for f in findings)
+
+
+def test_enum_suggestion_skips_when_matching_enum_already_exists():
+    facts = Facts(project_path="x")
+    facts.enums.append(
+        ClassInfo(
+            name="StatusEnum",
+            fqcn="App\\Enums\\StatusEnum",
+            file_path="app/Enums/StatusEnum.php",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=20,
+        )
+    )
+    facts.string_literals = [
+        StringLiteral(value="pending", occurrences=[("a.php", 10), ("b.php", 20)]),
+        StringLiteral(value="completed", occurrences=[("a.php", 30), ("b.php", 40)]),
+    ]
+
+    rule = EnumSuggestionRule(RuleConfig())
+    findings = rule.run(facts, project_type="laravel_blade").findings
+    assert all(f.rule_id != "enum-suggestion" for f in findings)
+
+
+def test_enum_suggestion_skips_when_matching_enum_file_exists_in_facts_files():
+    facts = Facts(project_path="x")
+    facts.files = ["app/Enums/StatusEnum.php"]
+    facts.string_literals = [
+        StringLiteral(value="pending", occurrences=[("a.php", 10), ("b.php", 20)]),
+        StringLiteral(value="completed", occurrences=[("a.php", 30), ("b.php", 40)]),
+    ]
+
+    rule = EnumSuggestionRule(RuleConfig())
+    findings = rule.run(facts, project_type="laravel_blade").findings
+    assert all(f.rule_id != "enum-suggestion" for f in findings)

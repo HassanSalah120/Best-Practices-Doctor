@@ -12,6 +12,7 @@ Detection strategy:
 """
 import re
 import os
+from pathlib import Path
 from schemas.facts import Facts
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
@@ -54,6 +55,18 @@ class NoInlineTypesRule(Rule):
     )
     _TYPE_FILENAMES = {"types", "interfaces", "models", "schemas", "dto", "entity", "enums"}
     _TEST_MARKERS = (".test.", ".spec.", "__tests__", ".stories.")
+    _NON_COMPONENT_MARKERS = (
+        "/hooks/",
+        ".hooks.",
+        "/utils/",
+        ".utils.",
+        "/helpers/",
+        ".helpers.",
+        "/services/",
+        "/i18n/",
+        "/scripts/",
+    )
+    _COMPONENT_EXTS = {".tsx", ".jsx"}
 
     # ------------------------------------------------------------------ AST path (primary)
 
@@ -73,6 +86,8 @@ class NoInlineTypesRule(Rule):
             if comp.file_path in seen_files:
                 continue
             if self._is_type_file(comp.file_path):
+                continue
+            if not self._looks_like_component_file(comp.file_path):
                 continue
             seen_files.add(comp.file_path)
 
@@ -129,6 +144,8 @@ class NoInlineTypesRule(Rule):
             return []
         if self._is_type_file(file_path):
             return []
+        if not self._looks_like_component_file(file_path):
+            return []
         if any(m in file_path.lower() for m in self._TEST_MARKERS):
             return []
 
@@ -180,6 +197,15 @@ class NoInlineTypesRule(Rule):
             return True
         basename = os.path.basename(low).split(".")[0]
         return basename in self._TYPE_FILENAMES
+
+    def _looks_like_component_file(self, file_path: str) -> bool:
+        low = file_path.lower().replace("\\", "/")
+        if any(marker in low for marker in self._NON_COMPONENT_MARKERS):
+            return False
+        basename = os.path.basename(low)
+        if basename.startswith("use"):
+            return False
+        return Path(low).suffix in self._COMPONENT_EXTS
 
     @staticmethod
     def _sibling_types_file(file_path: str) -> str:

@@ -128,6 +128,22 @@ class Rule(ABC):
         Regex rules should override this and keep `analyze()` minimal.
         """
         return []
+
+    def analyze_ast(
+        self,
+        file_path: str,
+        content: str,
+        facts: Facts,
+        metrics: dict[str, MethodMetrics] | None = None,
+    ) -> list[Finding]:
+        """
+        AST-based analysis hook for structural rules.
+
+        Default: no findings.
+        AST rules should override this for accurate context-aware analysis.
+        Use rules.react.ast_utils for React-specific AST utilities.
+        """
+        return []
     
     def run(
         self,

@@ -13,6 +13,7 @@ Detection strategy:
 """
 import re
 import os
+from pathlib import Path
 from schemas.facts import Facts
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
@@ -65,6 +66,18 @@ class NoInlineServicesRule(Rule):
         "util", "utils", "api", "client", "repository",
     )
     _TEST_MARKERS = (".test.", ".spec.", "__tests__", ".stories.")
+    _NON_COMPONENT_MARKERS = (
+        ".utils.",
+        ".helpers.",
+        ".hooks.",
+        "/hooks/",
+        "/utils/",
+        "/helpers/",
+        "/i18n/",
+        "/scripts/",
+        "/app/app.tsx",
+    )
+    _COMPONENT_EXTS = {".tsx", ".jsx"}
     _TRIVIAL_UI_PREFIXES = (
         "handle",
         "on",
@@ -98,6 +111,50 @@ class NoInlineServicesRule(Rule):
         "back",
         "forward",
     }
+    _PURE_LOCAL_HELPER_PREFIXES = (
+        "get",
+        "build",
+        "format",
+        "map",
+        "normalize",
+        "group",
+        "sort",
+        "filter",
+        "derive",
+        "compute",
+        "parse",
+        "is",
+        "has",
+        "to",
+    )
+    _SERVICE_LIKE_PREFIXES = (
+        "fetch",
+        "load",
+        "save",
+        "persist",
+        "submit",
+        "send",
+        "sync",
+        "request",
+        "upload",
+        "download",
+        "notify",
+        "post",
+        "put",
+        "patch",
+        "delete",
+        "remove",
+        "refresh",
+    )
+    _SERVICE_LIKE_SUFFIXES = (
+        "service",
+        "client",
+        "repository",
+        "request",
+        "mutation",
+        "query",
+        "payload",
+    )
 
     # ------------------------------------------------------------------ AST path (primary)
 
@@ -116,6 +173,8 @@ class NoInlineServicesRule(Rule):
             if comp.file_path in seen_files:
                 continue
             if self._is_service_file(comp.file_path):
+                continue
+            if not self._looks_like_component_file(comp.file_path):
                 continue
             
             # Skip if the component already imports from utility/hook files
@@ -177,6 +236,8 @@ class NoInlineServicesRule(Rule):
             return []
         if self._is_service_file(file_path):
             return []
+        if not self._looks_like_component_file(file_path):
+            return []
 
         # Hooks file (file is named useXxx.ts)
         basename = os.path.basename(file_path).lower()
@@ -236,6 +297,15 @@ class NoInlineServicesRule(Rule):
         base = os.path.basename(low).split(".")[0]
         return any(base.endswith(s) or base.startswith(s) for s in self._SERVICE_FILENAMES)
 
+    def _looks_like_component_file(self, file_path: str) -> bool:
+        low = file_path.lower().replace("\\", "/")
+        if any(marker in low for marker in self._NON_COMPONENT_MARKERS):
+            return False
+        basename = os.path.basename(low)
+        if basename.startswith("use"):
+            return False
+        return Path(low).suffix in self._COMPONENT_EXTS
+
     def _imports_from_utils(self, comp) -> bool:
         """Check if component imports from utility/hook files (.utils, .hooks, etc.)."""
         for imp in comp.imports or []:
@@ -249,13 +319,27 @@ class NoInlineServicesRule(Rule):
         return False
 
     def _filter_service_like_helpers(self, helper_names: list[str]) -> list[str]:
-        return [name for name in helper_names if not self._looks_trivial_ui_helper(name)]
+        return [
+            name
+            for name in helper_names
+            if self._looks_service_like_helper(name) and not self._looks_trivial_ui_helper(name)
+        ]
+
+    def _looks_service_like_helper(self, helper_name: str) -> bool:
+        low = str(helper_name or "").strip().lower()
+        if not low:
+            return False
+        if any(low.startswith(prefix) for prefix in self._SERVICE_LIKE_PREFIXES):
+            return True
+        return any(low.endswith(suffix) for suffix in self._SERVICE_LIKE_SUFFIXES)
 
     def _looks_trivial_ui_helper(self, helper_name: str) -> bool:
         low = str(helper_name or "").strip().lower()
         if not low:
             return True
         if low in self._TRIVIAL_UI_NAMES:
+            return True
+        if any(low.startswith(prefix) for prefix in self._PURE_LOCAL_HELPER_PREFIXES):
             return True
         return any(low.startswith(prefix) for prefix in self._TRIVIAL_UI_PREFIXES)
 

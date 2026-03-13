@@ -24,7 +24,7 @@ class ButtonTextVagueRule(Rule):
     applicable_project_types: list[str] = []
     regex_file_extensions = [".js", ".jsx", ".ts", ".tsx"]
 
-    # Vague button text patterns
+    # Vague button text patterns (single words only - verb+object is NOT vague)
     _VAGUE_PATTERNS = [
         re.compile(r"^submit$", re.IGNORECASE),
         re.compile(r"^click$", re.IGNORECASE),
@@ -42,6 +42,13 @@ class ButtonTextVagueRule(Rule):
         re.compile(r"^done$", re.IGNORECASE),
         re.compile(r"^apply$", re.IGNORECASE),
         re.compile(r"^confirm$", re.IGNORECASE),
+    ]
+
+    # Patterns that indicate button is NOT vague (verb + object)
+    _CLEAR_BUTTON_PATTERNS = [
+        re.compile(r"^(create|add|edit|delete|remove|save|submit|update|send|cancel|close)\s+\w+", re.IGNORECASE),  # verb + object
+        re.compile(r"^\w+\s+(button|action|form)$", re.IGNORECASE),  # object + type
+        re.compile(r"^choose\s+\w+", re.IGNORECASE),  # "Choose Photo"
     ]
     
     # Button patterns
@@ -111,11 +118,22 @@ class ButtonTextVagueRule(Rule):
             is_vague, matched = self._is_vague_text(plain_text)
             if not is_vague:
                 continue
-            
-            # Skip if has aria-label with more context
-            aria_match = self._ARIA_LABEL.search(attrs)
-            if aria_match and len(aria_match.group("label")) > len(plain_text) + 5:
+
+            # Check if button has clear pattern (verb + object)
+            has_clear_pattern = any(p.search(plain_text) for p in self._CLEAR_BUTTON_PATTERNS)
+            if has_clear_pattern:
                 continue
+
+            # Skip if button has aria-label (provides accessible name)
+            aria_match = self._ARIA_LABEL.search(attrs)
+            if aria_match:
+                # Button has aria-label - it's accessible even if visible text is vague
+                # The aria-label overrides the visible text for screen readers
+                continue
+
+            # Reduce confidence for buttons with visible text (vs icon-only)
+            # Visible text provides context even if "vague"
+            confidence = 0.50 if len(plain_text) > 2 else 0.75
             
             seen_lines.add(line)
             findings.append(
@@ -142,7 +160,7 @@ class ButtonTextVagueRule(Rule):
                         "4. Use visually-hidden text for context"
                     ),
                     tags=["ux", "a11y", "buttons", "accessibility"],
-                    confidence=0.75,
+                    confidence=confidence,
                     evidence_signals=[
                         f"button_text={plain_text}",
                         f"matched_pattern={matched}",

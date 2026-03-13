@@ -58,7 +58,25 @@ class LongPageNoTocRule(Rule):
         re.compile(r"Documentation", re.IGNORECASE),
         re.compile(r"Guide", re.IGNORECASE),
     ]
-    
+
+    # Dashboard/SPA patterns that DON'T need TOC (application interfaces, not articles)
+    _DASHBOARD_PATTERNS = [
+        re.compile(r"Dashboard", re.IGNORECASE),  # Dashboard pages
+        re.compile(r"Admin", re.IGNORECASE),  # Admin interfaces
+        re.compile(r"Settings", re.IGNORECASE),  # Settings pages
+        re.compile(r"ShowView", re.IGNORECASE),  # Detail view sub-components
+        re.compile(r"Content", re.IGNORECASE),  # Content sub-components
+        re.compile(r"Tabs", re.IGNORECASE),  # Tabbed interfaces
+        re.compile(r"Tab", re.IGNORECASE),  # Tab components
+        re.compile(r"Panel", re.IGNORECASE),  # Panel-based layouts
+        re.compile(r"Widget", re.IGNORECASE),  # Widget dashboards
+        re.compile(r"Card", re.IGNORECASE),  # Card-based UIs
+        re.compile(r"/Portal/", re.IGNORECASE),  # Portal sections
+        re.compile(r"/portal/", re.IGNORECASE),  # Portal sections
+        re.compile(r"GlobalSettings", re.IGNORECASE),  # Global settings
+        re.compile(r"System", re.IGNORECASE),  # System pages
+    ]
+
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
@@ -89,7 +107,17 @@ class LongPageNoTocRule(Rule):
             return []
 
         findings: list[Finding] = []
-        
+
+        # Skip dashboard/SPA pages that don't need TOC
+        is_dashboard_page = any(p.search(file_path) for p in self._DASHBOARD_PATTERNS)
+        if is_dashboard_page:
+            return findings
+
+        # Skip pages that use tabs (they have built-in section navigation)
+        has_tabs = re.search(r'<Tab[^s]|Tabs|tablist|role=["\']tablist["\']', content, re.IGNORECASE)
+        if has_tabs:
+            return findings
+
         # Count headings
         headings = self._HEADING_PATTERN.findall(content)
         heading_count = len(headings)

@@ -65,6 +65,44 @@ export function Header() {
     assert findings == []
 
 
+def test_multiple_exported_react_components_skips_related_component_bundle():
+    rule = MultipleExportedComponentsPerFileRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+export function CreateClinicHeader() {
+  return <header />;
+}
+
+export function CreateClinicSidebar() {
+  return <aside />;
+}
+
+export function CreateClinicForm() {
+  return <form />;
+}
+"""
+
+    findings = rule.analyze_regex("resources/js/pages/Portal/Clinics/Create.components.tsx", content, facts)
+    assert findings == []
+
+
+def test_multiple_exported_react_components_skips_stem_component_pair():
+    rule = MultipleExportedComponentsPerFileRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+export function Modal() {
+  return <div />;
+}
+
+export function ConfirmDialog() {
+  return <div />;
+}
+"""
+
+    findings = rule.analyze_regex("resources/js/components/UI/Modal.tsx", content, facts)
+    assert findings == []
+
+
 def test_context_provider_inline_value_flags_inline_object():
     rule = ContextProviderInlineValueRule(RuleConfig())
     facts = Facts(project_path=".")

@@ -183,6 +183,110 @@ def test_csrf_webhook_route_exempt():
     assert len(findings) == 0
 
 
+def test_csrf_skips_route_files_grouped_under_web_php(tmp_path):
+    routes_dir = tmp_path / "routes"
+    routes_dir.mkdir(parents=True, exist_ok=True)
+    (routes_dir / "web.php").write_text(
+        "<?php\nRoute::middleware(['auth', 'verified'])->group(base_path('routes/campaigns.php'));\n",
+        encoding="utf-8",
+    )
+
+    facts = Facts(project_path=str(tmp_path))
+    facts.routes.append(
+        RouteInfo(
+            method="POST",
+            uri="/campaigns",
+            action="CampaignController@store",
+            file_path="routes/campaigns.php",
+            line_number=10,
+            middleware=["auth"],
+        )
+    )
+
+    findings = MissingCsrfTokenVerificationRule(RuleConfig()).analyze(facts)
+    assert findings == []
+
+
+def test_csrf_skips_nested_route_files_grouped_under_web_php(tmp_path):
+    routes_dir = tmp_path / "routes"
+    routes_dir.mkdir(parents=True, exist_ok=True)
+    (routes_dir / "web.php").write_text(
+        "<?php\nrequire __DIR__ . '/auth.php';\n",
+        encoding="utf-8",
+    )
+    (routes_dir / "auth.php").write_text(
+        "<?php\nRoute::middleware('guest')->group(base_path('routes/auth-guest.php'));\n",
+        encoding="utf-8",
+    )
+
+    facts = Facts(project_path=str(tmp_path))
+    facts.routes.append(
+        RouteInfo(
+            method="POST",
+            uri="/forgot-password",
+            action="PasswordResetLinkController@store",
+            file_path="routes/auth-guest.php",
+            line_number=16,
+            middleware=["guest"],
+        )
+    )
+
+    findings = MissingCsrfTokenVerificationRule(RuleConfig()).analyze(facts)
+    assert findings == []
+
+
+def test_csrf_skips_included_route_files_even_with_absolute_route_path(tmp_path):
+    routes_dir = tmp_path / "routes"
+    routes_dir.mkdir(parents=True, exist_ok=True)
+    (routes_dir / "web.php").write_text(
+        "<?php\nrequire __DIR__ . '/auth.php';\n",
+        encoding="utf-8",
+    )
+    (routes_dir / "auth.php").write_text(
+        "<?php\nRoute::middleware('auth')->group(base_path('routes/auth-auth.php'));\n",
+        encoding="utf-8",
+    )
+
+    facts = Facts(project_path=str(tmp_path))
+    facts.routes.append(
+        RouteInfo(
+            method="POST",
+            uri="/confirm-password",
+            action="ConfirmablePasswordController@store",
+            file_path=str(routes_dir / "auth-auth.php"),
+            line_number=24,
+            middleware=["auth"],
+        )
+    )
+
+    findings = MissingCsrfTokenVerificationRule(RuleConfig()).analyze(facts)
+    assert findings == []
+
+
+def test_csrf_skips_bootstrap_exempt_webhook_patterns(tmp_path):
+    bootstrap_dir = tmp_path / "bootstrap"
+    bootstrap_dir.mkdir(parents=True, exist_ok=True)
+    (bootstrap_dir / "app.php").write_text(
+        "<?php\n$middleware->validateCsrfTokens(except: ['/webhooks/stripe']);\n",
+        encoding="utf-8",
+    )
+
+    facts = Facts(project_path=str(tmp_path))
+    facts.routes.append(
+        RouteInfo(
+            method="POST",
+            uri="/webhooks/stripe",
+            action="WebhookController@stripe",
+            file_path="routes/webhooks.php",
+            line_number=8,
+            middleware=["throttle:webhooks"],
+        )
+    )
+
+    findings = MissingCsrfTokenVerificationRule(RuleConfig()).analyze(facts)
+    assert findings == []
+
+
 # ============== Insecure Deserialization Tests ==============
 
 def test_unserialize_user_input_flags():

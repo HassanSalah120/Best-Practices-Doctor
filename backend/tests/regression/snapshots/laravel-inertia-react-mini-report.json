@@ -33,7 +33,7 @@
   "classes_found": 0,
   "methods_found": 0,
   "scores": {
-    "overall": 98.8,
+    "overall": 99.0,
     "grade": "A",
     "architecture": 100.0,
     "dry": 100.0,
@@ -41,7 +41,7 @@
     "react": 53.5,
     "complexity": 100.0,
     "security": 100.0,
-    "maintainability": 94.2,
+    "maintainability": 95.0,
     "srp": 100.0,
     "validation": 100.0,
     "performance": 100.0
@@ -64,15 +64,6 @@
       "severity": "low",
       "file": "resources/js/Pages/SmallPage.tsx",
       "context": "file:resources/js/Pages/SmallPage.tsx"
-    },
-    {
-      "id": "finding_385897063582",
-      "fingerprint": "385897063582",
-      "rule_id": "no-inline-services",
-      "category": "maintainability",
-      "severity": "low",
-      "file": "resources/js/Pages/BigPage.tsx",
-      "context": "file:resources/js/Pages/BigPage.tsx"
     },
     {
       "id": "finding_4353f1e36957",
@@ -170,19 +161,6 @@
       "max_severity": "medium",
       "finding_fingerprints": [
         "5e90b443681d"
-      ],
-      "files": [
-        "resources/js/Pages/BigPage.tsx"
-      ]
-    },
-    {
-      "id": "action_665116d15278",
-      "rule_id": "no-inline-services",
-      "category": "maintainability",
-      "priority": 0.15,
-      "max_severity": "low",
-      "finding_fingerprints": [
-        "385897063582"
       ],
       "files": [
         "resources/js/Pages/BigPage.tsx"
@@ -302,13 +280,9 @@
     "hardcoded-user-facing-strings",
     "interactive-element-a11y",
     "form-label-association",
-    "no-nested-components",
-    "no-dangerously-set-inner-html",
-    "img-alt-missing",
-    "safe-target-blank",
-    "no-inline-hooks",
     "no-inline-types",
     "no-inline-services",
+    "react-project-structure-consistency",
     "inertia-page-missing-head",
     "inertia-internal-link-anchor",
     "inertia-form-uses-fetch",
@@ -400,11 +374,11 @@
     },
     "maintainability": {
       "category": "maintainability",
-      "score": 94.2,
-      "raw_score": 94.2,
+      "score": 95.0,
+      "raw_score": 95.0,
       "weight": 20.0,
       "has_weight": true,
-      "finding_count": 2
+      "finding_count": 1
     }
   }
 }

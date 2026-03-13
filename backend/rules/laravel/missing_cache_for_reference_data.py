@@ -6,6 +6,8 @@ Detects reference data queries that could benefit from caching.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from schemas.facts import Facts, QueryUsage
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
@@ -74,6 +76,21 @@ class MissingCacheForReferenceDataRule(Rule):
         "/vendor/",
         "/database/",
     )
+    _CACHE_CALL_PATTERNS = (
+        "cache::remember",
+        "cache::rememberforever",
+        "cache::flexible",
+        "cache()->remember",
+        "cache()->rememberforever",
+        "cache()->flexible",
+        "->remember(",
+        "->rememberforever(",
+        "->flexible(",
+    )
+    _CONFIG_LOOKUP_PATTERNS = (
+        "config::get(",
+        "config(",
+    )
 
     def analyze(
         self,
@@ -104,6 +121,8 @@ class MissingCacheForReferenceDataRule(Rule):
 
             if not is_reference_data:
                 continue
+            if self._is_config_lookup(facts, q, model_lower):
+                continue
 
             # Check if method name suggests getter pattern
             method_lower = (q.method_name or "").lower()
@@ -111,6 +130,10 @@ class MissingCacheForReferenceDataRule(Rule):
 
             # Check if query is in a service (more likely to benefit from caching)
             is_service = "/services/" in norm_path
+
+            # Skip if the source already wraps this query in a cache helper.
+            if self._is_query_already_cached(facts, q):
+                continue
 
             # Adjust confidence
             confidence = 0.70
@@ -179,3 +202,45 @@ class MissingCacheForReferenceDataRule(Rule):
                 if "cache::" in call_lower or "cache()->" in call_lower:
                     return True
         return False
+
+    def _is_query_already_cached(self, facts: Facts, query: QueryUsage) -> bool:
+        window = self._source_window(facts, query).lower()
+        if not window:
+            return False
+
+        if not any(token in window for token in self._CACHE_CALL_PATTERNS):
+            return False
+
+        if "cache::" in window or "cache()->" in window:
+            return True
+        return "->remember(" in window or "->rememberforever(" in window or "->flexible(" in window
+
+    def _is_config_lookup(self, facts: Facts, query: QueryUsage, model_lower: str) -> bool:
+        if model_lower not in {"config", "configs"}:
+            return False
+
+        source_window = self._source_window(facts, query)
+        if not source_window:
+            return True
+
+        source_window = source_window.lower()
+        return any(pattern in source_window for pattern in self._CONFIG_LOOKUP_PATTERNS)
+
+    def _source_window(self, facts: Facts, query: QueryUsage, before: int = 20, after: int = 3) -> str:
+        file_path = (query.file_path or "").replace("\\", "/").strip()
+        if not file_path:
+            return ""
+
+        source_path = Path(getattr(facts, "project_path", "") or ".") / file_path
+        if not source_path.exists():
+            return ""
+
+        try:
+            lines = source_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except Exception:
+            return ""
+
+        line_index = max((query.line_number or 1) - 1, 0)
+        start = max(0, line_index - before)
+        end = min(len(lines), line_index + after)
+        return "\n".join(lines[start:end])

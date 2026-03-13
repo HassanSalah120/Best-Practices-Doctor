@@ -128,6 +128,7 @@ from rules.react import (
     NoInlineHooksRule,
     NoInlineTypesRule,
     NoInlineServicesRule,
+    ReactProjectStructureConsistencyRule,
     InertiaPageMissingHeadRule,
     InertiaInternalLinkAnchorRule,
     InertiaFormUsesFetchRule,
@@ -163,6 +164,12 @@ from rules.react import (
     RedundantEntryRule,
     AccessibleAuthenticationRule,
     FocusNotObscuredRule,
+    # AST-based rules (higher accuracy)
+    UseCallbackASTRule,
+    UseMemoASTRule,
+    ExhaustiveDepsASTRule,
+    # Process-based rules (external tools)
+    TypeScriptTypeCheckRule,
 )
 
 logger = logging.getLogger(__name__)
@@ -297,6 +304,7 @@ ALL_RULES: dict[str, Type[Rule]] = {
     "no-inline-hooks": NoInlineHooksRule,
     "no-inline-types": NoInlineTypesRule,
     "no-inline-services": NoInlineServicesRule,
+    "react-project-structure-consistency": ReactProjectStructureConsistencyRule,
     "inertia-page-missing-head": InertiaPageMissingHeadRule,
     "inertia-internal-link-anchor": InertiaInternalLinkAnchorRule,
     "inertia-form-uses-fetch": InertiaFormUsesFetchRule,
@@ -337,6 +345,14 @@ ALL_RULES: dict[str, Type[Rule]] = {
     "redundant-entry": RedundantEntryRule,
     "accessible-authentication": AccessibleAuthenticationRule,
     "focus-not-obscured": FocusNotObscuredRule,
+    
+    # AST-based React rules (higher accuracy)
+    "usecallback-ast": UseCallbackASTRule,
+    "usememo-ast": UseMemoASTRule,
+    "exhaustive-deps-ast": ExhaustiveDepsASTRule,
+    
+    # Process-based rules (external tools)
+    "typescript-type-check": TypeScriptTypeCheckRule,
 }
 
 
@@ -348,14 +364,19 @@ class RuleEngine:
     them against the Facts/Metrics to produce Findings.
     """
     
-    def __init__(self, ruleset: Ruleset):
+    def __init__(self, ruleset: Ruleset, selected_rules: list[str] | None = None):
         self.ruleset = ruleset
         self.rules: list[Rule] = []
+        self.selected_rules = set(selected_rules) if selected_rules else None
         self._load_rules()
     
     def _load_rules(self) -> None:
         """Load and configure rules from the registry."""
         for rule_id, rule_class in ALL_RULES.items():
+            # If selected_rules is specified, only load those rules
+            if self.selected_rules is not None and rule_id not in self.selected_rules:
+                continue
+            
             # Get config from ruleset (or use defaults)
             config = self.ruleset.get_rule_config(rule_id)
             
@@ -394,26 +415,49 @@ class RuleEngine:
         result = EngineResult()
         start = time.perf_counter()
 
-        ast_rules = [r for r in self.rules if getattr(r, "type", "ast") != "regex"]
-        regex_rules = [r for r in self.rules if getattr(r, "type", "ast") == "regex"]
+        def _overrides(rule: Rule, method_name: str) -> bool:
+            method = getattr(rule.__class__, method_name, None)
+            base_method = getattr(Rule, method_name, None)
+            return method is not None and method is not base_method
 
-        # Execute AST rules in parallel for better performance
-        def _run_ast_rule(rule: Rule) -> tuple[str, RuleResult]:
-            """Execute a single AST rule and return (rule_id, result)."""
+        facts_based_rules: list[Rule] = []
+        file_based_ast_rules: list[Rule] = []
+        process_rules: list[Rule] = []
+        regex_rules: list[Rule] = []
+        supplemental_regex_rules: list[Rule] = []
+
+        for rule in self.rules:
+            rule_type = str(getattr(rule, "type", "ast") or "ast").strip().lower()
+            if rule_type == "regex":
+                regex_rules.append(rule)
+                continue
+            if rule_type == "process":
+                process_rules.append(rule)
+            elif _overrides(rule, "analyze_ast"):
+                file_based_ast_rules.append(rule)
+            else:
+                facts_based_rules.append(rule)
+
+            if _overrides(rule, "analyze_regex"):
+                supplemental_regex_rules.append(rule)
+
+        call_once_rules = facts_based_rules + process_rules
+        regex_scan_rules = regex_rules + supplemental_regex_rules
+
+        def _run_call_once_rule(rule: Rule) -> tuple[str, RuleResult]:
+            """Execute a single analyze()-based rule and return (rule_id, result)."""
             rule_result = rule.run(facts, project_type, metrics)
             return (rule.id, rule_result)
 
-        # Use ThreadPoolExecutor for parallel execution
-        max_workers = min(8, len(ast_rules)) if ast_rules else 1
-        total_rules = len(ast_rules) + len(regex_rules)
+        max_workers = min(8, len(call_once_rules)) if call_once_rules else 1
+        total_rules = len(call_once_rules) + len(file_based_ast_rules) + len(regex_scan_rules)
         rules_completed = 0
-        
-        if ast_rules:
+
+        if call_once_rules:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                # Submit all AST rules
                 future_to_rule = {
-                    executor.submit(_run_ast_rule, rule): rule
-                    for rule in ast_rules
+                    executor.submit(_run_call_once_rule, rule): rule
+                    for rule in call_once_rules
                 }
 
                 # Collect results as they complete
@@ -448,8 +492,8 @@ class RuleEngine:
                     if progress_callback and total_rules > 0:
                         progress_callback(rules_completed / total_rules, rules_completed, total_rules)
 
-        # Regex rules are lightweight and run directly on file contents.
-        if not (cancellation_check and cancellation_check()) and regex_rules:
+        # Regex rules plus supplemental regex passes are lightweight and run directly on file contents.
+        if not (cancellation_check and cancellation_check()) and regex_scan_rules:
             file_cache: dict[str, str] = {}
 
             def _read(rel_path: str) -> str:
@@ -466,25 +510,27 @@ class RuleEngine:
                 return txt
 
             import time as _time
-            for rule in regex_rules:
+            for rule in regex_scan_rules:
                 if cancellation_check and cancellation_check():
                     logger.info("Rule engine cancelled")
                     break
 
-                rr = RuleResult(rule_id=rule.id)
+                existing_rr = result.rule_results.get(rule.id)
+                rr = existing_rr or RuleResult(rule_id=rule.id)
                 if not rule.is_applicable(facts, project_type):
-                    rr.skipped = True
-                    rr.skip_reason = "Disabled" if not rule.enabled else "Not applicable to this project type"
-                    result.rule_results[rule.id] = rr
-                    result.rules_skipped += 1
+                    if existing_rr is None:
+                        rr.skipped = True
+                        rr.skip_reason = "Disabled" if not rule.enabled else "Not applicable to this project type"
+                        result.rule_results[rule.id] = rr
+                        result.rules_skipped += 1
                     rules_completed += 1
                     if progress_callback and total_rules > 0:
                         progress_callback(rules_completed / total_rules, rules_completed, total_rules)
                     continue
 
                 t0 = _time.perf_counter()
+                findings: list[Finding] = []
                 try:
-                    findings: list[Finding] = []
                     raw_exts = getattr(rule, "regex_file_extensions", [".php"]) or [".php"]
                     allowed_exts: set[str] = set()
                     for ext in raw_exts:
@@ -509,12 +555,106 @@ class RuleEngine:
                         if not content:
                             continue
                         findings.extend(rule.analyze_regex(rel_path, content, facts, metrics))
+                except Exception as e:
+                    if existing_rr is None:
+                        rr.skipped = True
+                        rr.skip_reason = f"Error: {str(e)}"
+                    else:
+                        logger.warning(f"Supplemental regex pass failed for {rule.id}: {e}")
+                finally:
+                    rr.execution_time_ms += (_time.perf_counter() - t0) * 1000
+
+                if findings:
+                    rr.findings.extend(findings)
+
+                result.rule_results[rule.id] = rr
+                if existing_rr is None:
+                    if rr.skipped:
+                        result.rules_skipped += 1
+                        logger.debug(f"Skipped rule {rule.id}: {rr.skip_reason}")
+                    else:
+                        result.rules_run += 1
+                if not rr.skipped:
+                    result.findings.extend(findings)
+                    logger.debug(
+                        f"Rule {rule.id}: {len(findings)} regex finding(s) "
+                        f"({rr.execution_time_ms:.1f}ms)"
+                    )
+                
+                # Update progress after each regex rule
+                rules_completed += 1
+                if progress_callback and total_rules > 0:
+                    progress_callback(rules_completed / total_rules, rules_completed, total_rules)
+
+        # File-based AST rules (analyze_ast) - run on each file
+        if not (cancellation_check and cancellation_check()) and file_based_ast_rules:
+            # Reuse file cache from regex rules if available
+            if 'file_cache' not in dir():
+                file_cache = {}
+
+            def _read_ast(rel_path: str) -> str:
+                if rel_path in file_cache:
+                    return file_cache[rel_path]
+                try:
+                    from pathlib import Path
+                    root = Path(getattr(facts, "project_path", "")).resolve()
+                    p = (root / rel_path).resolve()
+                    txt = p.read_text(encoding="utf-8", errors="replace")
+                except Exception:
+                    txt = ""
+                file_cache[rel_path] = txt
+                return txt
+
+            import time as _time_ast
+            for rule in file_based_ast_rules:
+                if cancellation_check and cancellation_check():
+                    logger.info("Rule engine cancelled")
+                    break
+
+                rr = RuleResult(rule_id=rule.id)
+                if not rule.is_applicable(facts, project_type):
+                    rr.skipped = True
+                    rr.skip_reason = "Disabled" if not rule.enabled else "Not applicable to this project type"
+                    result.rule_results[rule.id] = rr
+                    result.rules_skipped += 1
+                    rules_completed += 1
+                    if progress_callback and total_rules > 0:
+                        progress_callback(rules_completed / total_rules, rules_completed, total_rules)
+                    continue
+
+                t0 = _time_ast.perf_counter()
+                try:
+                    findings: list[Finding] = []
+                    raw_exts = getattr(rule, "regex_file_extensions", [".tsx", ".ts", ".jsx", ".js"]) or [".tsx", ".ts", ".jsx", ".js"]
+                    allowed_exts: set[str] = set()
+                    for ext in raw_exts:
+                        s = str(ext or "").strip().lower()
+                        if not s:
+                            continue
+                        if not s.startswith("."):
+                            s = "." + s
+                        allowed_exts.add(s)
+                    if not allowed_exts:
+                        allowed_exts = {".tsx", ".ts", ".jsx", ".js"}
+
+                    # Use FactsBuilder's file list to respect ignore globs.
+                    for rel_path in getattr(facts, "files", []) or []:
+                        rel_path = normalize_rel_path(rel_path)
+                        if not rel_path:
+                            continue
+                        rel_lower = rel_path.lower()
+                        if not any(rel_lower.endswith(ext) for ext in allowed_exts):
+                            continue
+                        content = _read_ast(rel_path)
+                        if not content:
+                            continue
+                        findings.extend(rule.analyze_ast(rel_path, content, facts, metrics))
                     rr.findings = findings
                 except Exception as e:
                     rr.skipped = True
                     rr.skip_reason = f"Error: {str(e)}"
                 finally:
-                    rr.execution_time_ms = (_time.perf_counter() - t0) * 1000
+                    rr.execution_time_ms = (_time_ast.perf_counter() - t0) * 1000
 
                 result.rule_results[rule.id] = rr
                 if rr.skipped:
@@ -528,7 +668,7 @@ class RuleEngine:
                         f"({rr.execution_time_ms:.1f}ms)"
                     )
                 
-                # Update progress after each regex rule
+                # Update progress after each AST rule
                 rules_completed += 1
                 if progress_callback and total_rules > 0:
                     progress_callback(rules_completed / total_rules, rules_completed, total_rules)
@@ -719,12 +859,14 @@ class RuleEngine:
 def create_engine(
     ruleset: Ruleset | None = None,
     ruleset_path: str | None = None,
+    selected_rules: list[str] | None = None,
 ) -> RuleEngine:
     """
     Factory function to create a RuleEngine.
     
     Args:
         ruleset_path: Optional path to custom ruleset.yaml
+        selected_rules: Optional list of rule IDs to run (for advanced profile)
     
     Returns:
         Configured RuleEngine instance
@@ -735,4 +877,4 @@ def create_engine(
         else:
             ruleset = Ruleset.load_default()
 
-    return RuleEngine(ruleset)
+    return RuleEngine(ruleset, selected_rules=selected_rules)

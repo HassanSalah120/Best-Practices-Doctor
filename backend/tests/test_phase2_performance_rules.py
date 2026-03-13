@@ -7,13 +7,102 @@ and missing-usecallback-for-event-handlers rules.
 
 import pytest
 from core.ruleset import RuleConfig
+from rules.laravel.missing_cache_for_reference_data import MissingCacheForReferenceDataRule
 from rules.laravel.missing_pagination import MissingPaginationRule
 from rules.react.missing_usememo_for_expensive_calc import MissingUseMemoForExpensiveCalcRule
 from rules.react.missing_usecallback_for_event_handlers import MissingUseCallbackForEventHandlersRule
-from schemas.facts import Facts, QueryUsage, RouteInfo
+from schemas.facts import Facts, MethodInfo, QueryUsage, RouteInfo
 
 
 # ============== Missing Pagination Tests ==============
+
+def test_missing_cache_for_reference_data_skips_cached_query(tmp_path):
+    repo_dir = tmp_path / "app" / "Repositories"
+    repo_dir.mkdir(parents=True, exist_ok=True)
+    (repo_dir / "SpecialtyRepository.php").write_text(
+        """<?php
+use Illuminate\\Support\\Facades\\Cache;
+
+class SpecialtyRepository
+{
+    public function all()
+    {
+        return Cache::remember('specialties.all', 3600, fn() => Specialty::all());
+    }
+}
+""",
+        encoding="utf-8",
+    )
+
+    facts = Facts(project_path=str(tmp_path))
+    facts.methods.append(
+        MethodInfo(
+            name="all",
+            class_name="SpecialtyRepository",
+            class_fqcn="App\\Repositories\\SpecialtyRepository",
+            file_path="app/Repositories/SpecialtyRepository.php",
+            file_hash="deadbeef",
+            call_sites=["Cache::remember('specialties.all', 3600, fn() => Specialty::all())"],
+        )
+    )
+    facts.queries.append(
+        QueryUsage(
+            model="Specialty",
+            method_chain="all()",
+            query_type="select",
+            file_path="app/Repositories/SpecialtyRepository.php",
+            line_number=8,
+            method_name="all",
+        )
+    )
+
+    findings = MissingCacheForReferenceDataRule(RuleConfig()).analyze(facts)
+    assert findings == []
+
+
+def test_missing_cache_for_reference_data_skips_config_facade_reads(tmp_path):
+    service_dir = tmp_path / "app" / "Services"
+    service_dir.mkdir(parents=True, exist_ok=True)
+    (service_dir / "DataRetentionService.php").write_text(
+        """<?php
+use Illuminate\\Support\\Facades\\Config;
+
+class DataRetentionService
+{
+    public function __construct()
+    {
+        $this->retentionPeriods = Config::get('retention.periods', []);
+    }
+}
+""",
+        encoding="utf-8",
+    )
+
+    facts = Facts(project_path=str(tmp_path))
+    facts.methods.append(
+        MethodInfo(
+            name="__construct",
+            class_name="DataRetentionService",
+            class_fqcn="App\\Services\\DataRetentionService",
+            file_path="app/Services/DataRetentionService.php",
+            file_hash="deadbeef",
+            call_sites=["Cache::remember('retention.periods', 3600, fn() => [])"],
+        )
+    )
+    facts.queries.append(
+        QueryUsage(
+            model="Config",
+            method_chain="get",
+            query_type="select",
+            file_path="app/Services/DataRetentionService.php",
+            line_number=8,
+            method_name="__construct",
+        )
+    )
+
+    findings = MissingCacheForReferenceDataRule(RuleConfig()).analyze(facts)
+    assert findings == []
+
 
 def test_missing_pagination_on_large_model():
     """Query returning all records on large model should be flagged."""
@@ -229,7 +318,7 @@ export { utils };
 # ============== Missing UseCallback Tests ==============
 
 def test_inline_onclick_without_usecallback():
-    """Inline onClick without useCallback should be flagged."""
+    """Inline handlers on native DOM elements should not be flagged by default."""
     rule = MissingUseCallbackForEventHandlersRule(RuleConfig())
     content = """
 function Button({ id }) {
@@ -247,12 +336,11 @@ function Button({ id }) {
         metrics=None,
     )
 
-    assert len(findings) == 1
-    assert findings[0].rule_id == "missing-usecallback-for-event-handlers"
+    assert findings == []
 
 
 def test_inline_onchange_without_usecallback():
-    """Inline onChange without useCallback should be flagged."""
+    """Native input handlers are fine without useCallback."""
     rule = MissingUseCallbackForEventHandlersRule(RuleConfig())
     content = """
 function Form() {
@@ -268,7 +356,7 @@ function Form() {
         metrics=None,
     )
 
-    assert len(findings) == 1
+    assert findings == []
 
 
 def test_with_usecallback_safe():
@@ -295,23 +383,58 @@ function Button({ id, onSelect }) {
     assert len(findings) == 0
 
 
-def test_simple_handler_lower_confidence():
-    """Simple handler without body should have lower confidence."""
+def test_custom_component_handler_in_list_is_flagged():
+    """Inline handlers passed to memoized custom components should be flagged."""
     rule = MissingUseCallbackForEventHandlersRule(RuleConfig())
     content = """
-function Button({ onClick }) {
-    return <button onClick={() => onClick()}>Click</button>;
+import { memo } from 'react';
+
+const AppointmentCard = memo(function AppointmentCard({ onSelect }) {
+    return <button onClick={onSelect}>Open</button>;
+});
+
+function AppointmentList({ items, onSelect }) {
+    return (
+        <div>
+            {items.map((item) => (
+                <AppointmentCard key={item.id} onSelect={() => onSelect(item.id)} />
+            ))}
+        </div>
+    );
 }
 """
     findings = rule.analyze_regex(
-        file_path="src/components/Button.tsx",
+        file_path="src/components/AppointmentList.tsx",
         content=content,
         facts=Facts(project_path="."),
         metrics=None,
     )
 
     assert len(findings) == 1
-    assert findings[0].confidence < 0.80
+    assert findings[0].rule_id == "missing-usecallback-for-event-handlers"
+    assert findings[0].confidence >= 0.80
+
+
+def test_non_memoized_custom_component_handler_is_not_flagged():
+    """Custom component handlers without memoized children are too low-signal to flag."""
+    rule = MissingUseCallbackForEventHandlersRule(RuleConfig())
+    content = """
+function AppointmentCard({ onSelect }) {
+    return <button onClick={onSelect}>Open</button>;
+}
+
+function AppointmentList({ item, onSelect }) {
+    return <AppointmentCard onSelect={async () => onSelect(item.id)} />;
+}
+"""
+    findings = rule.analyze_regex(
+        file_path="src/components/AppointmentList.tsx",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert findings == []
 
 
 def test_test_file_skipped():

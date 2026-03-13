@@ -25,7 +25,7 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
 
     # Patterns indicating expensive operations
     _EXPENSIVE_PATTERNS = [
-        # Array methods on potentially large arrays
+        # Chained array methods on potentially large arrays
         re.compile(r"\.\s*filter\s*\([^)]*\)\s*\.\s*map\s*\(", re.IGNORECASE),
         re.compile(r"\.\s*filter\s*\([^)]*\)\s*\.\s*sort\s*\(", re.IGNORECASE),
         re.compile(r"\.\s*sort\s*\([^)]*\)\s*\.\s*map\s*\(", re.IGNORECASE),
@@ -34,22 +34,104 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
         re.compile(r"\.forEach\s*\([^)]*\)[^}]*\.forEach\s*\(", re.IGNORECASE),
         # Complex calculations
         re.compile(r"Math\.[a-zA-Z]+\([^)]*Math\.[a-zA-Z]+", re.IGNORECASE),
-        # JSON operations
+        # JSON operations on potentially large strings
         re.compile(r"JSON\.parse\s*\([^)]+\)", re.IGNORECASE),
-        # Regex operations
-        re.compile(r"new\s+RegExp\s*\([^)]+\)\s*\.\s*exec", re.IGNORECASE),
+        # Regex operations with exec/test
+        re.compile(r"new\s+RegExp\s*\([^)]+\)\s*\.\s*(exec|test)", re.IGNORECASE),
         re.compile(r"\.match\s*\(\s*new\s+RegExp", re.IGNORECASE),
-        # Date operations
-        re.compile(r"new\s+Date\s*\([^)]+\)", re.IGNORECASE),
-        # Array.from with mapping
+        # Array.from with mapping function
         re.compile(r"Array\.from\s*\([^)]+,\s*[^)]+\)", re.IGNORECASE),
-        # Object operations
+        # Object operations chained with map
         re.compile(r"Object\.entries\s*\([^)]+\)\s*\.\s*map", re.IGNORECASE),
         re.compile(r"Object\.keys\s*\([^)]+\)\s*\.\s*filter", re.IGNORECASE),
+        # find() on large arrays (common pattern)
+        re.compile(r"\.find\s*\(\s*\([^)]*\)\s*=>\s*[^)]+\.\w+", re.IGNORECASE),  # find with property access
+    ]
+
+    # Inexpensive patterns that DON'T need useMemo (skip these)
+    _INEXPENSIVE_PATTERNS = [
+        # Simple Date creation without parsing
+        re.compile(r"new\s+Date\s*\(\s*\)", re.IGNORECASE),  # new Date() - just current time
+        # Simple array access
+        re.compile(r"\[0\]|\[1\]|\[length\s*-\s*1\]", re.IGNORECASE),
+        # Simple string operations
+        re.compile(r"\.toString\s*\(\s*\)", re.IGNORECASE),
+        re.compile(r"\.toLowerCase\s*\(\s*\)", re.IGNORECASE),
+        re.compile(r"\.toUpperCase\s*\(\s*\)", re.IGNORECASE),
+        re.compile(r"\.trim\s*\(\s*\)", re.IGNORECASE),
+        # Simple Math operations (single call, not nested)
+        re.compile(r"Math\.(floor|ceil|round|abs|min|max)\s*\(\s*[\w.]+\s*\)", re.IGNORECASE),
+        # Simple slice without calculation
+        re.compile(r"\.slice\s*\(\s*\d+\s*,?\s*\d*\s*\)", re.IGNORECASE),
+        # Simple length check or property access
+        re.compile(r"\.length\s*[<>=!]", re.IGNORECASE),
+        re.compile(r"\b\w+\.length\b", re.IGNORECASE),  # Just accessing .length property
+        # Boolean conversion
+        re.compile(r"!![a-zA-Z_]", re.IGNORECASE),
+        # Simple ternary
+        re.compile(r"\?\s*['\"]?\w+['\"]?\s*:\s*['\"]?\w+['\"]?", re.IGNORECASE),
+        # Simple addition/subtraction
+        re.compile(r"\b\w+\s*\+\s*['\"]", re.IGNORECASE),  # string + variable
+        re.compile(r"\b\w+\s*\+\s*\d+", re.IGNORECASE),  # variable + number
+        # Conditional class names (cn, clsx, classNames) - cheap operations
+        re.compile(r"cn\s*\(", re.IGNORECASE),
+        re.compile(r"clsx\s*\(", re.IGNORECASE),
+        re.compile(r"classNames?\s*\(", re.IGNORECASE),
+        # Simple includes/indexOf check
+        re.compile(r"\.includes\s*\(\s*['\"]", re.IGNORECASE),
+        re.compile(r"\.indexOf\s*\(\s*['\"]", re.IGNORECASE),
+        # Simple array find on small data
+        re.compile(r"\.find\s*\(\s*\w+\s*=>\s*\w+\.[a-zA-Z]+\s*===?\s*['\"]", re.IGNORECASE),
+        # Simple some/every checks
+        re.compile(r"\.(some|every)\s*\(\s*\w+\s*=>\s*\w+\.[a-zA-Z]+\s*", re.IGNORECASE),
+        # Simple filter with basic condition
+        re.compile(r"\.filter\s*\(\s*\w+\s*=>\s*\w+\.[a-zA-Z]+\s*===?\s*['\"]", re.IGNORECASE),
+        # Template literals with simple variables
+        re.compile(r"`[^`]*\$\{\s*\w+\s*\}[^`]*`", re.IGNORECASE),
+        # Simple property access chains
+        re.compile(r"\b\w+\.[a-zA-Z_]+\.[a-zA-Z_]+\b", re.IGNORECASE),
+        # Formatting functions (usually cheap)
+        re.compile(r"format[A-Z][a-zA-Z]*\s*\(", re.IGNORECASE),
+        re.compile(r"to[A-Z][a-zA-Z]*String\s*\(", re.IGNORECASE),
+        re.compile(r"parse[A-Z][a-zA-Z]*\s*\(", re.IGNORECASE),
+    ]
+    
+    # Files that should be excluded (not React components)
+    _NON_COMPONENT_FILES = [
+        re.compile(r"/utils?/[^/]+\.tsx?$", re.IGNORECASE),  # files in /util/ or /utils/ directory
+        re.compile(r"/helpers?/[^/]+\.tsx?$", re.IGNORECASE),  # files in /helper/ or /helpers/ directory
+        re.compile(r"(^|/)(utils?|helpers?)\.tsx?$", re.IGNORECASE),  # util.ts, utils.ts, helper.ts, helpers.ts
+        re.compile(r"\.utils?\.tsx?$", re.IGNORECASE),  # files ending with .utils.ts or .util.ts
+        re.compile(r"\.helpers?\.tsx?$", re.IGNORECASE),  # files ending with .helpers.ts or .helper.ts
+        re.compile(r"/hooks/", re.IGNORECASE),
+        re.compile(r"/use[A-Z][a-zA-Z]+\.ts$", re.IGNORECASE),  # useXxx.ts hook files
+        re.compile(r"/types/", re.IGNORECASE),
+        re.compile(r"\.types\.tsx?$", re.IGNORECASE),
+        re.compile(r"/constants?/", re.IGNORECASE),
+        re.compile(r"/config/", re.IGNORECASE),
+        re.compile(r"/i18n/", re.IGNORECASE),
+        re.compile(r"/services?/", re.IGNORECASE),
+        re.compile(r"/api/", re.IGNORECASE),
+        re.compile(r"/scripts?/", re.IGNORECASE),  # Node.js scripts directory
+        re.compile(r"\.config\.(js|ts)$", re.IGNORECASE),  # Config files
+        re.compile(r"(^|/)check_.*\.js$", re.IGNORECASE),  # Node.js check scripts
+    ]
+
+    # Context patterns where memoization is MORE important
+    _NEEDS_MEMOIZATION_CONTEXT = [
+        re.compile(r"\.map\s*\([^)]*\)\s*=>", re.IGNORECASE),  # Inside a map
+        re.compile(r"React\.memo", re.IGNORECASE),  # Passed to memoized component
+        re.compile(r"memo\s*\(", re.IGNORECASE),
     ]
 
     # Patterns that indicate useMemo is being used
     _MEMOIZED_PATTERN = re.compile(r"useMemo\s*\(", re.IGNORECASE)
+    
+    # Pattern to detect start of useMemo callback block
+    _USEMEMO_START = re.compile(r"useMemo\s*\(\s*\(\s*\)\s*=>\s*\{", re.IGNORECASE)
+    
+    # Pattern to detect end of useMemo callback (closing brace followed by dependency array)
+    _USEMEMO_END = re.compile(r"\},\s*\[[^\]]*\]\s*\)", re.IGNORECASE)
 
     # Variable assignment patterns (where expensive calc might be)
     _ASSIGNMENT_PATTERN = re.compile(r"const\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^;]+);?", re.IGNORECASE)
@@ -82,6 +164,10 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
         if any(allow in norm_path for allow in self._ALLOWLIST_PATHS):
             return findings
 
+        # Skip non-component files (utility files, hooks, types, etc.)
+        if any(p.search(norm_path) for p in self._NON_COMPONENT_FILES):
+            return findings
+
         text = content or ""
         lines = text.split("\n")
 
@@ -106,14 +192,38 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
         # Track if useMemo is used in the file
         file_has_usememo = bool(self._MEMOIZED_PATTERN.search(text))
 
+        # Track useMemo callback depth (to skip code inside useMemo blocks)
+        in_usememo_block = False
+        brace_depth = 0
+
         for i, line in enumerate(lines, 1):
             # Skip comments
             stripped = line.strip()
             if stripped.startswith("//") or stripped.startswith("#") or stripped.startswith("*"):
                 continue
 
+            # Track useMemo callback blocks
+            if self._USEMEMO_START.search(line):
+                in_usememo_block = True
+                brace_depth = line.count("{") - line.count("}")
+            
+            if in_usememo_block:
+                # Update brace depth
+                brace_depth += line.count("{") - line.count("}")
+                # Check if we've exited the useMemo block
+                if brace_depth <= 0 or self._USEMEMO_END.search(line):
+                    in_usememo_block = False
+                    brace_depth = 0
+                # Skip expensive pattern detection inside useMemo blocks
+                continue
+
             # Skip if line already has useMemo
             if self._MEMOIZED_PATTERN.search(line):
+                continue
+
+            # Skip inexpensive patterns (simple operations don't need memoization)
+            is_inexpensive = any(p.search(line) for p in self._INEXPENSIVE_PATTERNS)
+            if is_inexpensive:
                 continue
 
             # Check for expensive patterns
@@ -129,10 +239,17 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
             # Check if this is inside a component (heuristic: check for const assignment)
             is_assignment = self._ASSIGNMENT_PATTERN.search(line)
 
-            # Adjust confidence
-            confidence = 0.70
-            if is_assignment:
-                confidence += 0.10
+            # Check if in a context where memoization matters more
+            is_in_critical_context = any(p.search(text[max(0, text.find(line)-100):text.find(line)+100]) for p in self._NEEDS_MEMOIZATION_CONTEXT)
+
+            # Adjust confidence based on context
+            if is_in_critical_context:
+                confidence = 0.85  # Higher - in list or memoized component
+            elif is_assignment:
+                confidence = 0.75  # Good - is being stored in variable
+            else:
+                confidence = 0.60  # Lower - might be intentional
+
             if not file_has_usememo:
                 confidence += 0.05
 
