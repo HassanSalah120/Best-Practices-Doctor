@@ -53,6 +53,13 @@ class ControllerBusinessLogicRule(Rule):
         "resolve",
         "sanitize(",
     )
+    _RESPONSE_ORCHESTRATION_MARKERS = (
+        "redirect()->",
+        "return back(",
+        "with(",
+        "response()->",
+        "abort(",
+    )
 
     def analyze(
         self,
@@ -213,6 +220,7 @@ class ControllerBusinessLogicRule(Rule):
 
         return (
             simple_guards
-            and (method.loc or 0) <= 45
+            and (method.loc or 0) <= 75
+            and sum(1 for call in call_sites if any(marker in call for marker in self._RESPONSE_ORCHESTRATION_MARKERS)) <= 6
             and not metrics.has_external_api_calls
         )

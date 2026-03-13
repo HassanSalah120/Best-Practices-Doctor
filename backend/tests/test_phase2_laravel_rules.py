@@ -622,6 +622,42 @@ def test_controller_business_logic_skips_auth_flow_action_orchestration():
     assert findings == []
 
 
+def test_controller_business_logic_skips_booking_action_orchestration_with_response_formatting():
+    facts = Facts(project_path=".")
+    controller_path = "app/Http/Controllers/BookingController.php"
+    controller = _controller("BookingController", controller_path)
+    method = _method(
+        "BookingController",
+        "storeWhatsApp",
+        controller.file_path,
+        call_sites=[
+            "$clinic = $this->bookingService->resolveClinicForBooking('whatsapp')",
+            "$result = $this->processWhatsApp->execute($clinic, $request->validated(), $request)",
+            "$redirectUrl = $this->redirector->sanitize($result['redirectUrl'] ?? null, $request)",
+            "return redirect()->away($redirectUrl)",
+        ],
+    )
+    method.loc = 52
+    facts.controllers.append(controller)
+    facts.methods.append(method)
+    metrics = {
+        method.method_fqn: MethodMetrics(
+            method_fqn=method.method_fqn,
+            file_path=method.file_path,
+            cyclomatic_complexity=4,
+            conditional_count=3,
+            query_count=0,
+            validation_count=1,
+            loop_count=0,
+            has_business_logic=True,
+            business_logic_confidence=0.76,
+        )
+    }
+
+    findings = ControllerBusinessLogicRule(RuleConfig()).analyze(facts, metrics)
+    assert findings == []
+
+
 def test_too_many_dependencies_skips_controller_facade_orchestrator_pattern():
     facts = Facts(project_path=".")
     ctor = MethodInfo(

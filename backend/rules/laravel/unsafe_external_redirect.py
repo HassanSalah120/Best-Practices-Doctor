@@ -70,6 +70,8 @@ class UnsafeExternalRedirectRule(Rule):
         "resolvepayment",
         "resolvepaymentredirect",
         "resolveredirect",
+        "initiatepayment->execute",
+        "initiateinvoiceonlinepaymentaction",
     )
     _SIMPLE_VAR = re.compile(r"^\$(?P<name>[A-Za-z_][A-Za-z0-9_]*)$")
 

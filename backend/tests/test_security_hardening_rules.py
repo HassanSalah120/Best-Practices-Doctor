@@ -327,6 +327,23 @@ class PatientFinancialController {
     assert findings == []
 
 
+def test_unsafe_external_redirect_skips_redirect_from_validating_initiate_payment_action():
+    rule = UnsafeExternalRedirectRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+<?php
+class PatientFinancialController {
+    public function initiateOnlinePayment(Request $request) {
+        $redirectUrl = $this->initiatePayment->execute($request, $invoice);
+        return redirect()->away($redirectUrl);
+    }
+}
+"""
+
+    findings = rule.analyze_regex("app/Http/Controllers/PatientFinancialController.php", content, facts)
+    assert findings == []
+
+
 def test_unsafe_external_redirect_still_flags_signed_request_driven_redirect():
     rule = UnsafeExternalRedirectRule(RuleConfig())
     facts = Facts(project_path=".")

@@ -58,6 +58,7 @@ class ReactProjectStructureConsistencyRule(Rule):
 
     _SHARED_ROOTS = {"shared", "common", "core"}
     _FEATURE_ROOTS = {"features", "feature", "domains", "domain", "modules", "module"}
+    _FEATURE_UMBRELLA_ROOTS = {"portal", "admin", "clinic", "public", "auth", "dashboard", "account"}
     _PRESENTATION_ROOTS = {
         "pages",
         "page",
@@ -470,6 +471,12 @@ class ReactProjectStructureConsistencyRule(Rule):
 
         if low[0] in self._FEATURE_ROOTS and len(low) > 1 and self._looks_like_domain(low[1]):
             return low[1]
+
+        if low[0] in self._PRESENTATION_ROOTS:
+            if len(low) > 2 and low[1] in self._FEATURE_UMBRELLA_ROOTS and self._looks_like_domain(low[2]):
+                return low[2]
+            if len(low) > 1 and self._looks_like_domain(low[1]):
+                return low[1]
 
         for segment in low:
             if segment in self._DOMAIN_EXCLUDE:

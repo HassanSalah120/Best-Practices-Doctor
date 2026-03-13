@@ -158,6 +158,33 @@ def test_react_project_structure_accepts_shared_hook_and_component_types_in_hybr
     assert findings == []
 
 
+def test_react_project_structure_accepts_feature_utils_nested_under_page_umbrella():
+    rule = ReactProjectStructureConsistencyRule(RuleConfig())
+    facts = Facts(project_path=".")
+    facts.files = [
+        "resources/js/pages/Portal/FeatureMatrix/Index.tsx",
+        "resources/js/pages/Portal/FeatureMatrix/components/FeatureMatrixBoard.tsx",
+        "resources/js/pages/Portal/FeatureMatrix/utils/featureMatrixHelpers.ts",
+        "resources/js/components/UI/Button.tsx",
+        "resources/js/hooks/useFeatureFlags.ts",
+    ]
+    facts.project_context.react_structure_mode = "hybrid"
+    facts.project_context.react_shared_roots = ["components", "hooks"]
+    facts._frontend_symbol_graph = {
+        "files": {
+            "resources/js/pages/Portal/FeatureMatrix/Index.tsx": {
+                "imports": ["./utils/featureMatrixHelpers", "./components/FeatureMatrixBoard", "@/hooks/useFeatureFlags"]
+            },
+            "resources/js/pages/Portal/FeatureMatrix/components/FeatureMatrixBoard.tsx": {
+                "imports": ["../utils/featureMatrixHelpers", "@/components/UI/Button"]
+            },
+        }
+    }
+
+    findings = rule.run(facts).findings
+    assert findings == []
+
+
 def test_rule_engine_runs_facts_based_react_rules():
     rules = {rule_id: RuleConfig(enabled=False) for rule_id in ALL_RULES.keys()}
     rules["large-react-component"] = RuleConfig(enabled=True)
