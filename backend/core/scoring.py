@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 
+from schemas.facts import Facts
 from schemas.finding import Finding, Category, Severity
 from schemas.report import CategoryScore, QualityScores
 from core.ruleset import Ruleset
