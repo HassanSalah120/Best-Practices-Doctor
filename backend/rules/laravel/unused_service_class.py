@@ -44,10 +44,23 @@ class UnusedServiceClassRule(Rule):
 
         referenced_fqcns = {str(x).strip().lstrip("\\") for x in (idx.referenced_class_fqcns or set()) if x}
         referenced_basenames = set(idx.referenced_class_basenames or set())
+        implemented_interfaces_by_service: dict[str, set[str]] = {}
         # Some references are stored as short names in `referenced_class_fqcns`; treat them as basenames too.
         for x in referenced_fqcns:
             if "\\" not in x:
                 referenced_basenames.add(x)
+
+        for c in facts.classes:
+            fqcn = str(c.fqcn or "").lstrip("\\")
+            if not fqcn:
+                continue
+            interfaces = {
+                str(interface or "").strip().lstrip("\\")
+                for interface in (c.implements or [])
+                if str(interface or "").strip()
+            }
+            if interfaces:
+                implemented_interfaces_by_service[fqcn] = interfaces
 
         findings: list[Finding] = []
         for c in facts.classes:
@@ -67,6 +80,8 @@ class UnusedServiceClassRule(Rule):
             if fqcn in referenced_fqcns:
                 continue
             if c.name in referenced_basenames:
+                continue
+            if self._is_referenced_via_interface(fqcn, implemented_interfaces_by_service, referenced_fqcns, referenced_basenames):
                 continue
 
             findings.append(
@@ -96,3 +111,19 @@ class UnusedServiceClassRule(Rule):
 
         return findings
 
+    @staticmethod
+    def _is_referenced_via_interface(
+        fqcn: str,
+        implemented_interfaces_by_service: dict[str, set[str]],
+        referenced_fqcns: set[str],
+        referenced_basenames: set[str],
+    ) -> bool:
+        interfaces = implemented_interfaces_by_service.get(fqcn, set())
+        if not interfaces:
+            return False
+        for interface in interfaces:
+            if interface in referenced_fqcns:
+                return True
+            if interface.split("\\")[-1] in referenced_basenames:
+                return True
+        return False

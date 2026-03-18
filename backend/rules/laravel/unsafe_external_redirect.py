@@ -70,6 +70,9 @@ class UnsafeExternalRedirectRule(Rule):
         "resolvepayment",
         "resolvepaymentredirect",
         "resolveredirect",
+        "validateandsanitizeredirecturl",
+        "sanitizeredirecturl",
+        "allowed_external_hosts",
         "initiatepayment->execute",
         "initiateinvoiceonlinepaymentaction",
     )

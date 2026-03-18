@@ -199,3 +199,47 @@ def test_unused_service_class_is_not_flagged_when_referenced_via_class_const_acc
 
     assert any(f.rule_id == "unused-service-class" and f.context == "App\\Services\\UnusedService" for f in findings)
     assert not any(f.context == "App\\Services\\BoundViaProviderOnly" for f in findings)
+
+
+def test_unused_service_class_is_not_flagged_when_referenced_via_interface_type_hint():
+    facts = Facts(project_path=".")
+
+    facts.classes.extend(
+        [
+            ClassInfo(
+                name="RoleAssignmentService",
+                fqcn="App\\Services\\Game\\RoleAssignmentService",
+                file_path="app/Services/Game/RoleAssignmentService.php",
+                file_hash="svc",
+                line_start=1,
+                line_end=40,
+                implements=["App\\Services\\Game\\Contracts\\RoleAssignmentServiceInterface"],
+            ),
+            ClassInfo(
+                name="StartRoundAction",
+                fqcn="App\\Actions\\Game\\StartRoundAction",
+                file_path="app/Actions/Game/StartRoundAction.php",
+                file_hash="action",
+                line_start=1,
+                line_end=40,
+            ),
+        ]
+    )
+
+    facts.methods.append(
+        MethodInfo(
+            name="__construct",
+            class_name="StartRoundAction",
+            class_fqcn="App\\Actions\\Game\\StartRoundAction",
+            file_path="app/Actions/Game/StartRoundAction.php",
+            file_hash="action",
+            visibility="public",
+            line_start=10,
+            line_end=18,
+            loc=9,
+            parameters=["RoleAssignmentServiceInterface $roleAssignmentService"],
+        )
+    )
+
+    findings = UnusedServiceClassRule(RuleConfig()).run(facts, project_type="laravel_blade").findings
+    assert findings == []

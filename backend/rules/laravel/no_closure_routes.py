@@ -45,12 +45,15 @@ class NoClosureRoutesRule(Rule):
         if not fp.startswith("routes/"):
             return []
 
-        # Matches:
+        # Matches actual closure route handlers only:
         # Route::get('/x', function (...) { ... })
         # Route::middleware(...)->get('/x', fn (...) => ...)
+        #
+        # Does NOT match middleware/prefix/name group callbacks:
+        # Route::middleware(...)->group(function () { ... })
         pats = [
-            re.compile(r"\bRoute::\w+\s*\(.*\b(function\s*\(|fn\s*\()", re.IGNORECASE),
-            re.compile(r"->\s*(get|post|put|patch|delete|any|match)\s*\(.*\b(function\s*\(|fn\s*\()", re.IGNORECASE),
+            re.compile(r"\bRoute::(?:get|post|put|patch|delete|any|match|options)\s*\(\s*[^,]+,\s*(function\s*\(|fn\s*\()", re.IGNORECASE),
+            re.compile(r"->\s*(?:get|post|put|patch|delete|any|match|options)\s*\(\s*[^,]+,\s*(function\s*\(|fn\s*\()", re.IGNORECASE),
         ]
         hits = []
         for hit in regex_scan(content, pats):
@@ -82,4 +85,3 @@ class NoClosureRoutesRule(Rule):
                 )
             )
         return out
-

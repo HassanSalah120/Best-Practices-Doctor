@@ -326,6 +326,17 @@ class ProjectContext(BaseModel):
     tenant_mode: str = "unknown"  # tenant | non_tenant | unknown
     tenant_signals: list[str] = Field(default_factory=list)
 
+    backend_framework: str = "unknown"  # laravel | php | unknown
+    backend_architecture_profile: str = "unknown"  # mvc | layered | modular | api-first | unknown
+    backend_profile_signals: list[str] = Field(default_factory=list)
+    backend_profile_confidence: float = 0.0
+    backend_profile_confidence_kind: str = "unknown"  # structural | heuristic | unknown
+    backend_profile_debug: dict[str, object] = Field(default_factory=dict)
+
+    # Backwards-compatible coarse bucket used by older rules/tests.
+    backend_structure_mode: str = "unknown"  # layered | mvc | unknown
+    backend_layers: list[str] = Field(default_factory=list)
+
     react_structure_mode: str = "unknown"  # feature-first | category-based | hybrid | unknown
     react_shared_roots: list[str] = Field(default_factory=list)
 
@@ -335,6 +346,19 @@ class ProjectContext(BaseModel):
     custom_head_wrappers: list[str] = Field(default_factory=list)
     auth_flow_paths: list[str] = Field(default_factory=list)
     shared_infra_roots: list[str] = Field(default_factory=list)
+
+    def backend_debug_payload(self) -> dict[str, object]:
+        """Structured backend profile debug payload for reports and rule metadata."""
+        return {
+            "backend_framework": self.backend_framework,
+            "architecture_profile": self.backend_architecture_profile,
+            "profile_confidence": self.backend_profile_confidence,
+            "profile_confidence_kind": self.backend_profile_confidence_kind,
+            "profile_signals": list(self.backend_profile_signals),
+            "profile_debug": dict(self.backend_profile_debug),
+            "backend_structure_mode": self.backend_structure_mode,
+            "backend_layers": list(self.backend_layers),
+        }
 
 
 class Facts(BaseModel):

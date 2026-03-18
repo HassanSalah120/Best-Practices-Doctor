@@ -6,6 +6,8 @@ from rules.react.color_contrast_ratio import ColorContrastRatioRule
 from rules.react.interactive_element_a11y import InteractiveElementA11yRule
 from rules.react.form_label_association import FormLabelAssociationRule
 from rules.react.page_title_missing import PageTitleMissingRule
+from rules.react.img_alt_missing import ImageAltMissingRule
+from rules.react.redundant_entry import RedundantEntryRule
 from schemas.facts import Facts
 
 
@@ -131,6 +133,59 @@ def test_form_label_association_ignores_aria_labelledby_link():
 <input aria-labelledby="patient_name_label" />
 """
     findings = rule.analyze_regex("resources/js/Pages/Form.tsx", content, facts)
+    assert findings == []
+
+
+def test_img_alt_missing_skips_jsx_alt_expression_with_arrow_function():
+    rule = ImageAltMissingRule(RuleConfig())
+    facts = Facts(project_path="x")
+    content = """
+function ResultsModal({ players, eliminatedId }) {
+  return (
+    <img
+      src={`https://ui-avatars.com/api/?name=${encodeURIComponent(players.find(p => p.id === eliminatedId)?.user?.username || 'E')}`}
+      alt={players.find(p => p.id === eliminatedId)?.user?.username || 'Eliminated player'}
+      className="w-32 h-32 rounded-full"
+    />
+  );
+}
+"""
+    findings = rule.analyze_regex("resources/js/Components/Modals/ResultsModal.tsx", content, facts)
+    assert findings == []
+
+
+def test_redundant_entry_skips_i18n_catalog_file():
+    rule = RedundantEntryRule(RuleConfig())
+    facts = Facts(project_path="x")
+    content = """
+export const translations = {
+  'auth.confirm_password_title': 'Confirm Password',
+  'profile.confirm_password': 'Confirm Password',
+};
+"""
+    findings = rule.analyze_regex("resources/js/utils/i18n.ts", content, facts)
+    assert findings == []
+
+
+def test_redundant_entry_skips_standard_password_confirmation_field():
+    rule = RedundantEntryRule(RuleConfig())
+    facts = Facts(project_path="x")
+    content = """
+export default function Register() {
+  return (
+    <>
+      <InputLabel htmlFor="password_confirmation" value="Confirm Password" />
+      <TextInput
+        id="password_confirmation"
+        name="password_confirmation"
+        type="password"
+        autoComplete="new-password"
+      />
+    </>
+  );
+}
+"""
+    findings = rule.analyze_regex("resources/js/Pages/Auth/Register.tsx", content, facts)
     assert findings == []
 
 

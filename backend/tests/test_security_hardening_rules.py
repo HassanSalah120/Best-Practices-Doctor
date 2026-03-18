@@ -344,6 +344,33 @@ class PatientFinancialController {
     assert findings == []
 
 
+def test_unsafe_external_redirect_skips_booking_service_redirect_after_sanitize_helper():
+    rule = UnsafeExternalRedirectRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+<?php
+class BookingRequestService {
+    private const ALLOWED_EXTERNAL_HOSTS = ['wa.me'];
+
+    public function buildBookingResponse(array $result) {
+        $redirectUrl = $this->bookingService->validateAndSanitizeRedirectUrl(
+            $result['redirectUrl'] ?? null,
+            self::ALLOWED_EXTERNAL_HOSTS
+        );
+
+        return $this->redirectToWhatsApp($redirectUrl);
+    }
+
+    private function redirectToWhatsApp(string $redirectUrl) {
+        return redirect()->away($redirectUrl);
+    }
+}
+"""
+
+    findings = rule.analyze_regex("app/Services/BookingRequestService.php", content, facts)
+    assert findings == []
+
+
 def test_unsafe_external_redirect_still_flags_signed_request_driven_redirect():
     rule = UnsafeExternalRedirectRule(RuleConfig())
     facts = Facts(project_path=".")

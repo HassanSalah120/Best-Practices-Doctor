@@ -179,6 +179,39 @@ def test_service_extraction_does_not_require_confidence():
     assert any(f.rule_id == "service-extraction" for f in res.findings)
 
 
+def test_service_extraction_skips_controller_method_that_delegates_to_action():
+    facts = Facts(project_path=".")
+    facts.controllers.append(
+        ClassInfo(
+            name="GameController",
+            fqcn="App\\Http\\Controllers\\GameController",
+            file_path="app/Http/Controllers/GameController.php",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=160,
+        )
+    )
+    facts.methods.append(
+        MethodInfo(
+            name="castVote",
+            class_name="GameController",
+            class_fqcn="App\\Http\\Controllers\\GameController",
+            file_path="app/Http/Controllers/GameController.php",
+            file_hash="deadbeef",
+            line_start=40,
+            line_end=60,
+            loc=21,
+            parameters=["CastVoteRequest $request", "CastVoteAction $action"],
+            call_sites=["$dto = new CastVoteDTO(...)", "$action->execute($dto)"],
+        )
+    )
+
+    res = ServiceExtractionRule(RuleConfig(thresholds={"min_business_loc": 15})).run(
+        facts, project_type="laravel_api"
+    )
+    assert res.findings == []
+
+
 def test_contract_suggestion_parses_fqcn_params():
     facts = Facts(project_path=".")
     facts.methods.append(

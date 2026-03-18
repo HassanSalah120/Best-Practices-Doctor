@@ -184,6 +184,9 @@ class ScanReport(BaseModel):
     
     # Human-readable summary
     summary: str = ""
+
+    # Debug-friendly analysis context for explainability.
+    analysis_debug: dict[str, Any] = Field(default_factory=dict)
     
     # Ruleset used
     ruleset_path: str | None = None

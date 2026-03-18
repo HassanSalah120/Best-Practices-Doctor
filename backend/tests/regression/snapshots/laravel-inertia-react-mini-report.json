@@ -198,6 +198,58 @@
     }
   ],
   "summary": "",
+  "analysis_debug": {
+    "project_context": {
+      "tenant_mode": "non_tenant",
+      "tenant_signals": [],
+      "backend_framework": "laravel",
+      "backend_architecture_profile": "mvc",
+      "backend_profile_signals": [
+        "framework=laravel",
+        "layered_score=0",
+        "modular_score=0",
+        "api_score=2",
+        "mvc_score=2",
+        "layers=none",
+        "profile=mvc",
+        "profile_confidence=0.74",
+        "profile_confidence_kind=heuristic"
+      ],
+      "backend_profile_confidence": 0.74,
+      "backend_profile_confidence_kind": "heuristic",
+      "backend_profile_debug": {
+        "framework": "laravel",
+        "selected_profile": "mvc",
+        "scores": {
+          "layered": 0,
+          "modular": 0,
+          "api-first": 2,
+          "mvc": 2
+        },
+        "selected_score": 2,
+        "runner_up_profile": "api-first",
+        "runner_up_score": 2,
+        "controller_hits": 0,
+        "model_hits": 0,
+        "api_controller_hits": 0,
+        "api_resource_hits": 0,
+        "modular_root_hits": 0,
+        "has_api_routes": false,
+        "has_web_routes": false,
+        "has_blade_views": false,
+        "detected_layers": []
+      },
+      "backend_structure_mode": "mvc",
+      "backend_layers": [],
+      "react_structure_mode": "unknown",
+      "react_shared_roots": [],
+      "has_i18n": false,
+      "i18n_helpers": [],
+      "custom_head_wrappers": [],
+      "auth_flow_paths": [],
+      "shared_infra_roots": []
+    }
+  },
   "ruleset_path": null,
   "rules_executed": [
     "fat-controller",

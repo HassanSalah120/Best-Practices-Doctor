@@ -1,0 +1,7 @@
+{
+  "name": "tests/laravel-coordinator-bounded-mini",
+  "require": {
+    "php": "^8.2",
+    "laravel/framework": "^11.0"
+  }
+}

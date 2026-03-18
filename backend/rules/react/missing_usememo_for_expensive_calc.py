@@ -102,8 +102,10 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
     # Files that should be excluded (not React components)
     _NON_COMPONENT_FILES = [
         re.compile(r"/utils?/[^/]+\.tsx?$", re.IGNORECASE),  # files in /util/ or /utils/ directory
+        re.compile(r"/utilities?/[^/]+\.tsx?$", re.IGNORECASE),  # files in /utility/ or /utilities/ directory
         re.compile(r"/helpers?/[^/]+\.tsx?$", re.IGNORECASE),  # files in /helper/ or /helpers/ directory
         re.compile(r"(^|/)(utils?|helpers?)\.tsx?$", re.IGNORECASE),  # util.ts, utils.ts, helper.ts, helpers.ts
+        re.compile(r"(^|/)(utilities?)\.tsx?$", re.IGNORECASE),  # utility.ts, utilities.ts
         re.compile(r"\.utils?\.tsx?$", re.IGNORECASE),  # files ending with .utils.ts or .util.ts
         re.compile(r"\.helpers?\.tsx?$", re.IGNORECASE),  # files ending with .helpers.ts or .helper.ts
         re.compile(r"/hooks/", re.IGNORECASE),
@@ -130,14 +132,9 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
     # Patterns that indicate useMemo is being used
     _MEMOIZED_PATTERN = re.compile(r"useMemo\s*\(", re.IGNORECASE)
     
-    # Pattern to detect start of useMemo callback block
-    _USEMEMO_START = re.compile(r"useMemo\s*\(\s*\(\s*\)\s*=>\s*\{", re.IGNORECASE)
-    
-    # Pattern to detect end of useMemo callback (closing brace followed by dependency array)
-    _USEMEMO_END = re.compile(r"\},\s*\[[^\]]*\]\s*\)", re.IGNORECASE)
-
     # Variable assignment patterns (where expensive calc might be)
     _ASSIGNMENT_PATTERN = re.compile(r"const\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^;]+);?", re.IGNORECASE)
+    _JSX_SIGNAL = re.compile(r"return\s*\(\s*<|return\s*<|<\s*[A-Z][A-Za-z0-9_]*|<>\s*", re.MULTILINE)
 
     _ALLOWLIST_PATHS = (
         "/tests/",
@@ -166,6 +163,7 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
         norm_path = (file_path or "").replace("\\", "/").lower()
         if any(allow in norm_path for allow in self._ALLOWLIST_PATHS):
             return findings
+        ext = norm_path.rsplit(".", 1)[-1] if "." in norm_path else ""
 
         # Skip non-component files (utility files, hooks, types, etc.)
         if any(p.search(norm_path) for p in self._NON_COMPONENT_FILES):
@@ -173,6 +171,11 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
 
         text = content or ""
         lines = text.split("\n")
+        has_jsx_signal = bool(self._JSX_SIGNAL.search(text))
+
+        # This rule is about render-time recalculation, so plain TS/JS modules are out of scope.
+        if ext in {"ts", "js"} and not has_jsx_signal:
+            return findings
 
         # Check if file is a React component
         has_component = (
@@ -186,7 +189,7 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
         ) or (
             "return <" in text  # JSX return
         ) or (
-            "return (" in text
+            has_jsx_signal
         )
 
         if not has_component:
@@ -195,9 +198,7 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
         # Track if useMemo is used in the file
         file_has_usememo = bool(self._MEMOIZED_PATTERN.search(text))
 
-        # Track useMemo callback depth (to skip code inside useMemo blocks)
-        in_usememo_block = False
-        brace_depth = 0
+        memoized_line_ranges = self._find_call_line_ranges(text, "useMemo")
 
         for i, line in enumerate(lines, 1):
             # Skip comments
@@ -205,19 +206,7 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
             if stripped.startswith("//") or stripped.startswith("#") or stripped.startswith("*"):
                 continue
 
-            # Track useMemo callback blocks
-            if self._USEMEMO_START.search(line):
-                in_usememo_block = True
-                brace_depth = line.count("{") - line.count("}")
-            
-            if in_usememo_block:
-                # Update brace depth
-                brace_depth += line.count("{") - line.count("}")
-                # Check if we've exited the useMemo block
-                if brace_depth <= 0 or self._USEMEMO_END.search(line):
-                    in_usememo_block = False
-                    brace_depth = 0
-                # Skip expensive pattern detection inside useMemo blocks
+            if self._line_in_ranges(i, memoized_line_ranges):
                 continue
 
             # Skip if line already has useMemo
@@ -311,6 +300,98 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
             )
 
         return findings
+
+    def _find_call_line_ranges(self, text: str, call_name: str) -> list[tuple[int, int]]:
+        pattern = re.compile(rf"\b{re.escape(call_name)}\s*\(", re.IGNORECASE)
+        ranges: list[tuple[int, int]] = []
+        for match in pattern.finditer(text):
+            paren_start = text.find("(", match.start())
+            if paren_start == -1:
+                continue
+            paren_end = self._find_matching_paren(text, paren_start)
+            if paren_end == -1:
+                continue
+            start_line = text.count("\n", 0, match.start()) + 1
+            end_line = text.count("\n", 0, paren_end) + 1
+            ranges.append((start_line, end_line))
+        return ranges
+
+    def _line_in_ranges(self, line_number: int, ranges: list[tuple[int, int]]) -> bool:
+        return any(start <= line_number <= end for start, end in ranges)
+
+    def _find_matching_paren(self, text: str, start: int) -> int:
+        depth = 0
+        in_single = False
+        in_double = False
+        in_backtick = False
+        in_line_comment = False
+        in_block_comment = False
+        escaped = False
+
+        for i in range(start, len(text)):
+            ch = text[i]
+            nxt = text[i + 1] if i + 1 < len(text) else ""
+
+            if in_line_comment:
+                if ch == "\n":
+                    in_line_comment = False
+                continue
+
+            if in_block_comment:
+                if ch == "*" and nxt == "/":
+                    in_block_comment = False
+                continue
+
+            if escaped:
+                escaped = False
+                continue
+
+            if ch == "\\" and (in_single or in_double or in_backtick):
+                escaped = True
+                continue
+
+            if in_single:
+                if ch == "'":
+                    in_single = False
+                continue
+
+            if in_double:
+                if ch == '"':
+                    in_double = False
+                continue
+
+            if in_backtick:
+                if ch == "`":
+                    in_backtick = False
+                continue
+
+            if ch == "/" and nxt == "/":
+                in_line_comment = True
+                continue
+            if ch == "/" and nxt == "*":
+                in_block_comment = True
+                continue
+
+            if ch == "'":
+                in_single = True
+                continue
+            if ch == '"':
+                in_double = True
+                continue
+            if ch == "`":
+                in_backtick = True
+                continue
+
+            if ch == "(":
+                depth += 1
+                continue
+            if ch == ")":
+                depth -= 1
+                if depth == 0:
+                    return i
+                continue
+
+        return -1
 
     def _get_pattern_name(self, pattern: re.Pattern) -> str:
         """Get a human-readable name for the detected pattern."""

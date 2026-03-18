@@ -584,5 +584,40 @@ function Component() {
     assert len(findings) == 0
 
 
+def test_useeffect_skips_long_effect_when_cleanup_appears_late():
+    """Cleanup later in a long useEffect body should still be detected."""
+    rule = UseEffectCleanupMissingRule(RuleConfig())
+    filler = "\n".join(f"        const noop{i} = {i};" for i in range(220))
+    content = f"""
+import {{ useEffect }} from 'react';
+
+function GameSocket() {{
+    useEffect(() => {{
+        const ws = new WebSocket(buildWebSocketUrl());
+        let disposed = false;
+{filler}
+        return () => {{
+            disposed = true;
+            ws.onopen = null;
+            ws.onclose = null;
+            ws.onerror = null;
+            ws.onmessage = null;
+            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {{
+                ws.close();
+            }}
+        }};
+    }}, []);
+}}
+"""
+    findings = rule.analyze_regex(
+        file_path="src/hooks/useGameSocket.ts",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert findings == []
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

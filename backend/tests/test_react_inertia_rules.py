@@ -2,6 +2,7 @@ from core.ruleset import RuleConfig
 from rules.react.no_inline_types import NoInlineTypesRule
 from rules.react.no_inline_services import NoInlineServicesRule
 from rules.react.large_component import LargeComponentRule
+from rules.react.inline_logic import InlineLogicRule
 from rules.react.inertia_page_missing_head import InertiaPageMissingHeadRule
 from rules.react.inertia_internal_link_anchor import InertiaInternalLinkAnchorRule
 from rules.react.inertia_form_uses_fetch import InertiaFormUsesFetchRule
@@ -143,6 +144,91 @@ def test_no_inline_services_skips_large_service_like_hook_module():
     assert findings == []
 
 
+def test_no_inline_services_skips_standard_inertia_useform_handlers():
+    facts = Facts(project_path=".")
+    facts.react_components.append(
+        ReactComponentInfo(
+            name="DeleteUserForm",
+            file_path="resources/js/Pages/Profile/Partials/DeleteUserForm.tsx",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=90,
+            loc=90,
+            hooks_used=["useForm"],
+            imports=["@inertiajs/react"],
+            has_inline_helper_fns=True,
+            inline_helper_names=["deleteUser", "closeModal"],
+        )
+    )
+
+    findings = NoInlineServicesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
+    assert findings == []
+
+
+def test_no_inline_services_uses_symbol_graph_imports_for_extracted_utils():
+    facts = Facts(project_path=".")
+    facts.react_components.append(
+        ReactComponentInfo(
+            name="Dashboard",
+            file_path="resources/js/Pages/Admin/Dashboard.tsx",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=200,
+            loc=200,
+            has_inline_helper_fns=True,
+            inline_helper_names=["persistDashboardState"],
+        )
+    )
+    facts._frontend_symbol_graph = {
+        "files": {
+            "resources/js/Pages/Admin/Dashboard.tsx": {
+                "imports": ["./utils/formatTimer", "@/hooks/useAdminDashboardState"]
+            }
+        }
+    }
+
+    findings = NoInlineServicesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
+    assert findings == []
+
+
+def test_inline_logic_skips_custom_hook_module():
+    rule = InlineLogicRule(RuleConfig())
+    content = """
+import { useCallback, useState } from "react";
+
+export function useAdminDashboardState() {
+  const [settings, setSettings] = useState({ rounds: 1, timeout: 30 });
+  const [drafts, setDrafts] = useState({});
+
+  const updateSaidWordDraft = useCallback((participantId, value) => {
+    setDrafts((prev) => ({
+      ...prev,
+      [participantId]: value,
+    }));
+  }, []);
+
+  const updateSetting = useCallback((key, value) => {
+    setSettings((prev) => ({
+      ...prev,
+      nested: {
+        ...prev.nested,
+        [key]: value,
+      },
+    }));
+  }, []);
+
+  return { settings, drafts, updateSaidWordDraft, updateSetting };
+}
+"""
+
+    findings = rule.analyze_regex(
+        "resources/js/hooks/useAdminDashboard.ts",
+        content,
+        Facts(project_path="."),
+    )
+    assert findings == []
+
+
 def test_large_component_skips_page_shell_that_is_under_soft_page_threshold():
     facts = Facts(project_path=".")
     facts.react_components.append(
@@ -155,6 +241,157 @@ def test_large_component_skips_page_shell_that_is_under_soft_page_threshold():
             loc=294,
         )
     )
+
+    findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
+        facts, project_type="laravel_inertia_react"
+    ).findings
+    assert findings == []
+
+
+def test_large_component_skips_large_static_page_within_page_soft_threshold():
+    facts = Facts(project_path=".")
+    facts.react_components.append(
+        ReactComponentInfo(
+            name="Welcome",
+            file_path="resources/js/Pages/Welcome.tsx",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=367,
+            loc=367,
+        )
+    )
+
+    findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
+        facts, project_type="laravel_inertia_react"
+    ).findings
+    assert findings == []
+
+
+def test_large_component_skips_large_page_when_logic_is_extracted_to_custom_hook():
+    facts = Facts(project_path=".")
+    facts.react_components.append(
+        ReactComponentInfo(
+            name="Dashboard",
+            file_path="resources/js/Pages/Admin/Dashboard.tsx",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=355,
+            loc=355,
+            imports=["@/hooks/useAdminDashboard"],
+        )
+    )
+
+    findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
+        facts, project_type="laravel_inertia_react"
+    ).findings
+    assert findings == []
+
+
+def test_large_component_skips_composed_dashboard_shell():
+    facts = Facts(project_path=".")
+    facts.react_components.append(
+        ReactComponentInfo(
+            name="Dashboard",
+            file_path="resources/js/Pages/Admin/Dashboard.tsx",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=640,
+            loc=640,
+            imports=[
+                "@/hooks/useAdminDashboard",
+                "@/Components/Game/CameraGrid",
+                "@/Components/Game/ResultsModal",
+                "@/Components/Game/VotingBottomPanel",
+            ],
+        )
+    )
+
+    findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
+        facts, project_type="laravel_inertia_react"
+    ).findings
+    assert findings == []
+
+
+def test_large_component_uses_symbol_graph_imports_for_composed_dashboard_shell():
+    facts = Facts(project_path=".")
+    facts.react_components.append(
+        ReactComponentInfo(
+            name="Dashboard",
+            file_path="resources/js/Pages/Admin/Dashboard.tsx",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=640,
+            loc=640,
+        )
+    )
+    facts._frontend_symbol_graph = {
+        "files": {
+            "resources/js/Pages/Admin/Dashboard.tsx": {
+                "imports": [
+                    "@/hooks/useAdminDashboardState",
+                    "@/Components/Game/CameraGrid",
+                    "@/Components/Game/ResultsModal",
+                    "@/Components/Game/VotingBottomPanel",
+                ]
+            }
+        }
+    }
+
+    findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
+        facts, project_type="laravel_inertia_react"
+    ).findings
+    assert findings == []
+
+
+def test_large_component_skips_complex_composed_panel_component():
+    facts = Facts(project_path=".")
+    facts.react_components.append(
+        ReactComponentInfo(
+            name="VotingBottomPanel",
+            file_path="resources/js/Components/Game/VotingBottomPanel.tsx",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=367,
+            loc=367,
+            imports=[
+                "@/hooks/useGamePortalState",
+                "./ResultsModal",
+                "./BuzzButton",
+                "./VoteButton",
+            ],
+        )
+    )
+
+    findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
+        facts, project_type="laravel_inertia_react"
+    ).findings
+    assert findings == []
+
+
+def test_large_component_uses_symbol_graph_imports_for_composed_panel_component():
+    facts = Facts(project_path=".")
+    facts.react_components.append(
+        ReactComponentInfo(
+            name="VotingBottomPanel",
+            file_path="resources/js/Components/Game/VotingBottomPanel.tsx",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=367,
+            loc=367,
+        )
+    )
+    facts._frontend_symbol_graph = {
+        "files": {
+            "resources/js/Components/Game/VotingBottomPanel.tsx": {
+                "imports": [
+                    "@/hooks/useGamePortalState",
+                    "./ResultsModal",
+                    "./BuzzButton",
+                    "./VoteButton",
+                ]
+            }
+        }
+    }
 
     findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
         facts, project_type="laravel_inertia_react"

@@ -14,6 +14,7 @@ Detection strategy:
 import re
 import os
 from pathlib import Path
+from core.path_utils import normalize_rel_path
 from schemas.facts import Facts
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
@@ -94,6 +95,7 @@ class NoInlineServicesRule(Rule):
         "show",
         "hide",
         "emit",
+        "delete",
         "expand",
         "collapse",
         "activate",
@@ -155,6 +157,47 @@ class NoInlineServicesRule(Rule):
         "query",
         "payload",
     )
+    _PAGE_OR_SHELL_PATH_MARKERS = (
+        "/pages/",
+        "/page/",
+        "/screens/",
+        "/screen/",
+        "/views/",
+        "/view/",
+        "/routes/",
+        "/route/",
+    )
+    _LOCAL_UI_IMPORT_MARKERS = (
+        "./",
+        "../",
+        "/components/",
+        "/component/",
+        "/widgets/",
+        "/widget/",
+        "/modals/",
+        "/panels/",
+        "/views/",
+        "/screens/",
+        "@/components",
+        "@/widgets",
+        "@/pages",
+        "@/screens",
+        "@/views",
+        "@/features",
+    )
+    _FORM_HANDLER_PREFIXES = (
+        "submit",
+        "delete",
+        "destroy",
+        "save",
+        "store",
+        "create",
+        "update",
+        "reset",
+        "clear",
+        "cancel",
+        "close",
+    )
 
     # ------------------------------------------------------------------ AST path (primary)
 
@@ -176,16 +219,17 @@ class NoInlineServicesRule(Rule):
                 continue
             if not self._looks_like_component_file(comp.file_path):
                 continue
-            
-            # Skip if the component already imports from utility/hook files
-            if self._imports_from_utils(comp):
+            if self._uses_standard_form_hook(comp, facts) and self._all_helpers_are_form_handlers(comp.inline_helper_names or []):
                 continue
-            
-            seen_files.add(comp.file_path)
 
             helper_names = self._filter_service_like_helpers(comp.inline_helper_names or [])
             if not helper_names:
                 continue
+            helper_profile = self._helper_profile(comp, helper_names, facts)
+            if helper_profile["suppressed_as_local_glue"]:
+                continue
+
+            seen_files.add(comp.file_path)
             count = len(helper_names)
             names_str = ", ".join(f"`{n}`" for n in helper_names[:4])
             if count > 4:
@@ -215,7 +259,8 @@ class NoInlineServicesRule(Rule):
                     ),
                     tags=["react", "srp", "services", "utils", "separation-of-concerns"],
                     confidence=0.90,
-                    evidence_signals=[f"count={count}", f"names={','.join(helper_names[:5])}"],
+                    evidence_signals=helper_profile["evidence_signals"],
+                    metadata={"decision_profile": helper_profile},
                 )
             )
 
@@ -258,6 +303,8 @@ class NoInlineServicesRule(Rule):
 
         helper_names = self._filter_service_like_helpers(helper_names)
         if not helper_names:
+            return []
+        if "useform(" in content.lower() and self._all_helpers_are_form_handlers(helper_names):
             return []
 
         count = len(helper_names)
@@ -306,9 +353,9 @@ class NoInlineServicesRule(Rule):
             return False
         return Path(low).suffix in self._COMPONENT_EXTS
 
-    def _imports_from_utils(self, comp) -> bool:
+    def _imports_from_utils(self, comp, facts: Facts) -> bool:
         """Check if component imports from utility/hook files (.utils, .hooks, etc.)."""
-        for imp in comp.imports or []:
+        for imp in self._component_imports(comp, facts):
             imp_lower = imp.lower().replace("\\", "/")
             # Check for imports from utility files
             if any(marker in imp_lower for marker in [
@@ -317,6 +364,82 @@ class NoInlineServicesRule(Rule):
             ]):
                 return True
         return False
+
+    def _helper_profile(self, comp, helper_names: list[str], facts: Facts) -> dict[str, object]:
+        imports = self._component_imports(comp, facts)
+        file_path = str(getattr(comp, "file_path", "") or "").lower().replace("\\", "/")
+        imports_from_extracted_modules = self._imports_from_utils(comp, facts)
+        helper_count = len(helper_names)
+        has_custom_hook_import = any("/hooks/" in str(imp or "").lower().replace("\\", "/") or "/use" in str(imp or "").lower() for imp in imports)
+        local_component_imports = sum(
+            1
+            for imp in imports
+            if any(marker in str(imp or "").lower().replace("\\", "/") for marker in self._LOCAL_UI_IMPORT_MARKERS)
+        )
+        name_low = str(getattr(comp, "name", "") or "").lower()
+        shell_like_name = any(token in name_low for token in ("dashboard", "portal", "panel", "modal", "board", "workspace", "shell", "layout"))
+        layered_page_or_shell = (
+            any(marker in file_path for marker in self._PAGE_OR_SHELL_PATH_MARKERS)
+            or ("/components/" in file_path and (local_component_imports >= 2 or shell_like_name))
+            or (has_custom_hook_import and local_component_imports >= 2)
+        )
+        strong_service_helpers = sum(
+            1 for name in helper_names if any(name.lower().startswith(prefix) for prefix in self._SERVICE_LIKE_PREFIXES)
+        )
+        suppressed_as_local_glue = (
+            bool(imports)
+            and (imports_from_extracted_modules or has_custom_hook_import)
+            and layered_page_or_shell
+            and helper_count <= 1
+            and local_component_imports >= 1
+            and strong_service_helpers <= 1
+        )
+
+        return {
+            "suppressed_as_local_glue": suppressed_as_local_glue,
+            "helper_count": helper_count,
+            "imports_from_extracted_modules": imports_from_extracted_modules,
+            "has_custom_hook_import": has_custom_hook_import,
+            "local_component_imports": local_component_imports,
+            "layered_page_or_shell": layered_page_or_shell,
+            "strong_service_helpers": strong_service_helpers,
+            "evidence_signals": [
+                f"helpers={helper_count}",
+                f"imports_from_utils={int(imports_from_extracted_modules)}",
+                f"hooks={int(has_custom_hook_import)}",
+                f"local_components={local_component_imports}",
+                f"suppressed={int(suppressed_as_local_glue)}",
+            ],
+        }
+
+    @staticmethod
+    def _component_imports(comp, facts: Facts) -> list[str]:
+        imports = [str(imp or "") for imp in (getattr(comp, "imports", None) or []) if str(imp or "").strip()]
+        if imports:
+            return imports
+
+        graph = getattr(facts, "_frontend_symbol_graph", None)
+        files_map = graph.get("files", {}) if isinstance(graph, dict) else {}
+        payload = files_map.get(normalize_rel_path(str(getattr(comp, "file_path", "") or "")))
+        if not isinstance(payload, dict):
+            return []
+        return [str(imp or "") for imp in (payload.get("imports", []) or []) if str(imp or "").strip()]
+
+    def _uses_standard_form_hook(self, comp, facts: Facts) -> bool:
+        hooks_used = [str(h or "").lower() for h in (comp.hooks_used or [])]
+        if "useform" in hooks_used:
+            return True
+        for imp in self._component_imports(comp, facts):
+            low = str(imp or "").lower()
+            if "useform" in low or "@inertiajs/react" in low:
+                return True
+        return False
+
+    def _all_helpers_are_form_handlers(self, helper_names: list[str]) -> bool:
+        names = [str(name or "").strip().lower() for name in helper_names if str(name or "").strip()]
+        if not names:
+            return False
+        return all(any(name.startswith(prefix) for prefix in self._FORM_HANDLER_PREFIXES) for name in names)
 
     def _filter_service_like_helpers(self, helper_names: list[str]) -> list[str]:
         return [

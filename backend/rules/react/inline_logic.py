@@ -47,6 +47,8 @@ class InlineLogicRule(Rule):
         findings = []
         
         for component in facts.react_components:
+            if self._is_hook_module(component.file_path, component.name):
+                continue
             if component.has_api_calls:
                 findings.append(self._create_api_finding(component))
             
@@ -69,6 +71,8 @@ class InlineLogicRule(Rule):
         a clear signal the logic belongs in a custom hook.
         """
         findings: list[Finding] = []
+        if self._is_hook_module(file_path, os.path.splitext(os.path.basename(file_path))[0]):
+            return []
         state_count = len(self._USE_STATE.findall(content))
         if state_count < 2:
             return []
@@ -113,6 +117,12 @@ class InlineLogicRule(Rule):
             )
         )
         return findings
+
+    def _is_hook_module(self, file_path: str | None, component_name: str | None) -> bool:
+        norm_path = str(file_path or "").replace("\\", "/").lower()
+        name = str(component_name or "")
+        base_name = os.path.splitext(os.path.basename(norm_path))[0]
+        return "/hooks/" in norm_path or name.startswith("use") or base_name.startswith("use")
     
     def _create_api_finding(self, component: ReactComponentInfo) -> Finding:
         """Create finding for inline API calls."""

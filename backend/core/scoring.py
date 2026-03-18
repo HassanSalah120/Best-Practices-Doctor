@@ -457,6 +457,13 @@ class ScoringEngine:
             action_plan=action_plan,
             ruleset_path=ruleset_path,
             rules_executed=rules_executed or [],
+            analysis_debug={
+                "project_context": (
+                    facts.project_context.model_dump()
+                    if getattr(facts, "project_context", None) is not None
+                    else {}
+                ),
+            },
         )
         
         # Populate other computed fields

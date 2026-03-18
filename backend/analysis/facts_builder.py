@@ -3327,6 +3327,16 @@ class FactsBuilder:
         context.tenant_mode = tenant_mode
         context.tenant_signals = tenant_signals[:12]
 
+        backend_context = self._detect_backend_structure_context()
+        context.backend_framework = str(backend_context.get("framework", "unknown"))
+        context.backend_architecture_profile = str(backend_context.get("profile", "unknown"))
+        context.backend_profile_signals = list(backend_context.get("signals", []) or [])[:16]
+        context.backend_profile_confidence = float(backend_context.get("confidence", 0.0) or 0.0)
+        context.backend_profile_confidence_kind = str(backend_context.get("confidence_kind", "unknown") or "unknown")
+        context.backend_profile_debug = dict(backend_context.get("debug", {}) or {})
+        context.backend_structure_mode = str(backend_context.get("broad_mode", "unknown") or "unknown")
+        context.backend_layers = list(backend_context.get("layers", []) or [])[:12]
+
         react_mode, shared_roots = self._detect_react_structure_context()
         context.react_structure_mode = react_mode
         context.react_shared_roots = shared_roots[:12]
@@ -3407,14 +3417,240 @@ class FactsBuilder:
             return ("non_tenant", signals)
         return ("unknown", signals)
 
+    def _detect_backend_structure_context(self) -> dict[str, object]:
+        project_type = getattr(getattr(self.project_info, "project_type", None), "value", None) or str(
+            getattr(self.project_info, "project_type", "") or ""
+        )
+        framework = "laravel" if str(project_type).startswith("laravel") or "laravel/framework" in getattr(self.project_info, "packages", {}) else ("php" if any(str(path or "").lower().endswith(".php") for path in getattr(self._facts, "files", []) or []) else "unknown")
+
+        layer_markers = {
+            "actions": ("/actions/",),
+            "services": ("/services/",),
+            "repositories": ("/repositories/", "/repository/"),
+            "dto": ("/dto/", "/dtos/"),
+            "providers": ("/providers/",),
+            "contracts": ("/contracts/",),
+            "enums": ("/enums/",),
+            "resources": ("/http/resources/",),
+            "requests": ("/http/requests/", "/requests/"),
+        }
+        modular_root_markers = ("/domains/", "/domain/", "/modules/", "/module/")
+
+        detected_layers: set[str] = set()
+        modular_root_hits = 0
+        api_controller_hits = 0
+        api_resource_hits = 0
+        controller_hits = 0
+        model_hits = 0
+        signals: list[str] = []
+
+        for rel_path in getattr(self._facts, "files", []) or []:
+            low = str(rel_path or "").lower().replace("\\", "/")
+            if not low.endswith(".php"):
+                continue
+
+            if any(marker in low for marker in modular_root_markers):
+                modular_root_hits += 1
+                signals.append(f"modular:{rel_path}")
+
+            for layer, markers in layer_markers.items():
+                if any(marker in low for marker in markers):
+                    detected_layers.add(layer)
+                    break
+
+            if "/http/controllers/" in low:
+                controller_hits += 1
+            if "/models/" in low:
+                model_hits += 1
+            if "/http/controllers/api/" in low or "/api/" in low:
+                api_controller_hits += 1
+            if "/http/resources/" in low or low.endswith("resource.php"):
+                api_resource_hits += 1
+
+        has_core_layers = {"actions", "services"}.issubset(detected_layers)
+        has_supporting_layers = bool({"repositories", "dto", "providers", "contracts", "enums"} & detected_layers)
+        has_data_boundary = "repositories" in detected_layers or "contracts" in detected_layers
+        layered_score = 0
+        if has_core_layers:
+            layered_score += 2
+        if has_supporting_layers:
+            layered_score += 1
+        if has_data_boundary:
+            layered_score += 1
+        if len(detected_layers) >= 4:
+            layered_score += 1
+
+        modular_score = 0
+        if modular_root_hits >= 2:
+            modular_score += 2
+        if modular_root_hits >= 4:
+            modular_score += 1
+        if modular_root_hits >= 2 and has_core_layers:
+            modular_score += 1
+        if modular_root_hits >= 2 and controller_hits >= 1:
+            modular_score += 1
+
+        has_api_routes = bool(getattr(self.project_info, "has_api_routes", False))
+        has_web_routes = bool(getattr(self.project_info, "has_web_routes", False))
+        has_blade_views = bool(getattr(self.project_info, "has_blade_views", False))
+        api_score = 0
+        if project_type == "laravel_api":
+            api_score += 2
+        if has_api_routes:
+            api_score += 2
+        if not has_blade_views:
+            api_score += 1
+        if api_controller_hits >= 1:
+            api_score += 1
+        if api_resource_hits >= 1:
+            api_score += 1
+        if not has_web_routes:
+            api_score += 1
+
+        mvc_score = 0
+        if controller_hits >= 1 and model_hits >= 1:
+            mvc_score += 1
+        if has_web_routes and has_blade_views:
+            mvc_score += 1
+        if len(detected_layers) <= 1:
+            mvc_score += 1
+        if modular_root_hits == 0 and layered_score <= 2 and api_score <= 2:
+            mvc_score += 1
+
+        signals.extend(
+            [
+                f"framework={framework}",
+                f"layered_score={layered_score}",
+                f"modular_score={modular_score}",
+                f"api_score={api_score}",
+                f"mvc_score={mvc_score}",
+                f"layers={','.join(sorted(detected_layers)) or 'none'}",
+            ]
+        )
+
+        profile = "unknown"
+        if framework != "laravel":
+            profile = "unknown"
+        elif modular_score >= 3 and modular_score >= api_score and modular_score >= layered_score:
+            profile = "modular"
+        elif api_score >= 4 and api_score > layered_score and api_score >= mvc_score:
+            profile = "api-first"
+        elif layered_score >= 3:
+            profile = "layered"
+        elif mvc_score >= 2:
+            profile = "mvc"
+
+        score_map = {
+            "layered": layered_score,
+            "modular": modular_score,
+            "api-first": api_score,
+            "mvc": mvc_score,
+        }
+        selected_score = int(score_map.get(profile, 0))
+        runner_up_profile = "unknown"
+        runner_up_score = 0
+        for candidate, score in sorted(score_map.items(), key=lambda item: item[1], reverse=True):
+            if candidate == profile:
+                continue
+            runner_up_profile = candidate
+            runner_up_score = int(score)
+            break
+
+        confidence_kind = "unknown"
+        confidence = 0.0
+        if framework == "laravel" and profile != "unknown":
+            if profile == "layered":
+                structural_markers = sum(
+                    [
+                        int(has_core_layers),
+                        int(has_supporting_layers),
+                        int(has_data_boundary),
+                        int(len(detected_layers) >= 4),
+                    ]
+                )
+                confidence_kind = "structural" if structural_markers >= 2 else "heuristic"
+            elif profile == "modular":
+                structural_markers = sum(
+                    [
+                        int(modular_root_hits >= 2),
+                        int(has_core_layers),
+                        int(controller_hits >= 1),
+                    ]
+                )
+                confidence_kind = "structural" if structural_markers >= 2 else "heuristic"
+            elif profile == "api-first":
+                structural_markers = sum(
+                    [
+                        int(has_api_routes),
+                        int(api_controller_hits >= 1 or api_resource_hits >= 1),
+                        int(not has_blade_views),
+                    ]
+                )
+                confidence_kind = "structural" if structural_markers >= 2 else "heuristic"
+            elif profile == "mvc":
+                structural_markers = sum(
+                    [
+                        int(controller_hits >= 1),
+                        int(model_hits >= 1),
+                        int(has_web_routes),
+                        int(has_blade_views),
+                    ]
+                )
+                confidence_kind = "structural" if structural_markers >= 3 else "heuristic"
+
+            base_confidence = 0.62 + (0.06 * min(selected_score, 5)) + (0.03 * max(0, selected_score - runner_up_score))
+            confidence = min(0.98, base_confidence)
+            if confidence_kind == "structural":
+                confidence = max(confidence, 0.86)
+            else:
+                confidence = min(confidence, 0.79)
+
+        broad_mode = "layered" if profile in {"layered", "modular"} else ("mvc" if profile == "mvc" else "unknown")
+        debug = {
+            "framework": framework,
+            "selected_profile": profile,
+            "scores": score_map,
+            "selected_score": selected_score,
+            "runner_up_profile": runner_up_profile,
+            "runner_up_score": runner_up_score,
+            "controller_hits": controller_hits,
+            "model_hits": model_hits,
+            "api_controller_hits": api_controller_hits,
+            "api_resource_hits": api_resource_hits,
+            "modular_root_hits": modular_root_hits,
+            "has_api_routes": has_api_routes,
+            "has_web_routes": has_web_routes,
+            "has_blade_views": has_blade_views,
+            "detected_layers": sorted(detected_layers),
+        }
+        signals.extend(
+            [
+                f"profile={profile}",
+                f"profile_confidence={confidence:.2f}",
+                f"profile_confidence_kind={confidence_kind}",
+            ]
+        )
+        return {
+            "framework": framework,
+            "profile": profile,
+            "broad_mode": broad_mode,
+            "layers": sorted(detected_layers),
+            "signals": signals,
+            "confidence": round(confidence, 2),
+            "confidence_kind": confidence_kind,
+            "debug": debug,
+        }
+
     def _detect_react_structure_context(self) -> tuple[str, list[str]]:
         import re
 
-        category_roots = {"hooks", "services", "utils", "helpers", "types", "constants", "schemas", "validators"}
+        category_roots = {"hooks", "services", "utils", "helpers", "types", "constants", "schemas", "validators", "lib", "api", "client", "clients", "interfaces", "models", "composables"}
         feature_roots = {"features", "feature", "domains", "domain", "modules", "module"}
-        presentational_roots = {"pages", "page", "layouts", "layout", "components", "component", "screens", "screen"}
+        presentational_roots = {"pages", "page", "layouts", "layout", "components", "component", "screens", "screen", "widgets", "widget", "views", "view"}
+        shared_presentational_roots = {"components", "layouts", "widgets"}
         shared_roots = {"shared", "common", "core"}
         generic_roots = {"src", "app", "resources", "js", "ts", "frontend", "client", "web", "ui"}
+        support_dirs = category_roots | {"services", "service", "utils", "util", "helpers", "helper", "types", "type", "constants", "constant", "schemas", "schema", "validators", "validator", "lib", "api", "client", "clients", "interfaces", "models", "composables"}
         support_name_re = re.compile(r"(^use[A-Z])|((?:utils?|helpers?|services?|types?|constants?|schemas?|validators?)$)", re.IGNORECASE)
 
         frontend_files = [
@@ -3425,6 +3661,7 @@ class FactsBuilder:
         category_root_hits = 0
         feature_root_hits = 0
         colocated_support_hits = 0
+        shared_presentational_hits = 0
         detected_shared_roots: set[str] = set()
 
         for file_path in frontend_files:
@@ -3437,19 +3674,24 @@ class FactsBuilder:
             if first in category_roots:
                 category_root_hits += 1
                 detected_shared_roots.add(first)
+            elif first in shared_presentational_roots and len(segments) > 1:
+                shared_presentational_hits += 1
+                detected_shared_roots.add(first)
             elif first in shared_roots:
                 detected_shared_roots.add(first)
 
             if first in feature_roots:
                 feature_root_hits += 1
 
-            if first in presentational_roots and support_name_re.search(stem):
+            if first in presentational_roots and (support_name_re.search(stem) or any(seg.lower() in support_dirs for seg in segments[1:-1])):
                 colocated_support_hits += 1
 
             if len(segments) > 1 and segments[0].lower() in category_roots and segments[1].lower() not in generic_roots:
                 detected_shared_roots.add(f"{segments[0].lower()}/{segments[1].lower()}")
 
         if (feature_root_hits >= 2 and category_root_hits >= 2) or (colocated_support_hits >= 2 and category_root_hits >= 1):
+            return ("hybrid", sorted(detected_shared_roots))
+        if (feature_root_hits >= 1 or colocated_support_hits >= 2) and (category_root_hits >= 1 or shared_presentational_hits >= 2):
             return ("hybrid", sorted(detected_shared_roots))
         if feature_root_hits >= 2 or colocated_support_hits >= 3:
             return ("feature-first", sorted(detected_shared_roots))

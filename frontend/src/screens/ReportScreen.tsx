@@ -14,6 +14,7 @@ import { ReportFindingDetailCard } from "@/components/report/ReportFindingDetail
 import { ReportScoreBar } from "@/components/report/ReportScoreBar";
 import { ReportTrendChart } from "@/components/report/ReportTrendChart";
 import { ReportCategoryBreakdown } from "@/components/report/ReportCategoryBreakdown";
+import { ReportArchitecturePanel } from "@/components/report/ReportArchitecturePanel";
 import { AutoFixPanel } from "@/components/report/AutoFixPanel";
 import { IncrementalScanPanel } from "@/components/report/IncrementalScanPanel";
 import { PRGatePanel } from "@/components/report/PRGatePanel";
@@ -345,7 +346,15 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ jobId, onBack, onRes
         }
 
         // Match backend prioritization: total_penalty * (category_weight / 100)
-        const impactByRule: Record<string, { rule_id: string; impact: number; count: number; maxSev: SeverityT; category: string }> = {};
+        const impactByRule: Record<string, {
+            rule_id: string;
+            impact: number;
+            count: number;
+            maxSev: SeverityT;
+            category: string;
+            sampleReason: string;
+            sampleProfile: string;
+        }> = {};
         const countByFile: Record<string, { path: string; count: number; maxSev: SeverityT }> = {};
 
         for (const f of fs) {
@@ -354,10 +363,25 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ jobId, onBack, onRes
             const w = weightByCategory[cat] ?? 0;
             const weighted = imp * (w / 100.0);
 
-            const r = (impactByRule[f.rule_id] ??= { rule_id: f.rule_id, impact: 0, count: 0, maxSev: Severity.LOW, category: cat });
+            const decisionProfile = f.metadata?.decision_profile;
+            const r = (impactByRule[f.rule_id] ??= {
+                rule_id: f.rule_id,
+                impact: 0,
+                count: 0,
+                maxSev: Severity.LOW,
+                category: cat,
+                sampleReason: String(decisionProfile?.decision_summary ?? "").trim(),
+                sampleProfile: String(decisionProfile?.architecture_profile ?? "").trim(),
+            });
             r.impact += weighted;
             r.count += 1;
             if ((severityRank[f.severity] ?? 0) > (severityRank[r.maxSev] ?? 0)) r.maxSev = f.severity;
+            if (!r.sampleReason && decisionProfile?.decision_summary) {
+                r.sampleReason = String(decisionProfile.decision_summary);
+            }
+            if (!r.sampleProfile && decisionProfile?.architecture_profile) {
+                r.sampleProfile = String(decisionProfile.architecture_profile);
+            }
 
             const fi = (countByFile[f.file] ??= { path: f.file, count: 0, maxSev: Severity.LOW });
             fi.count += 1;
@@ -515,6 +539,21 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ jobId, onBack, onRes
         return s.length > max ? `${s.slice(0, max - 3)}...` : s;
     };
 
+    const projectContextDebug = report.analysis_debug?.project_context;
+    const detectedArchitecture = (() => {
+        const framework = String(projectContextDebug?.backend_framework ?? "").trim();
+        const profile = String(projectContextDebug?.backend_architecture_profile ?? "").trim();
+        const confidence = Number(projectContextDebug?.backend_profile_confidence ?? 0);
+        const confidenceKind = String(projectContextDebug?.backend_profile_confidence_kind ?? "").trim();
+        if (!framework && !profile) return "";
+        const frameworkLabel = framework || "unknown";
+        const profileLabel = profile || "unknown";
+        const confidenceLabel = confidence > 0
+            ? ` (${Math.round(confidence * 100)}% ${confidenceKind || "confidence"})`
+            : "";
+        return `${frameworkLabel} / ${profileLabel}${confidenceLabel}`;
+    })();
+
     const buildPromptForSelectedFile = () => {
         if (!report || !selectedFilePath) return "";
 
@@ -522,6 +561,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ jobId, onBack, onRes
 
         const lines: string[] = [];
         lines.push(`Fix findings in ${relFile}: ${groupedFindings.length} issue(s)`);
+        if (detectedArchitecture) lines.push(`Detected architecture: ${detectedArchitecture}`);
 
         groupedFindings.forEach((group, idx) => {
             const finding = group[0];
@@ -553,6 +593,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ jobId, onBack, onRes
 
         const lines: string[] = [];
         lines.push(`Fix: ${finding.rule_id} in ${relFile} @ ${linePart}`);
+        if (detectedArchitecture) lines.push(`Detected architecture: ${detectedArchitecture}`);
         lines.push(`${finding.severity}: ${finding.title}`);
         lines.push(`Issue: ${compact(finding.description, 160)}`);
         if (finding.why_it_matters) lines.push(`Impact: ${compact(finding.why_it_matters, 140)}`);
@@ -589,6 +630,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ jobId, onBack, onRes
 
         const lines: string[] = [];
         lines.push(`Fix ${ruleId}: ${findings.length} occurrence(s) in ${Object.keys(byFile).length} file(s)`);
+        if (detectedArchitecture) lines.push(`Detected architecture: ${detectedArchitecture}`);
         lines.push(`Pattern: ${sample.title}`);
         if (sample.suggested_fix) lines.push(`Fix: ${compact(sample.suggested_fix, 140)}`);
         lines.push("");
@@ -630,6 +672,7 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ jobId, onBack, onRes
 
         const lines: string[] = [];
         lines.push(`Fix ${topActions.length} prioritized issues (Score: ${Math.round(report.scores.overall)}% ${report.scores.grade})`);
+        if (detectedArchitecture) lines.push(`Detected architecture: ${detectedArchitecture}`);
         lines.push("");
         lines.push("Priority Queue");
 
@@ -1012,11 +1055,12 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ jobId, onBack, onRes
                                 </CardContent>
                             </Card>
                             
-                            {/* Trend Chart & Category Breakdown */}
-                            <div className="lg:col-span-5 space-y-4">
-                                <ReportTrendChart jobId={jobId} />
-                                <ReportCategoryBreakdown findings={report.findings} />
-                            </div>
+                              {/* Trend Chart & Category Breakdown */}
+                              <div className="lg:col-span-5 space-y-4">
+                                  <ReportArchitecturePanel projectContext={projectContextDebug} />
+                                  <ReportTrendChart jobId={jobId} />
+                                  <ReportCategoryBreakdown findings={report.findings} />
+                              </div>
                         </>
                     ) : null}
 
@@ -1429,7 +1473,15 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ jobId, onBack, onRes
                                             <div key={r.rule_id} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-white/5 border border-white/5">
                                                 <div className="min-w-0">
                                                     <div className="text-sm font-mono truncate">{r.rule_id}</div>
-                                                    <div className="text-[10px] text-muted-foreground">{r.count} finding(s) · sev={r.maxSev}</div>
+                                                    <div className="text-[10px] text-muted-foreground">
+                                                        {r.count} finding(s) · sev={r.maxSev}
+                                                        {r.sampleProfile ? ` · ${r.sampleProfile}` : ""}
+                                                    </div>
+                                                    {r.sampleReason ? (
+                                                        <div className="mt-1 text-[10px] text-white/45 line-clamp-2">
+                                                            {r.sampleReason}
+                                                        </div>
+                                                    ) : null}
                                                 </div>
                                                 <div className="flex items-center gap-2 shrink-0">
                                                     <Button

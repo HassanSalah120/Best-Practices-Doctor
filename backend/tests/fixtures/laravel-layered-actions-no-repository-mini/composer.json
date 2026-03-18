@@ -1,0 +1,7 @@
+{
+  "name": "tests/laravel-layered-actions-no-repository-mini",
+  "require": {
+    "php": "^8.2",
+    "laravel/framework": "^11.0"
+  }
+}

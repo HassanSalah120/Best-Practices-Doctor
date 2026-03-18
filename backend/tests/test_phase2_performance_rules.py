@@ -339,6 +339,61 @@ function TimelineItem({ item }) {
     assert findings == []
 
 
+def test_missing_usememo_skips_plain_typescript_utility_module():
+    rule = MissingUseMemoForExpensiveCalcRule(RuleConfig())
+    content = """
+export function clampChannel(value: number): number {
+    return Math.max(0, Math.min(255, value));
+}
+"""
+
+    findings = rule.analyze_regex(
+        file_path="resources/js/utilities/branding.ts",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert findings == []
+
+
+def test_missing_usememo_skips_concise_usememo_expressions():
+    rule = MissingUseMemoForExpensiveCalcRule(RuleConfig())
+    content = """
+import { useMemo } from 'react';
+
+function VotingBottomPanel({ participants, currentUserId, selectedVoteTarget, t }) {
+    const alivePlayers = useMemo(
+        () => participants.filter((participant) => !participant.is_eliminated),
+        [participants]
+    );
+
+    const voteTargets = useMemo(
+        () => alivePlayers.filter((participant) => participant.user_id !== currentUserId),
+        [alivePlayers, currentUserId]
+    );
+
+    const selectedPlayer = useMemo(
+        () => typeof selectedVoteTarget === 'number'
+            ? alivePlayers.find((participant) => participant.id === selectedVoteTarget) ?? null
+            : null,
+        [alivePlayers, selectedVoteTarget]
+    );
+
+    return <div>{voteTargets.length}</div>;
+}
+"""
+
+    findings = rule.analyze_regex(
+        file_path="resources/js/Components/Game/VotingBottomPanel.tsx",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert findings == []
+
+
 # ============== Missing UseCallback Tests ==============
 
 def test_inline_onclick_without_usecallback():

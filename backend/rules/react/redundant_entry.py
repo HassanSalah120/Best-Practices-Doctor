@@ -54,6 +54,9 @@ class RedundantEntryRule(Rule):
         "/__tests__/",
         "/stories/",
         "/storybook/",
+        "/i18n/",
+        "/lang/",
+        "/locales/",
     )
 
     def analyze(
@@ -92,7 +95,10 @@ class RedundantEntryRule(Rule):
                 
                 if has_autofill:
                     continue  # Autofill present, likely mitigated
-                
+
+                if self._is_security_confirmation_context(file_path, matched_text, nearby):
+                    continue
+
                 findings.append(
                     self.create_finding(
                         title="Potential redundant entry requirement",
@@ -131,4 +137,26 @@ class RedundantEntryRule(Rule):
 
     def _is_allowlisted_path(self, file_path: str) -> bool:
         low = (file_path or "").lower().replace("\\", "/")
-        return any(marker in low for marker in self._ALLOWLIST_PATHS)
+        return any(marker in low for marker in self._ALLOWLIST_PATHS) or low.endswith("/i18n.ts")
+
+    def _is_security_confirmation_context(self, file_path: str, matched_text: str, nearby: str) -> bool:
+        low_match = matched_text.lower()
+        low_path = (file_path or "").lower().replace("\\", "/")
+        low_nearby = nearby.lower()
+
+        if "password" not in low_match:
+            return False
+
+        security_markers = (
+            "password_confirmation",
+            "confirm_password",
+            "type=\"password\"",
+            "type='password'",
+            "autocomplete=\"new-password\"",
+            "autocomplete='new-password'",
+            "autocomplete=\"current-password\"",
+            "autocomplete='current-password'",
+        )
+        auth_paths = ("/auth/", "/register", "/reset-password", "/profile/")
+
+        return any(marker in low_nearby for marker in security_markers) or any(marker in low_path for marker in auth_paths)

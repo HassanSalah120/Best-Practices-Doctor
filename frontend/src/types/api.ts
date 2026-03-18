@@ -33,13 +33,16 @@ export interface Finding {
   category: Category;
   file: string;
   line_start: number;
-  line_end: number;
+  line_end?: number | null;
   context?: string;
   suggested_fix?: string;
   why_it_matters?: string;
   evidence_signals?: string[];
   score_impact?: number;
   tags?: string[];
+  classification?: "defect" | "risk" | "advisory";
+  confidence?: number;
+  metadata?: FindingMetadata;
 }
 
 export const ScanStatus = {
@@ -173,5 +176,49 @@ export interface ScanReport {
   category_breakdown?: Record<string, CategoryScore>;
   complexity_hotspots?: ComplexityHotspot[];
   duplication_hotspots?: DuplicationHotspot[];
+  analysis_debug?: AnalysisDebug;
   pr_gate?: Record<string, unknown> | null;
+}
+
+export interface RuleDecisionProfile {
+  backend_framework?: string;
+  architecture_profile?: string;
+  profile_confidence?: number;
+  profile_confidence_kind?: string;
+  profile_signals?: string[];
+  decision?: string;
+  decision_summary?: string;
+  suppression_reason?: string | null;
+  emission_reason?: string | null;
+  decision_reasons?: string[];
+  suppression_checks?: Record<string, boolean>;
+  [key: string]: unknown;
+}
+
+export interface FindingMetadata {
+  decision_profile?: RuleDecisionProfile;
+  [key: string]: unknown;
+}
+
+export interface ProjectContextDebug {
+  backend_framework?: string;
+  backend_architecture_profile?: string;
+  backend_profile_signals?: string[];
+  backend_profile_confidence?: number;
+  backend_profile_confidence_kind?: string;
+  backend_profile_debug?: Record<string, unknown>;
+  backend_structure_mode?: string;
+  backend_layers?: string[];
+  react_structure_mode?: string;
+  react_shared_roots?: string[];
+  has_i18n?: boolean;
+  i18n_helpers?: string[];
+  auth_flow_paths?: string[];
+  shared_infra_roots?: string[];
+  [key: string]: unknown;
+}
+
+export interface AnalysisDebug {
+  project_context?: ProjectContextDebug;
+  [key: string]: unknown;
 }

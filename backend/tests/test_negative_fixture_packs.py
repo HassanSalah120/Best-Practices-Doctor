@@ -59,6 +59,7 @@ def test_project_context_detects_intentional_react_colocation(fixture_path: Path
     assert facts.project_context.react_structure_mode == "hybrid"
     assert facts.project_context.has_i18n is True
     assert "AppSeo" in facts.project_context.custom_head_wrappers
+    assert "components" in facts.project_context.react_shared_roots
 
 
 def test_project_context_detects_non_tenant_account_wording(fixture_path: Path):

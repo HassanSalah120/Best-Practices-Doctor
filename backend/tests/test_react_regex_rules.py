@@ -56,6 +56,14 @@ def test_react_no_array_index_key_positive_and_negative():
     assert not rule.analyze_regex("resources/js/Components/List.tsx", neg, facts)
 
 
+def test_react_no_array_index_key_skips_composite_key_with_extra_stable_signal():
+    rule = NoArrayIndexKeyRule(RuleConfig())
+    facts = Facts(project_path="x")
+
+    composite = "return logs.map((log, i) => <div key={`log-${i}-${log.substring(0, 10)}`}>{log}</div>);"
+    assert not rule.analyze_regex("resources/js/Pages/Admin/Dashboard.tsx", composite, facts)
+
+
 def test_rule_engine_runs_react_regex_rules_for_tsx_files(tmp_path: Path):
     root = tmp_path / "proj"
     page = root / "resources" / "js" / "Pages" / "Patients.tsx"

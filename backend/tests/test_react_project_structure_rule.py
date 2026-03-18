@@ -185,6 +185,65 @@ def test_react_project_structure_accepts_feature_utils_nested_under_page_umbrell
     assert findings == []
 
 
+def test_react_project_structure_accepts_shared_hook_and_feature_local_utils_in_hybrid_project():
+    rule = ReactProjectStructureConsistencyRule(RuleConfig())
+    facts = Facts(project_path=".")
+    facts.files = [
+        "resources/js/components/Portal/AuditLogList.tsx",
+        "resources/js/components/Portal/utils/auditLogUtils.ts",
+        "resources/js/hooks/useNav.ts",
+        "resources/js/pages/Portal/SeoSettings/Index.tsx",
+        "resources/js/pages/Portal/SeoSettings/components/utils/seoHelpers.ts",
+    ]
+    facts.project_context.react_structure_mode = "hybrid"
+    facts.project_context.react_shared_roots = ["components", "hooks"]
+    facts._frontend_symbol_graph = {
+        "files": {
+            "resources/js/components/Portal/AuditLogList.tsx": {
+                "imports": ["./utils/auditLogUtils", "@/hooks/useNav"]
+            },
+            "resources/js/pages/Portal/SeoSettings/Index.tsx": {
+                "imports": ["./components/utils/seoHelpers", "@/hooks/useNav"]
+            },
+        }
+    }
+
+    findings = rule.run(facts).findings
+    assert findings == []
+
+
+def test_react_project_structure_accepts_scaled_hybrid_shared_and_feature_hooks():
+    rule = ReactProjectStructureConsistencyRule(RuleConfig())
+    facts = Facts(project_path=".")
+    facts.files = [
+        "resources/js/hooks/useNav.ts",
+        "resources/js/hooks/useTheme.ts",
+        "resources/js/hooks/useInsuranceCarrierFilters.ts",
+        "resources/js/pages/Clinic/Insurance/hooks/useCarrierDetails.ts",
+        "resources/js/pages/Clinic/Insurance/hooks/useCarrierCreate.ts",
+        "resources/js/pages/Portal/FeatureMatrix/hooks/useFeatureFlags.ts",
+        "resources/js/pages/Clinic/Insurance/Index.tsx",
+        "resources/js/pages/Portal/FeatureMatrix/Index.tsx",
+        "resources/js/components/UI/Button.tsx",
+        "resources/js/layouts/AppLayout.tsx",
+    ]
+    facts.project_context.react_structure_mode = "hybrid"
+    facts.project_context.react_shared_roots = ["hooks", "components", "layouts"]
+    facts._frontend_symbol_graph = {
+        "files": {
+            "resources/js/pages/Clinic/Insurance/Index.tsx": {
+                "imports": ["./hooks/useCarrierDetails", "./hooks/useCarrierCreate", "@/hooks/useInsuranceCarrierFilters", "@/hooks/useTheme"]
+            },
+            "resources/js/pages/Portal/FeatureMatrix/Index.tsx": {
+                "imports": ["./hooks/useFeatureFlags", "@/hooks/useNav", "@/components/UI/Button"]
+            },
+        }
+    }
+
+    findings = rule.run(facts).findings
+    assert findings == []
+
+
 def test_rule_engine_runs_facts_based_react_rules():
     rules = {rule_id: RuleConfig(enabled=False) for rule_id in ALL_RULES.keys()}
     rules["large-react-component"] = RuleConfig(enabled=True)

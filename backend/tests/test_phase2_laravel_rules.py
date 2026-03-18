@@ -964,3 +964,33 @@ def test_transaction_required_for_multi_write_skips_action_delegating_orchestrat
 
     findings = TransactionRequiredForMultiWriteRule(RuleConfig()).run(facts, project_type="laravel_api").findings
     assert findings == []
+
+
+def test_too_many_dependencies_skips_service_coordinator_facade():
+    facts = Facts(project_path=".")
+    facts.methods.append(
+        MethodInfo(
+            name="__construct",
+            class_name="GameServer",
+            class_fqcn="App\\Services\\Game\\GameServer",
+            file_path="app/Services/Game/GameServer.php",
+            file_hash="deadbeef",
+            line_start=23,
+            line_end=31,
+            loc=9,
+            parameters=[
+                "GameServerQueueServiceInterface $queue",
+                "GameServerRedisCircuitBreaker $redisCircuitBreaker",
+                "GameSocketTokenServiceInterface $tokenService",
+                "GameSocketCommandServiceInterface $commandService",
+                "SessionVisibilityServiceInterface $sessionVisibility",
+                "GameServerEventHandler $eventHandler",
+                "GameServerConnectionManager $connectionManager",
+            ],
+        )
+    )
+
+    findings = TooManyDependenciesRule(RuleConfig(thresholds={"max_dependencies": 5})).run(
+        facts, project_type="laravel_api"
+    ).findings
+    assert findings == []

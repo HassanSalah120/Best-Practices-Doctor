@@ -125,6 +125,26 @@ def test_rule_engine_applies_bpd_ignore_with_expiry(tmp_path: Path):
     assert len(res2.findings) == 1
 
 
+def test_no_closure_routes_skips_middleware_group_callbacks(tmp_path: Path):
+    root = tmp_path / "proj"
+    routes = root / "routes"
+    routes.mkdir(parents=True, exist_ok=True)
+    (routes / "web.php").write_text(
+        """<?php
+Route::middleware('auth')->group(function () {
+    Route::get('/dashboard', [HomeController::class, 'dashboard'])->name('dashboard');
+});
+""",
+        encoding="utf-8",
+    )
+    facts = Facts(project_path=str(root))
+    facts.files = ["routes/web.php"]
+
+    engine = RuleEngine(_ruleset_with_only("no-closure-routes"))
+    res = engine.run(facts, project_type="laravel_api")
+    assert res.findings == []
+
+
 def test_rule_engine_differential_mode_filters_to_changed_files(tmp_path: Path):
     root = tmp_path / "proj"
     svc = root / "app" / "Services"

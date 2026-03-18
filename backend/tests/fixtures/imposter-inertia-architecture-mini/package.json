@@ -1,0 +1,9 @@
+{
+  "name": "tests-imposter-inertia-architecture-mini",
+  "dependencies": {
+    "react": "^18.0.0",
+    "@inertiajs/react": "^1.0.0",
+    "typescript": "^5.0.0",
+    "zustand": "^4.0.0"
+  }
+}

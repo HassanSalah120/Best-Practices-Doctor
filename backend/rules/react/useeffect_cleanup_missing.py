@@ -69,7 +69,7 @@ class UseEffectCleanupMissingRule(Rule):
         re.compile(r"ignore\s*=\s*true", re.IGNORECASE),
     ]
 
-    _USE_EFFECT_PATTERN = re.compile(r"useEffect\s*\(\s*\(", re.IGNORECASE)
+    _USE_EFFECT_PATTERN = re.compile(r"\buseEffect\s*\(", re.IGNORECASE)
 
     _ALLOWLIST_PATHS = (
         "/tests/",
@@ -102,13 +102,8 @@ class UseEffectCleanupMissingRule(Rule):
         text = content or ""
 
         # Find all useEffect blocks
-        for match in self._USE_EFFECT_PATTERN.finditer(text):
-            # Extract the useEffect body (approximate)
-            start = match.start()
-            
-            # Look for the effect body - find the closing of the first function
-            window = text[start: start + 2500]  # Reasonable window size
-            
+        for start, window in self._iter_useeffect_blocks(text):
+
             # Check for side effects in this useEffect
             detected_effects = []
             for pattern in self._SIDE_EFFECT_PATTERNS:
@@ -191,6 +186,94 @@ class UseEffectCleanupMissingRule(Rule):
             )
 
         return findings
+
+    def _iter_useeffect_blocks(self, text: str) -> list[tuple[int, str]]:
+        blocks: list[tuple[int, str]] = []
+        for match in self._USE_EFFECT_PATTERN.finditer(text):
+            paren_start = text.find("(", match.start())
+            if paren_start == -1:
+                continue
+            paren_end = self._find_matching_paren(text, paren_start)
+            if paren_end == -1:
+                window = text[match.start(): match.start() + 4000]
+            else:
+                window = text[match.start(): paren_end + 1]
+            blocks.append((match.start(), window))
+        return blocks
+
+    def _find_matching_paren(self, text: str, start: int) -> int:
+        depth = 0
+        in_single = False
+        in_double = False
+        in_backtick = False
+        in_line_comment = False
+        in_block_comment = False
+        escaped = False
+
+        for i in range(start, len(text)):
+            ch = text[i]
+            nxt = text[i + 1] if i + 1 < len(text) else ""
+
+            if in_line_comment:
+                if ch == "\n":
+                    in_line_comment = False
+                continue
+
+            if in_block_comment:
+                if ch == "*" and nxt == "/":
+                    in_block_comment = False
+                continue
+
+            if escaped:
+                escaped = False
+                continue
+
+            if ch == "\\" and (in_single or in_double or in_backtick):
+                escaped = True
+                continue
+
+            if in_single:
+                if ch == "'":
+                    in_single = False
+                continue
+
+            if in_double:
+                if ch == '"':
+                    in_double = False
+                continue
+
+            if in_backtick:
+                if ch == "`":
+                    in_backtick = False
+                continue
+
+            if ch == "/" and nxt == "/":
+                in_line_comment = True
+                continue
+            if ch == "/" and nxt == "*":
+                in_block_comment = True
+                continue
+
+            if ch == "'":
+                in_single = True
+                continue
+            if ch == '"':
+                in_double = True
+                continue
+            if ch == "`":
+                in_backtick = True
+                continue
+
+            if ch == "(":
+                depth += 1
+                continue
+            if ch == ")":
+                depth -= 1
+                if depth == 0:
+                    return i
+                continue
+
+        return -1
 
     def _get_effect_name(self, pattern: re.Pattern) -> str | None:
         """Get a human-readable name for the detected effect."""
