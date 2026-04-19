@@ -43,6 +43,14 @@ class TransactionRequiredForMultiWriteRule(Rule):
         "increment",
         "decrement",
     }
+    _IDEMPOTENT_WRITE_TOKENS = {
+        "updateorcreate",
+        "firstorcreate",
+        "firstornew",
+        "upsert",
+        "insertorignore",
+        "syncwithoutdetaching",
+    }
     _TX_PATTERNS = [
         re.compile(r"\bDB::transaction\s*\(", re.IGNORECASE),
         re.compile(r"->\s*transaction\s*\(", re.IGNORECASE),
@@ -69,6 +77,9 @@ class TransactionRequiredForMultiWriteRule(Rule):
     ) -> list[Finding]:
         findings: list[Finding] = []
         min_writes = int(self.get_threshold("min_write_calls", 2) or 2)
+        min_distinct_models = int(self.get_threshold("min_distinct_models", 1) or 1)
+        ignore_idempotent_batches = bool(self.get_threshold("ignore_idempotent_batches", True))
+        min_confidence = float(self.get_threshold("min_confidence", 0.0) or 0.0)
 
         queries_by_method: dict[tuple[str, str], list] = {}
         for q in facts.queries:
@@ -91,6 +102,13 @@ class TransactionRequiredForMultiWriteRule(Rule):
             write_qs = [q for q in qs if self._is_write_chain(q.method_chain or "")]
             if len(write_qs) < min_writes:
                 continue
+            distinct_models = {str(q.model or "").strip().lower() for q in write_qs if str(q.model or "").strip()}
+            if len(distinct_models) < min_distinct_models:
+                continue
+            if ignore_idempotent_batches and write_qs and all(
+                self._is_idempotent_chain(str(q.method_chain or "")) for q in write_qs
+            ):
+                continue
 
             if self._is_transactional(method.call_sites or []):
                 continue
@@ -102,6 +120,13 @@ class TransactionRequiredForMultiWriteRule(Rule):
                 sample += f", +{len(write_qs) - 3} more"
 
             confidence = min(0.95, 0.6 + (0.08 * min(len(write_qs), 4)))
+            if confidence + 1e-9 < min_confidence:
+                continue
+            evidence = [
+                f"write_calls={len(write_qs)}",
+                f"distinct_models={len(distinct_models)}",
+                "transaction_boundary_missing=true",
+            ]
 
             findings.append(
                 self.create_finding(
@@ -126,6 +151,7 @@ class TransactionRequiredForMultiWriteRule(Rule):
                     ),
                     tags=["laravel", "transactions", "consistency", "architecture"],
                     confidence=confidence,
+                    evidence_signals=evidence,
                 )
             )
 
@@ -134,6 +160,15 @@ class TransactionRequiredForMultiWriteRule(Rule):
     def _is_write_chain(self, chain: str) -> bool:
         tokens = [t.strip().lower() for t in (chain or "").split("->") if t.strip()]
         return any(t in self._WRITE_TOKENS for t in tokens)
+
+    def _is_idempotent_chain(self, chain: str) -> bool:
+        tokens = [t.strip().lower() for t in (chain or "").split("->") if t.strip()]
+        if not tokens:
+            return False
+        write_tokens = [token for token in tokens if token in self._WRITE_TOKENS]
+        if not write_tokens:
+            return False
+        return all(token in self._IDEMPOTENT_WRITE_TOKENS for token in write_tokens)
 
     def _is_transactional(self, call_sites: list[str]) -> bool:
         body = "\n".join(call_sites or [])

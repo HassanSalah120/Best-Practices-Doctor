@@ -1,12 +1,15 @@
 param(
     [switch]$SkipSidecarBuild,
     [switch]$SkipMcp,
+    [switch]$NoWatch,
     [int]$DiscoveryWaitSeconds = 60,
     [int]$StatusIntervalSeconds = 2,
     [int]$BackendPort = 50401,
     [switch]$RestartMcp,
     [switch]$AutoRestart,
-    [switch]$CleanPorts
+    [switch]$CleanPorts,
+    [int]$McpMaxRapidRestarts = 3,
+    [int]$McpRapidExitSeconds = 8
 )
 
 $ErrorActionPreference = "Stop"
@@ -102,12 +105,22 @@ function Read-JsonFile([string]$Path) {
 function Tail-FromOffset([string]$Path, [ref]$Offset) {
     try {
         if (-not (Test-Path $Path)) { return @() }
-        $content = Get-Content -Path $Path -Tail 100 -ErrorAction SilentlyContinue
-        $lines = $content -split "`r`n"
-        $start = if ($Offset.Value -lt $lines.Count) { $Offset.Value } else { $lines.Count }
-        $result = $lines[$start..($lines.Count-1)]
-        $Offset.Value = $lines.Count
-        return $result
+        $lines = @(Get-Content -Path $Path -ErrorAction SilentlyContinue)
+        $count = $lines.Count
+
+        if ($Offset.Value -gt $count) {
+            # Log file rotated/truncated; reset cursor.
+            $Offset.Value = 0L
+        }
+
+        $start = [int]$Offset.Value
+        if ($start -ge $count) {
+            return @()
+        }
+
+        $result = $lines[$start..($count - 1)]
+        $Offset.Value = [long]$count
+        return @($result)
     } catch {
         return @()
     }
@@ -192,7 +205,8 @@ foreach ($p in @($tauriOut, $tauriErr)) {
     }
 }
 
-$tauriArgs = @("--prefix", "tauri", "run", "tauri", "dev")
+$tauriArgs = @("--prefix", "tauri", "run", "tauri", "--", "dev")
+if ($NoWatch) { $tauriArgs += @("--no-watch") }
 if ($SkipSidecarBuild) { $tauriArgs += @("--no-default-features") }
 
 $scriptStartTime = Get-Date
@@ -373,6 +387,10 @@ $env:BPDOCTOR_DISABLE_DISCOVERY_TOKEN = $(if ([string]::IsNullOrWhiteSpace($apiT
 $env:BPDOCTOR_WORKSPACE_ROOT = $repoRoot
 
 $mcpProc = Start-Process -FilePath $npmCmd -ArgumentList @("run", "dev") -WorkingDirectory (Join-Path $repoRoot "bpdoctor-mcp") -PassThru -NoNewWindow -RedirectStandardOutput $mcpOut -RedirectStandardError $mcpErr
+$mcpLastStartAt = Get-Date
+$mcpRapidRestarts = 0
+$mcpRestartSuppressed = $false
+$mcpDownWarned = $false
 
 Write-Host "`n"
 Write-Status "All services started successfully!" "SUCCESS"
@@ -421,12 +439,33 @@ while ($true) {
     }
     
     if (-not $mcpAlive -and -not $SkipMcp) {
-        Write-Status "MCP process ended, restarting..." "WARNING"
-        if ($AutoRestart) {
-            Start-Sleep -Seconds 2
-            $mcpProc = Start-Process -FilePath $npmCmd -ArgumentList @("run", "dev") -WorkingDirectory (Join-Path $repoRoot "bpdoctor-mcp") -PassThru -NoNewWindow -RedirectStandardOutput $mcpOut -RedirectStandardError $mcpErr
-            Write-Status "MCP restarted (PID $($mcpProc.Id))" "SUCCESS"
+        if (-not $mcpDownWarned) {
+            Write-Status "MCP process ended." "WARNING"
+            $mcpDownWarned = $true
         }
+
+        if (($AutoRestart -or $RestartMcp) -and -not $mcpRestartSuppressed) {
+            $uptimeSeconds = [math]::Round(((Get-Date) - $mcpLastStartAt).TotalSeconds, 2)
+            if ($uptimeSeconds -lt $McpRapidExitSeconds) {
+                $mcpRapidRestarts += 1
+            } else {
+                $mcpRapidRestarts = 0
+            }
+
+            if ($mcpRapidRestarts -ge $McpMaxRapidRestarts) {
+                $mcpRestartSuppressed = $true
+                Write-Status "MCP exited too quickly $mcpRapidRestarts times (uptime ${uptimeSeconds}s). Auto-restart suppressed to prevent loop." "ERROR"
+            } else {
+                Write-Status "Restarting MCP..." "WARNING"
+                Start-Sleep -Seconds 2
+                $mcpProc = Start-Process -FilePath $npmCmd -ArgumentList @("run", "dev") -WorkingDirectory (Join-Path $repoRoot "bpdoctor-mcp") -PassThru -NoNewWindow -RedirectStandardOutput $mcpOut -RedirectStandardError $mcpErr
+                $mcpLastStartAt = Get-Date
+                $mcpDownWarned = $false
+                Write-Status "MCP restarted (PID $($mcpProc.Id))" "SUCCESS"
+            }
+        }
+    } elseif ($mcpAlive) {
+        $mcpDownWarned = $false
     }
     
     foreach ($l in (Tail-FromOffset $tauriOut ([ref]$offTauriOut))) { 

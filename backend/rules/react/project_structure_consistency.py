@@ -77,17 +77,48 @@ class ReactProjectStructureConsistencyRule(Rule):
     def analyze(self, facts: Facts, metrics: dict[str, MethodMetrics] | None = None) -> list:
         files = self._collect_frontend_files(facts)
         candidates = [c for path in files if (c := self._build_candidate(path))]
+        min_candidates = max(1, int(self.get_threshold("min_candidates", 1)))
         if not candidates:
+            return []
+        if len(candidates) < min_candidates:
             return []
 
         shared_roots = self._shared_roots(facts)
-        pattern = self._context_pattern(facts) or self._infer_pattern(candidates, shared_roots)
+        context_pattern = self._context_pattern(facts)
+        pattern = context_pattern or self._infer_pattern(candidates, shared_roots)
         scale = self._scale(files, candidates, facts)
         importers = self._resolve_importers(facts, files)
         placement = self._find_placement_issues(candidates, pattern, scale, shared_roots)
         buried = self._find_buried_shared(candidates, importers, shared_roots)
         single_domain_global = self._find_single_domain_global(candidates, importers, pattern, scale, shared_roots)
         duplicates = self._find_duplicates(candidates, scale, shared_roots)
+        min_placement_issues = max(1, int(self.get_threshold("min_placement_issues", 2)))
+        allow_context_hybrid_shared_colocation = bool(
+            self.get_threshold("allow_context_hybrid_shared_colocation", True)
+        )
+        suppress_when_context_pattern_matches = bool(
+            self.get_threshold("suppress_when_context_pattern_matches", True)
+        )
+        if allow_context_hybrid_shared_colocation and pattern == "hybrid" and context_pattern == "hybrid":
+            placement = [
+                issue
+                for issue in placement
+                if issue.get("kind") not in self._SOFT_KINDS
+            ]
+
+        placement_ready = len(placement) >= min_placement_issues
+        if (
+            suppress_when_context_pattern_matches
+            and context_pattern
+            and context_pattern == pattern
+            and not placement_ready
+            and not buried
+            and not single_domain_global
+            and not duplicates
+            and pattern in {"feature-based", "hybrid", "category-based"}
+        ):
+            return []
+
         analysis_profile = self._analysis_profile(
             candidates=candidates,
             pattern=pattern,
@@ -100,7 +131,7 @@ class ReactProjectStructureConsistencyRule(Rule):
         )
 
         findings: list = []
-        if pattern == "mixed-chaotic" or placement:
+        if pattern == "mixed-chaotic" or placement_ready:
             issue_types = ["inconsistent-placement"]
             if buried or single_domain_global:
                 issue_types.extend(["missing-boundaries", "poor-separation-of-concerns"])
@@ -130,6 +161,9 @@ class ReactProjectStructureConsistencyRule(Rule):
                         "inferred_pattern": pattern,
                         "project_scale": scale,
                         "target_structure": self._recommended_tree(pattern),
+                        "context_pattern": context_pattern or "unknown",
+                        "min_candidates": min_candidates,
+                        "min_placement_issues": min_placement_issues,
                         "decision_profile": analysis_profile,
                     },
                 )

@@ -44,8 +44,6 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
         # Object operations chained with map
         re.compile(r"Object\.entries\s*\([^)]+\)\s*\.\s*map", re.IGNORECASE),
         re.compile(r"Object\.keys\s*\([^)]+\)\s*\.\s*filter", re.IGNORECASE),
-        # find() on large arrays (common pattern)
-        re.compile(r"\.find\s*\(\s*\([^)]*\)\s*=>\s*[^)]+\.\w+", re.IGNORECASE),  # find with property access
     ]
 
     # Inexpensive patterns that DON'T need useMemo (skip these)
@@ -135,6 +133,7 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
     # Variable assignment patterns (where expensive calc might be)
     _ASSIGNMENT_PATTERN = re.compile(r"const\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^;]+);?", re.IGNORECASE)
     _JSX_SIGNAL = re.compile(r"return\s*\(\s*<|return\s*<|<\s*[A-Z][A-Za-z0-9_]*|<>\s*", re.MULTILINE)
+    _CHAIN_OP_PATTERN = re.compile(r"\.\s*(filter|map|sort|reduce|flatMap|entries|keys|values)\s*\(", re.IGNORECASE)
 
     _ALLOWLIST_PATHS = (
         "/tests/",
@@ -197,10 +196,19 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
 
         # Track if useMemo is used in the file
         file_has_usememo = bool(self._MEMOIZED_PATTERN.search(text))
+        min_complexity_score = max(2, int(self.get_threshold("min_complexity_score", 3)))
+        min_chain_ops = max(1, int(self.get_threshold("min_chain_ops", 2)))
+        require_assignment_or_return_context = bool(
+            self.get_threshold("require_assignment_or_return_context", True)
+        )
+        max_findings_per_file = max(1, int(self.get_threshold("max_findings_per_file", 2)))
 
         memoized_line_ranges = self._find_call_line_ranges(text, "useMemo")
+        findings_emitted = 0
 
         for i, line in enumerate(lines, 1):
+            if findings_emitted >= max_findings_per_file:
+                break
             # Skip comments
             stripped = line.strip()
             if stripped.startswith("//") or stripped.startswith("#") or stripped.startswith("*"):
@@ -215,7 +223,8 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
 
             # Skip inexpensive patterns (simple operations don't need memoization)
             is_inexpensive = any(p.search(line) for p in self._INEXPENSIVE_PATTERNS)
-            if is_inexpensive:
+            line_chain_ops = len(self._CHAIN_OP_PATTERN.findall(line))
+            if is_inexpensive and line_chain_ops < 2:
                 continue
 
             # Check for expensive patterns
@@ -229,10 +238,29 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
                 continue
 
             # Check if this is inside a component (heuristic: check for const assignment)
-            is_assignment = self._ASSIGNMENT_PATTERN.search(line)
+            is_assignment = bool(self._ASSIGNMENT_PATTERN.search(line))
+            is_return_context = stripped.startswith("return ")
+            if require_assignment_or_return_context and not (is_assignment or is_return_context):
+                continue
 
             # Check if in a context where memoization matters more
             is_in_critical_context = any(p.search(text[max(0, text.find(line)-100):text.find(line)+100]) for p in self._NEEDS_MEMOIZATION_CONTEXT)
+            chain_ops = line_chain_ops
+            complexity_score = 0
+            if detected_pattern in {"filter().map()", "filter().sort()", "sort().map()", "reduce()", "Object.keys().filter()"}:
+                complexity_score += 2
+            if detected_pattern in {"reduce()", "JSON.parse()"} and is_assignment:
+                complexity_score += 1
+            if chain_ops >= min_chain_ops:
+                complexity_score += 1
+            if is_in_critical_context:
+                complexity_score += 1
+            if len(line.strip()) >= 90:
+                complexity_score += 1
+            if file_has_usememo:
+                complexity_score -= 1
+            if complexity_score < min_complexity_score:
+                continue
 
             # Adjust confidence based on context
             if is_in_critical_context:
@@ -296,8 +324,30 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
                     ),
                     confidence=confidence,
                     tags=["react", "performance", "usememo", "memoization", "hooks"],
+                    evidence_signals=[
+                        f"pattern={detected_pattern}",
+                        f"chain_ops={chain_ops}",
+                        f"complexity_score={complexity_score}",
+                        f"in_critical_context={int(is_in_critical_context)}",
+                        f"is_assignment={int(is_assignment)}",
+                        f"file_has_usememo={int(file_has_usememo)}",
+                    ],
+                    metadata={
+                        "decision_profile": {
+                            "detected_pattern": detected_pattern,
+                            "chain_ops": chain_ops,
+                            "complexity_score": complexity_score,
+                            "min_complexity_score": min_complexity_score,
+                            "min_chain_ops": min_chain_ops,
+                            "is_assignment": is_assignment,
+                            "is_return_context": is_return_context,
+                            "is_in_critical_context": is_in_critical_context,
+                            "file_has_usememo": file_has_usememo,
+                        }
+                    },
                 )
             )
+            findings_emitted += 1
 
         return findings
 

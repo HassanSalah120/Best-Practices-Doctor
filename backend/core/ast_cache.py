@@ -7,7 +7,6 @@ Uses Tree-sitter for parsing and stores results in a persistent cache.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import pickle
@@ -15,6 +14,15 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from core.hashing import fast_hash_hex
+
+try:
+    from diskcache import Cache as DiskCache  # type: ignore
+
+    DISKCACHE_AVAILABLE = True
+except Exception:
+    DiskCache = None
+    DISKCACHE_AVAILABLE = False
 
 # Tree-sitter imports
 try:
@@ -93,6 +101,7 @@ class ASTCacheManager:
     def __init__(self, project_path: str | Path | None = None):
         self.project_path = Path(project_path).resolve() if project_path else None
         self.cache: dict[str, CachedAST] = {}
+        self._disk_cache = None
         self._initialized = False
         self._load_cache()
     
@@ -108,13 +117,23 @@ class ASTCacheManager:
         
         # Use project hash if available
         if self.project_path:
-            project_hash = hashlib.sha256(str(self.project_path).encode()).hexdigest()[:16]
+            project_hash = fast_hash_hex(str(self.project_path), 16)
             return cache_dir / f"{project_hash}.pkl"
         
         return cache_dir / self.CACHE_FILE
     
     def _load_cache(self) -> None:
         """Load cache from disk."""
+        if DISKCACHE_AVAILABLE and DiskCache is not None:
+            try:
+                cache_path = self._get_cache_path()
+                cache_dir = cache_path.with_suffix("")
+                self._disk_cache = DiskCache(str(cache_dir))
+                self.cache = self._disk_cache
+                return
+            except Exception:
+                self._disk_cache = None
+
         cache_path = self._get_cache_path()
         
         if cache_path.exists():
@@ -126,6 +145,10 @@ class ASTCacheManager:
     
     def _save_cache(self) -> None:
         """Save cache to disk."""
+        if self._disk_cache is not None:
+            # DiskCache persists eagerly.
+            return
+
         cache_path = self._get_cache_path()
         
         try:
@@ -172,9 +195,7 @@ class ASTCacheManager:
     
     def _compute_hash(self, content: str | bytes) -> str:
         """Compute MD5 hash of content."""
-        if isinstance(content, str):
-            content = content.encode("utf-8")
-        return hashlib.md5(content).hexdigest()
+        return fast_hash_hex(content, 32)
     
     def get_or_parse(
         self,
@@ -272,6 +293,12 @@ class ASTCacheManager:
     def clear_cache(self) -> int:
         """Clear the entire cache."""
         count = len(self.cache)
+        if self._disk_cache is not None:
+            try:
+                self._disk_cache.clear()
+                return count
+            except Exception:
+                pass
         self.cache = {}
         
         # Remove cache file
@@ -309,6 +336,11 @@ class ASTCacheManager:
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._save_cache()
+        if self._disk_cache is not None:
+            try:
+                self._disk_cache.close()
+            except Exception:
+                pass
         return False
 
 

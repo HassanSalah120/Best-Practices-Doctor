@@ -7,6 +7,12 @@ from schemas.facts import Facts, ValidationUsage
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, FindingClassification, Category, Severity
 from rules.base import Rule
+from core.project_recommendations import (
+    enabled_capabilities,
+    enabled_team_standards,
+    project_aware_guidance,
+    recommendation_context_tags,
+)
 
 
 class ControllerInlineValidationRule(Rule):
@@ -55,8 +61,11 @@ class ControllerInlineValidationRule(Rule):
             return findings
 
         # Escalate to HIGH when validation rule-count is large.
+        min_rules = int(self.get_threshold("min_rules", 2))
         high_if_rules_ge = int(self.get_threshold("high_if_rules_ge", 6))
         has_form_requests = bool(facts.form_requests)
+        capabilities = enabled_capabilities(facts)
+        team_standards = enabled_team_standards(facts)
         auth_flow_context = set(getattr(getattr(facts, "project_context", None), "auth_flow_paths", []) or [])
 
         grouped: dict[tuple[str, str], list[ValidationUsage]] = {}
@@ -71,8 +80,15 @@ class ControllerInlineValidationRule(Rule):
         fqcn_by_file: dict[str, str] = {}
         for c in facts.controllers:
             fqcn_by_file.setdefault(c.file_path, c.fqcn)
+        methods_by_key = {
+            (m.file_path, (m.name or "").lower()): m
+            for m in facts.methods
+            if m.file_path in controller_files and m.name
+        }
 
         for (file_path, method_name), vals in grouped.items():
+            normalized_method_name = (method_name or "").lower()
+            method_info = methods_by_key.get((file_path, normalized_method_name))
             line_start = min(v.line_number for v in vals)
             max_rules = max((sum(len(r) for r in v.rules.values()) for v in vals), default=0)
             max_fields = max((len(v.rules) for v in vals), default=0)
@@ -80,6 +96,10 @@ class ControllerInlineValidationRule(Rule):
             if self._is_small_auth_validation(file_path, method_name, vals, max_rules, max_fields):
                 continue
             if self._matches_auth_flow_context(file_path, method_name, auth_flow_context):
+                continue
+            if max_rules < min_rules and max_fields < 2:
+                continue
+            if self._is_delegated_light_validation(method_info, max_rules, max_fields):
                 continue
 
             confidence = self._confidence_for_validation(vals, max_rules, max_fields, has_form_requests, file_path, method_name)
@@ -89,9 +109,13 @@ class ControllerInlineValidationRule(Rule):
                 sev = Severity.HIGH
             elif confidence < 0.7:
                 sev = Severity.LOW
+            if "form_requests_expected" in team_standards and sev != Severity.HIGH:
+                sev = Severity.MEDIUM
 
             controller_fqcn = fqcn_by_file.get(file_path, "")
-            ctx = f"{controller_fqcn}::{method_name}" if controller_fqcn else f"{file_path}:{method_name}"
+            fallback_ctx = f"{controller_fqcn}::{method_name}" if controller_fqcn else f"{file_path}:{method_name}"
+            ctx = method_info.method_fqn if method_info is not None else fallback_ctx
+            guidance = project_aware_guidance(facts, focus="controller_boundaries")
 
             examples = ", ".join(sorted({v.validation_type for v in vals})[:3])
             if len(vals) > 3:
@@ -117,15 +141,29 @@ class ControllerInlineValidationRule(Rule):
                         "2. Move the rules into `rules()`\n"
                         "3. Type-hint the FormRequest in the controller method\n"
                         "4. Use `$request->validated()`"
-                    ),
+                    ) + (f"\n\nProject-aware guidance:\n{guidance}" if guidance else ""),
                     classification=FindingClassification.ADVISORY,
                     confidence=confidence,
                     severity=sev,
-                    tags=["validation", "form-request", "controllers"],
+                    tags=["validation", "form-request", "controllers", *recommendation_context_tags(facts)],
                     metadata={
+                        "decision_profile": {
+                            "decision": "emit",
+                            "project_business_context": str(getattr(getattr(facts, "project_context", None), "project_business_context", "unknown") or "unknown"),
+                            "capabilities": sorted(capabilities),
+                            "team_standards": sorted(team_standards),
+                            "decision_summary": "Inline controller validation exceeded context-aware threshold for FormRequest extraction.",
+                            "decision_reasons": [
+                                f"min_rules={min_rules}",
+                                f"max_rules={max_rules}",
+                                f"max_fields={max_fields}",
+                                f"confidence={confidence:.2f}",
+                                f"form_requests_expected={int('form_requests_expected' in team_standards)}",
+                            ],
+                        },
                         "overlap_group": "controller-layering",
                         "overlap_scope": ctx,
-                        "overlap_rank": 250,
+                        "overlap_rank": 130,
                         "overlap_role": "child",
                     },
                 )
@@ -190,3 +228,21 @@ class ControllerInlineValidationRule(Rule):
             f"{normalized_path}:{method_name}",
         }
         return any(descriptor in auth_flow_context for descriptor in descriptors)
+
+    def _is_delegated_light_validation(self, method, max_rules: int, max_fields: int) -> bool:
+        if method is None:
+            return False
+        call_sites = [str(cs or "").lower() for cs in (method.call_sites or [])]
+        delegation_markers = (
+            "->execute(",
+            "->handle(",
+            "->run(",
+            "service->",
+            "action->",
+            "coordinator->",
+            "workflow->",
+        )
+        has_delegation = any(any(marker in cs for marker in delegation_markers) for cs in call_sites)
+        if not has_delegation:
+            return False
+        return max_rules <= 3 and max_fields <= 2 and int(getattr(method, "loc", 0) or 0) <= 55

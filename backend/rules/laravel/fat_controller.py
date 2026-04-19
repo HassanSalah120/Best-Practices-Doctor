@@ -6,6 +6,7 @@ from schemas.facts import Facts, MethodInfo
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, FindingClassification, Category, Severity
 from rules.base import Rule
+from core.project_recommendations import enabled_team_standards
 
 
 class FatControllerRule(Rule):
@@ -31,6 +32,21 @@ class FatControllerRule(Rule):
         "laravel_api",
         "laravel_livewire",
     ]
+    _DELEGATION_MARKERS = (
+        "->execute(",
+        "->handle(",
+        "->run(",
+        "service->",
+        "services->",
+        "action->",
+        "actions->",
+        "coordinator->",
+        "workflow->",
+        "repository->",
+        "repositories->",
+        "redirector->",
+        "validator->",
+    )
     
     def analyze(
         self,
@@ -44,6 +60,14 @@ class FatControllerRule(Rule):
         max_queries = self.get_threshold("max_queries", 3)
         max_validations = self.get_threshold("max_validations", 0)
         max_methods = self.get_threshold("max_methods", None)
+        min_problem_count = int(self.get_threshold("min_problem_count", 2))
+        project_context = getattr(facts, "project_context", None)
+        architecture_profile = str(getattr(project_context, "backend_architecture_profile", "unknown") or "unknown").lower()
+        if architecture_profile == "unknown":
+            architecture_profile = str(getattr(project_context, "backend_structure_mode", "unknown") or "unknown").lower()
+        team_standards = enabled_team_standards(facts)
+        if architecture_profile == "mvc" and "thin_controllers" not in team_standards:
+            min_problem_count = max(min_problem_count, 3)
         
         # Analyze each controller
         for controller in facts.controllers:
@@ -83,6 +107,8 @@ class FatControllerRule(Rule):
                     max_method_loc,
                     max_queries,
                     max_validations,
+                    min_problem_count,
+                    architecture_profile,
                 )
                 controller_issues.extend(issues)
             
@@ -160,12 +186,15 @@ class FatControllerRule(Rule):
         max_loc: int,
         max_queries: int,
         max_validations: int,
+        min_problem_count: int,
+        architecture_profile: str,
     ) -> list[Finding]:
         """Analyze a single controller method for fat controller symptoms."""
         import re
 
         findings = []
         problems = []
+        problem_kinds: set[str] = set()
         
         # Skip magic methods and constructors
         if method.name.startswith("__"):
@@ -174,6 +203,7 @@ class FatControllerRule(Rule):
         # Check method length
         if method.loc > max_loc:
             problems.append(f"Method has {method.loc} lines (max: {max_loc})")
+            problem_kinds.add("loc")
         
         # Check for validation (prefer extracted facts; fallback to call-sites).
         # If the method already uses a FormRequest (typed param ending with *Request but not Request itself),
@@ -202,6 +232,7 @@ class FatControllerRule(Rule):
         validation_count = 0 if has_form_request_param else max(len(validations_in_method), len(validation_calls))
         if validation_count > max_validations:
             problems.append(f"Contains {validation_count} validation call(s)")
+            problem_kinds.add("validation")
         
         # Check for query patterns in call sites and extracted facts.
         queries_in_method = [
@@ -224,6 +255,7 @@ class FatControllerRule(Rule):
                 problems.append(f"Contains {query_count} database operations (max: {max_queries})")
             else:
                 problems.append(f"Contains {query_count} database operation(s)")
+            problem_kinds.add("query")
         
         # Check metrics if available
         if metrics:
@@ -232,9 +264,19 @@ class FatControllerRule(Rule):
                 conf = getattr(method_metrics, "business_logic_confidence", 0.0)
                 if method_metrics.has_business_logic and (conf == 0.0 or conf > 0.7):
                     problems.append("Contains business logic (should be in Service)")
-        
+                    problem_kinds.add("business")
+
+        if self._is_thin_delegation_orchestration(method, query_count, validation_count):
+            return findings
+
+        has_strong_problem_combo = (
+            "business" in problem_kinds
+            or {"query", "validation"}.issubset(problem_kinds)
+            or ({"query", "loc"}.issubset(problem_kinds) and architecture_profile in {"layered", "modular", "api-first"})
+        )
+
         # If multiple problems, this is a fat controller method
-        if len(problems) >= 2:
+        if len(problem_kinds) >= min_problem_count and has_strong_problem_combo:
             findings.append(self.create_finding(
                 title=f"Controller logic should be moved to service layers",
                 context=method.method_fqn,
@@ -254,7 +296,15 @@ class FatControllerRule(Rule):
                 related_methods=[method.method_fqn],
                 tags=["srp", "refactor", "architecture"],
                 classification=FindingClassification.ADVISORY,
+                confidence=min(0.95, 0.62 + (0.1 * len(problem_kinds))),
                 metadata={
+                    "decision_profile": {
+                        "decision": "emit",
+                        "architecture_profile": architecture_profile or "unknown",
+                        "team_standards": sorted(enabled_team_standards(facts)),
+                        "decision_summary": "Controller exceeded fat-controller signal threshold under context-aware rules.",
+                        "decision_reasons": sorted(problem_kinds),
+                    },
                     "overlap_group": "controller-layering",
                     "overlap_scope": method.method_fqn,
                     "overlap_rank": 400,
@@ -289,6 +339,18 @@ class FatControllerRule(Rule):
                 )
         
         return "\n".join(suggestions) if suggestions else "Refactor to follow SRP"
+
+    def _is_thin_delegation_orchestration(
+        self,
+        method: MethodInfo,
+        query_count: int,
+        validation_count: int,
+    ) -> bool:
+        call_sites = [str(cs or "").lower() for cs in (method.call_sites or [])]
+        has_delegation = any(any(marker in call for marker in self._DELEGATION_MARKERS) for call in call_sites)
+        if not has_delegation:
+            return False
+        return query_count <= 1 and validation_count <= 1 and int(getattr(method, "loc", 0) or 0) <= 65
     
     def _generate_code_example(self, method: MethodInfo) -> str:
         """Generate before/after code example."""

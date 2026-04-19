@@ -213,6 +213,9 @@ class Rule(ABC):
                 continue
             if x not in evidence:
                 evidence.append(x)
+        for signal in self._runtime_context_evidence_signals(resolved_severity):
+            if signal not in evidence:
+                evidence.append(signal)
 
         fix = str(suggested_fix or "").strip()
         if not fix:
@@ -225,6 +228,17 @@ class Rule(ABC):
                 why = f"{why}\nEvidence signals: {evidence_txt}"
             else:
                 why = f"Evidence signals: {evidence_txt}"
+
+        metadata_payload = dict(metadata or {})
+        runtime_profile = self._runtime_decision_profile(resolved_severity)
+        if runtime_profile:
+            existing_profile = metadata_payload.get("decision_profile")
+            if isinstance(existing_profile, dict):
+                merged_profile = dict(runtime_profile)
+                merged_profile.update(existing_profile)
+                metadata_payload["decision_profile"] = merged_profile
+            else:
+                metadata_payload["decision_profile"] = runtime_profile
 
         return Finding(
             rule_id=self.id,
@@ -246,8 +260,111 @@ class Rule(ABC):
             related_methods=related_methods or [],
             tags=tags or [],
             evidence_signals=evidence,
-            metadata=metadata or {},
+            metadata=metadata_payload,
         )
+
+    def _runtime_context_evidence_signals(self, resolved_severity: Severity) -> list[str]:
+        profile = self._runtime_decision_profile(resolved_severity)
+        if not profile:
+            return []
+        signals: list[str] = []
+        framework = str(profile.get("backend_framework", "") or "").strip()
+        architecture = str(profile.get("architecture_profile", "") or "").strip()
+        project_type = str(profile.get("project_type", "") or "").strip()
+        severity_from = str(profile.get("severity_from", "") or "").strip()
+        severity_to = str(profile.get("severity_to", "") or "").strip()
+        if framework:
+            signals.append(f"framework={framework}")
+        if architecture:
+            signals.append(f"architecture_style={architecture}")
+        if project_type:
+            signals.append(f"project_type={project_type}")
+        if severity_from and severity_to:
+            signals.append(f"severity_effect={severity_from}->{severity_to}")
+        calibration_signals = profile.get("calibration_signals")
+        if isinstance(calibration_signals, list):
+            for signal in calibration_signals[:4]:
+                text = str(signal or "").strip()
+                if text:
+                    signals.append(f"context_signal={text}")
+        return signals
+
+    def _runtime_decision_profile(self, resolved_severity: Severity) -> dict[str, object]:
+        effective_context = getattr(self, "_runtime_effective_context", None)
+        calibration = getattr(self, "_context_calibration", None)
+        if effective_context is None and not isinstance(calibration, dict):
+            return {}
+
+        project_type = str(getattr(effective_context, "project_type", "unknown") or "unknown")
+        architecture_profile = str(getattr(effective_context, "architecture_profile", "unknown") or "unknown")
+        backend_framework = str(getattr(effective_context, "framework", "laravel") or "laravel")
+        profile_confidence = float(getattr(effective_context, "architecture_profile_confidence", 0.0) or 0.0)
+        profile_confidence_kind = str(getattr(effective_context, "architecture_profile_confidence_kind", "unknown") or "unknown")
+
+        capabilities: list[str] = []
+        for key, state in (getattr(effective_context, "capabilities", {}) or {}).items():
+            if bool(getattr(state, "enabled", False)):
+                capabilities.append(str(key))
+
+        team_standards: list[str] = []
+        for key, state in (getattr(effective_context, "team_expectations", {}) or {}).items():
+            if bool(getattr(state, "enabled", False)):
+                team_standards.append(str(key))
+
+        calibration_signals = []
+        if isinstance(calibration, dict):
+            calibration_signals = [str(s) for s in (calibration.get("signals") or []) if str(s or "").strip()]
+
+        severity_from = str(getattr(self.default_severity, "value", self.default_severity) or "")
+        severity_to = str(getattr(resolved_severity, "value", resolved_severity) or "")
+        severity_adjusted = bool(severity_from and severity_to and severity_from != severity_to)
+
+        recommendation_basis: list[str] = []
+        if project_type and project_type != "unknown":
+            recommendation_basis.append(f"project_type={project_type}")
+        if architecture_profile and architecture_profile != "unknown":
+            recommendation_basis.append(f"architecture_style={architecture_profile}")
+        if capabilities:
+            recommendation_basis.append(f"capabilities={','.join(sorted(capabilities))}")
+        if team_standards:
+            recommendation_basis.append(f"team_expectations={','.join(sorted(team_standards))}")
+
+        decision_summary = (
+            f"emit under {architecture_profile or 'unknown'} profile for {project_type or 'unknown'} project type"
+        )
+        if severity_adjusted:
+            decision_summary += f"; severity calibrated from {severity_from} to {severity_to}"
+        if calibration_signals:
+            decision_summary += f" using {', '.join(calibration_signals[:3])}"
+
+        decision_reasons = ["context-calibrated", "project-aware-recommendation"]
+        if severity_adjusted:
+            decision_reasons.append("severity-adjusted-by-context")
+
+        return {
+            "backend_framework": backend_framework,
+            "project_type": project_type,
+            "project_business_context": project_type,
+            "architecture_profile": architecture_profile,
+            "architecture_style": architecture_profile,
+            "profile_confidence": round(profile_confidence, 2),
+            "profile_confidence_kind": profile_confidence_kind,
+            "capabilities": sorted(set(capabilities)),
+            "team_standards": sorted(set(team_standards)),
+            "decision": "emit",
+            "decision_summary": decision_summary,
+            "decision_reasons": decision_reasons,
+            "calibration_signals": calibration_signals,
+            "severity_from": severity_from,
+            "severity_to": severity_to,
+            "severity_adjusted": severity_adjusted,
+            "severity_reason": (
+                f"Context matrix calibration changed severity from {severity_from} to {severity_to}"
+                if severity_adjusted
+                else "Context matrix did not change severity"
+            ),
+            "recommendation_basis": recommendation_basis,
+        }
 
     def _default_finding_classification(self, severity: Severity) -> FindingClassification:
         """Infer a stable default classification when a rule does not set one explicitly."""

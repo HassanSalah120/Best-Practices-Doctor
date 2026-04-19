@@ -8,7 +8,7 @@ Rules are grouped by layer (Backend/Frontend) then by category.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 
 @dataclass
@@ -245,6 +245,15 @@ RULE_METADATA: list[RuleInfo] = [
         tags=["validation"],
     ),
     RuleInfo(
+        id="controller-index-filter-duplication",
+        name="Controller Index Filter Duplication",
+        description="Repeated inline status/q index filter extraction across controllers",
+        category="architecture",
+        severity="medium",
+        layer="backend",
+        tags=["architecture", "controllers", "dry", "filters"],
+    ),
+    RuleInfo(
         id="no-json-encode-in-controllers",
         name="JSON Encode in Controller",
         description="Manual JSON encoding instead of API resources",
@@ -317,6 +326,15 @@ RULE_METADATA: list[RuleInfo] = [
         tags=["architecture", "actions"],
     ),
     RuleInfo(
+        id="action-class-naming-consistency",
+        name="Action Naming Consistency",
+        description="Mixed action naming style under app/Actions",
+        category="architecture",
+        severity="low",
+        layer="backend",
+        tags=["architecture", "actions", "naming"],
+    ),
+    RuleInfo(
         id="massive-model",
         name="Massive Model",
         description="Models with too many methods or lines",
@@ -324,6 +342,15 @@ RULE_METADATA: list[RuleInfo] = [
         severity="medium",
         layer="backend",
         tags=["architecture"],
+    ),
+    RuleInfo(
+        id="model-cross-model-query",
+        name="Cross-Model Query in Model",
+        description="Model methods querying other models directly",
+        category="architecture",
+        severity="low",
+        layer="backend",
+        tags=["architecture", "models", "boundaries"],
     ),
     
     # === Backend: Security ===
@@ -828,6 +855,141 @@ RULE_METADATA: list[RuleInfo] = [
         layer="frontend",
         tags=["a11y", "focus"],
     ),
+    RuleInfo(
+        id="skip-link-missing",
+        name="Skip Link Missing",
+        description="Shell/layout is missing a valid skip-to-content link",
+        category="accessibility",
+        severity="medium",
+        layer="frontend",
+        tags=["a11y", "keyboard", "navigation"],
+    ),
+    RuleInfo(
+        id="semantic-wrapper-breakage",
+        name="Semantic Wrapper Breakage",
+        description="JSX wrappers that break list/table/description semantics",
+        category="accessibility",
+        severity="medium",
+        layer="frontend",
+        tags=["a11y", "semantics", "jsx"],
+    ),
+    RuleInfo(
+        id="interactive-accessible-name-required",
+        name="Interactive Accessible Name Required",
+        description="Interactive controls missing a programmatic accessible name",
+        category="accessibility",
+        severity="high",
+        layer="frontend",
+        tags=["a11y", "aria", "forms"],
+    ),
+    RuleInfo(
+        id="jsx-aria-attribute-format",
+        name="JSX ARIA Attribute Format",
+        description="Malformed ARIA attribute names in JSX",
+        category="accessibility",
+        severity="medium",
+        layer="frontend",
+        tags=["a11y", "aria", "jsx"],
+    ),
+    RuleInfo(
+        id="outside-click-without-keyboard-fallback",
+        name="Outside Click Without Keyboard Fallback",
+        description="Overlay dismissal handled by pointer only without keyboard fallback",
+        category="accessibility",
+        severity="high",
+        layer="frontend",
+        tags=["a11y", "keyboard", "overlay"],
+    ),
+    RuleInfo(
+        id="apg-tabs-keyboard-contract",
+        name="APG Tabs Keyboard Contract",
+        description="Custom tabs missing APG role/state/keyboard contract signals",
+        category="accessibility",
+        severity="high",
+        layer="frontend",
+        tags=["a11y", "apg", "tabs"],
+    ),
+    RuleInfo(
+        id="apg-accordion-disclosure-contract",
+        name="APG Accordion/Disclosure Contract",
+        description="Disclosure widgets missing APG button/expanded/controls semantics",
+        category="accessibility",
+        severity="medium",
+        layer="frontend",
+        tags=["a11y", "apg", "accordion"],
+    ),
+    RuleInfo(
+        id="apg-menu-button-contract",
+        name="APG Menu Button Contract",
+        description="Menu button widgets missing APG expanded/controls/keyboard semantics",
+        category="accessibility",
+        severity="high",
+        layer="frontend",
+        tags=["a11y", "apg", "menu"],
+    ),
+    RuleInfo(
+        id="apg-combobox-contract",
+        name="APG Combobox Contract",
+        description="Combobox widgets missing APG expanded/controls/active-option semantics",
+        category="accessibility",
+        severity="high",
+        layer="frontend",
+        tags=["a11y", "apg", "combobox"],
+    ),
+    RuleInfo(
+        id="dialog-focus-restore-missing",
+        name="Dialog Focus Restore Missing",
+        description="Dialog close flow missing focus restore signal",
+        category="accessibility",
+        severity="high",
+        layer="frontend",
+        tags=["a11y", "dialog", "focus"],
+    ),
+    RuleInfo(
+        id="tailwind-motion-reduce-missing",
+        name="Tailwind Motion Reduce Missing",
+        description="Animation utilities used without motion-safe/motion-reduce strategy",
+        category="accessibility",
+        severity="medium",
+        layer="frontend",
+        tags=["a11y", "tailwind", "motion"],
+    ),
+    RuleInfo(
+        id="tailwind-appearance-none-risk",
+        name="Tailwind Appearance None Risk",
+        description="appearance-none used on controls without compensating affordances",
+        category="accessibility",
+        severity="medium",
+        layer="frontend",
+        tags=["a11y", "tailwind", "forms"],
+    ),
+    RuleInfo(
+        id="css-focus-outline-without-replacement",
+        name="CSS Focus Outline Without Replacement",
+        description="Focus outline removed without visible replacement style",
+        category="accessibility",
+        severity="high",
+        layer="frontend",
+        tags=["a11y", "css", "focus"],
+    ),
+    RuleInfo(
+        id="css-hover-only-interaction",
+        name="CSS Hover-Only Interaction",
+        description="Hover interaction styles without keyboard focus equivalent",
+        category="accessibility",
+        severity="medium",
+        layer="frontend",
+        tags=["a11y", "css", "keyboard"],
+    ),
+    RuleInfo(
+        id="css-color-only-state-indicator",
+        name="CSS Color-Only State Indicator",
+        description="Likely state indicators relying on color only",
+        category="accessibility",
+        severity="medium",
+        layer="frontend",
+        tags=["a11y", "css", "contrast"],
+    ),
     
     # === Frontend: TypeScript ===
     RuleInfo(
@@ -943,6 +1105,87 @@ RULE_METADATA: list[RuleInfo] = [
         tags=["di", "services"],
     ),
     RuleInfo(
+        id="react-parent-child-spacing-overlap",
+        name="Parent/Child Spacing Overlap",
+        description="Direct JSX parent/child nodes duplicate the same spacing utility scope",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["react", "layout", "tailwind", "spacing"],
+    ),
+    RuleInfo(
+        id="css-font-size-px",
+        name="CSS Font Size Uses px",
+        description="Font-size declared in px instead of rem",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["css", "typography", "units", "accessibility"],
+    ),
+    RuleInfo(
+        id="css-spacing-px",
+        name="CSS Spacing Uses px",
+        description="Margin/padding/gap values use px instead of rem scale",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["css", "spacing", "units", "design-system"],
+    ),
+    RuleInfo(
+        id="css-fixed-layout-px",
+        name="CSS Fixed Layout px",
+        description="Rigid large px width/height values in layout declarations",
+        category="react_best_practice",
+        severity="low",
+        layer="frontend",
+        tags=["css", "layout", "responsive"],
+    ),
+    RuleInfo(
+        id="tailwind-arbitrary-value-overuse",
+        name="Tailwind Arbitrary Value Overuse",
+        description="Excessive use of arbitrary Tailwind values in one class string",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["tailwind", "design-system", "maintainability"],
+    ),
+    RuleInfo(
+        id="tailwind-arbitrary-text-size",
+        name="Tailwind Arbitrary Text Size",
+        description="Arbitrary text-[...] sizing instead of text scale tokens",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["tailwind", "typography", "design-system"],
+    ),
+    RuleInfo(
+        id="tailwind-arbitrary-spacing",
+        name="Tailwind Arbitrary Spacing",
+        description="Arbitrary spacing utilities for p/m/gap/space",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["tailwind", "spacing", "design-system"],
+    ),
+    RuleInfo(
+        id="tailwind-arbitrary-layout-size",
+        name="Tailwind Arbitrary Layout Size",
+        description="Rigid arbitrary width/height values in Tailwind classes",
+        category="react_best_practice",
+        severity="low",
+        layer="frontend",
+        tags=["tailwind", "layout", "responsive"],
+    ),
+    RuleInfo(
+        id="tailwind-arbitrary-radius-shadow",
+        name="Tailwind Arbitrary Radius/Shadow",
+        description="Arbitrary rounded/shadow values instead of shared surface tokens",
+        category="react_best_practice",
+        severity="low",
+        layer="frontend",
+        tags=["tailwind", "surface", "design-system"],
+    ),
+    RuleInfo(
         id="react-project-structure-consistency",
         name="React Structure Consistency",
         description="Context-aware detection of scattered hooks, services, utilities, types, and weak folder boundaries",
@@ -950,6 +1193,204 @@ RULE_METADATA: list[RuleInfo] = [
         severity="medium",
         layer="frontend",
         tags=["react", "folders", "architecture", "scalability"],
+    ),
+    RuleInfo(
+        id="avoid-props-to-state-copy",
+        name="Avoid Props-to-State Copy",
+        description="State initialized directly from props without clear divergence intent",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["react", "state", "props"],
+    ),
+    RuleInfo(
+        id="props-state-sync-effect-smell",
+        name="Props-State Sync Effect Smell",
+        description="useEffect mirrors dependency values into local state",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["react", "useeffect", "state"],
+    ),
+    RuleInfo(
+        id="controlled-uncontrolled-input-mismatch",
+        name="Controlled/Uncontrolled Input Mismatch",
+        description="Form control mixes or violates controlled input contracts",
+        category="react_best_practice",
+        severity="high",
+        layer="frontend",
+        tags=["react", "forms", "inputs"],
+    ),
+    RuleInfo(
+        id="usememo-overuse",
+        name="useMemo Overuse",
+        description="useMemo used where memoization benefit is weak",
+        category="react_best_practice",
+        severity="low",
+        layer="frontend",
+        tags=["react", "performance", "memoization"],
+    ),
+    RuleInfo(
+        id="usecallback-overuse",
+        name="useCallback Overuse",
+        description="useCallback used where handler stability benefit is weak",
+        category="react_best_practice",
+        severity="low",
+        layer="frontend",
+        tags=["react", "performance", "memoization"],
+    ),
+    RuleInfo(
+        id="context-oversized-provider",
+        name="Context Oversized Provider",
+        description="Provider value payload is broad and likely to fan out rerenders",
+        category="performance",
+        severity="medium",
+        layer="frontend",
+        tags=["react", "context", "performance"],
+    ),
+    RuleInfo(
+        id="lazy-without-suspense",
+        name="Lazy Without Suspense",
+        description="React.lazy component rendered without Suspense boundary",
+        category="react_best_practice",
+        severity="high",
+        layer="frontend",
+        tags=["react", "suspense", "lazy"],
+    ),
+    RuleInfo(
+        id="suspense-fallback-missing",
+        name="Suspense Fallback Missing",
+        description="Suspense boundary defined without explicit fallback",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["react", "suspense"],
+    ),
+    RuleInfo(
+        id="stale-closure-in-timer",
+        name="Stale Closure in Timer",
+        description="Timer callback captures stale state in effect lifecycle",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["react", "hooks", "timers"],
+    ),
+    RuleInfo(
+        id="stale-closure-in-listener",
+        name="Stale Closure in Listener",
+        description="Event listener callback captures stale state in effect lifecycle",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["react", "hooks", "events"],
+    ),
+    RuleInfo(
+        id="duplicate-key-source",
+        name="Duplicate Key Source",
+        description="List key derived from likely non-unique field",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["react", "keys", "rendering"],
+    ),
+    RuleInfo(
+        id="missing-loading-state",
+        name="Missing Loading State",
+        description="Async page flow lacks explicit loading/pending branch",
+        category="react_best_practice",
+        severity="low",
+        layer="frontend",
+        tags=["react", "ux", "async"],
+    ),
+    RuleInfo(
+        id="missing-empty-state",
+        name="Missing Empty State",
+        description="List page lacks explicit empty-state branch",
+        category="react_best_practice",
+        severity="low",
+        layer="frontend",
+        tags=["react", "ux", "lists"],
+    ),
+    RuleInfo(
+        id="ref-access-during-render",
+        name="Ref Access During Render",
+        description="Mutable ref current read directly in render output",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["react", "refs", "render"],
+    ),
+    RuleInfo(
+        id="ref-used-as-reactive-state",
+        name="Ref Used as Reactive State",
+        description="Ref used as primary reactive state instead of useState",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["react", "refs", "state"],
+    ),
+    RuleInfo(
+        id="meta-description-missing-or-generic",
+        name="Meta Description Missing/Generic",
+        description="Indexable page lacks a specific meta description",
+        category="react_best_practice",
+        severity="low",
+        layer="frontend",
+        tags=["seo", "metadata"],
+    ),
+    RuleInfo(
+        id="canonical-missing-or-invalid",
+        name="Canonical Missing/Invalid",
+        description="Indexable page missing or misconfigured canonical URL",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["seo", "canonical", "indexing"],
+    ),
+    RuleInfo(
+        id="robots-directive-risk",
+        name="Robots Directive Risk",
+        description="Risky robots directives on public/indexable page surfaces",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["seo", "robots", "indexing"],
+    ),
+    RuleInfo(
+        id="crawlable-internal-navigation-required",
+        name="Crawlable Internal Navigation Required",
+        description="Internal navigation lacks crawlable anchor/href semantics",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["seo", "links", "crawlability"],
+    ),
+    RuleInfo(
+        id="jsonld-structured-data-invalid-or-mismatched",
+        name="JSON-LD Invalid/Mismatched",
+        description="Structured data block is invalid or missing core schema signals",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["seo", "jsonld", "schema"],
+    ),
+    RuleInfo(
+        id="h1-singleton-violation",
+        name="H1 Singleton Violation",
+        description="Page has missing or multiple H1 headings",
+        category="react_best_practice",
+        severity="medium",
+        layer="frontend",
+        tags=["seo", "headings", "content"],
+    ),
+    RuleInfo(
+        id="page-indexability-conflict",
+        name="Page Indexability Conflict",
+        description="Conflicting robots/canonical intent for same page",
+        category="react_best_practice",
+        severity="high",
+        layer="frontend",
+        tags=["seo", "indexing", "canonical", "robots"],
     ),
     RuleInfo(
         id="tests-missing",
@@ -1006,18 +1447,94 @@ RULE_METADATA: list[RuleInfo] = [
 ]
 
 
+def _title_from_rule_id(rule_id: str) -> str:
+    return " ".join(part.capitalize() for part in rule_id.split("-") if part)
+
+
+def _infer_layer_from_rule(*, module_name: str, category: str) -> Literal["backend", "frontend", "shared"]:
+    if module_name.startswith("rules.react."):
+        return "frontend"
+    if module_name.startswith("rules.laravel."):
+        return "backend"
+    if category in {"react_best_practice", "accessibility"}:
+        return "frontend"
+    if category in {"laravel_best_practice", "validation"}:
+        return "backend"
+    return "shared"
+
+
+def _build_fallback_rule_info(rule_id: str, rule_class: Any) -> RuleInfo:
+    raw_category = getattr(rule_class, "category", "maintainability")
+    raw_severity = getattr(rule_class, "default_severity", "medium")
+    category = str(getattr(raw_category, "value", raw_category) or "maintainability").strip().lower()
+    severity = str(getattr(raw_severity, "value", raw_severity) or "medium").strip().lower()
+    module_name = str(getattr(rule_class, "__module__", "") or "")
+    layer = _infer_layer_from_rule(module_name=module_name, category=category)
+    name = str(getattr(rule_class, "name", "") or "").strip() or _title_from_rule_id(rule_id)
+    description = str(getattr(rule_class, "description", "") or "").strip() or f"{name} rule"
+    tags = [category]
+    if module_name.startswith("rules.react."):
+        tags.append("react")
+    elif module_name.startswith("rules.laravel."):
+        tags.append("laravel")
+    return RuleInfo(
+        id=rule_id,
+        name=name,
+        description=description,
+        category=category,
+        severity=severity,
+        layer=layer,
+        tags=tags,
+    )
+
+
+def _effective_rule_metadata() -> list[RuleInfo]:
+    merged: dict[str, RuleInfo] = {rule.id: rule for rule in RULE_METADATA}
+
+    try:
+        # Lazy import to avoid loading the full rule graph unless metadata is requested.
+        from core.rule_engine import ALL_RULES
+    except Exception:
+        return list(merged.values())
+
+    for rule_id, rule_class in ALL_RULES.items():
+        if rule_id in merged:
+            continue
+        merged[rule_id] = _build_fallback_rule_info(rule_id, rule_class)
+
+    return list(merged.values())
+
+
+def _effective_category_groups(rules: list[RuleInfo]) -> dict[str, dict[str, Any]]:
+    categories: dict[str, dict[str, Any]] = {cat_id: dict(cat_info) for cat_id, cat_info in CATEGORY_GROUPS.items()}
+    next_order = max((int(info.get("order", 0) or 0) for info in categories.values()), default=0) + 1
+    for rule in rules:
+        if rule.category in categories:
+            continue
+        categories[rule.category] = {
+            "label": _title_from_rule_id(rule.category.replace("_", "-")),
+            "description": "Auto-detected category",
+            "layer": rule.layer,
+            "order": next_order,
+        }
+        next_order += 1
+    return categories
+
+
 def get_rules_by_layer() -> dict[str, list[RuleInfo]]:
     """Group rules by layer (backend/frontend/shared)."""
+    rules = _effective_rule_metadata()
     result: dict[str, list[RuleInfo]] = {"backend": [], "frontend": [], "shared": []}
-    for rule in RULE_METADATA:
+    for rule in rules:
         result[rule.layer].append(rule)
     return result
 
 
 def get_rules_by_category() -> dict[str, list[RuleInfo]]:
     """Group rules by category."""
+    rules = _effective_rule_metadata()
     result: dict[str, list[RuleInfo]] = {}
-    for rule in RULE_METADATA:
+    for rule in rules:
         if rule.category not in result:
             result[rule.category] = []
         result[rule.category].append(rule)
@@ -1046,13 +1563,15 @@ def get_rules_grouped_for_ui() -> dict:
         }
     """
     # Group by layer then by category
+    rules = _effective_rule_metadata()
+    categories = _effective_category_groups(rules)
     layers_data = []
     
     for layer_id, layer_info in LAYER_GROUPS.items():
         # Get categories for this layer
         categories_in_layer = [
             (cat_id, cat_info)
-            for cat_id, cat_info in CATEGORY_GROUPS.items()
+            for cat_id, cat_info in categories.items()
             if cat_info["layer"] == layer_id or (layer_id == "shared" and cat_info["layer"] == "shared")
         ]
         # Sort by order
@@ -1060,7 +1579,7 @@ def get_rules_grouped_for_ui() -> dict:
         
         categories_data = []
         for cat_id, cat_info in categories_in_layer:
-            rules_in_cat = [r for r in RULE_METADATA if r.category == cat_id]
+            rules_in_cat = [r for r in rules if r.category == cat_id]
             if not rules_in_cat:
                 continue
             
@@ -1094,4 +1613,4 @@ def get_rules_grouped_for_ui() -> dict:
 
 def get_rule_ids() -> list[str]:
     """Get all rule IDs."""
-    return [r.id for r in RULE_METADATA]
+    return [r.id for r in _effective_rule_metadata()]

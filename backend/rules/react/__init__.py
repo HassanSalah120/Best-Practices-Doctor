@@ -15,6 +15,7 @@ from .safe_target_blank import SafeTargetBlankRule
 from .no_inline_hooks import NoInlineHooksRule
 from .no_inline_types import NoInlineTypesRule
 from .no_inline_services import NoInlineServicesRule
+from .react_parent_child_spacing_overlap import ReactParentChildSpacingOverlapRule
 from .project_structure_consistency import ReactProjectStructureConsistencyRule
 from .inertia_page_missing_head import InertiaPageMissingHeadRule
 from .inertia_internal_link_anchor import InertiaInternalLinkAnchorRule
@@ -23,6 +24,27 @@ from .anonymous_default_export_component import AnonymousDefaultExportComponentR
 from .multiple_exported_components_per_file import MultipleExportedComponentsPerFileRule
 from .context_provider_inline_value import ContextProviderInlineValueRule
 from .useeffect_fetch_without_abort import UseEffectFetchWithoutAbortRule
+from .no_direct_useeffect import NoDirectUseEffectRule
+from .derived_state_in_effect import DerivedStateInEffectRule
+from .state_update_in_render import StateUpdateInRenderRule
+from .large_custom_hook import LargeCustomHookRule
+from .cross_feature_import_boundary import CrossFeatureImportBoundaryRule
+from .query_key_instability import QueryKeyInstabilityRule
+from .effect_event_relay_smell import EffectEventRelaySmellRule
+from .route_shell_missing_error_boundary import RouteShellMissingErrorBoundaryRule
+from .unsafe_async_handler_without_guard import UnsafeAsyncHandlerWithoutGuardRule
+from .react_no_random_key import ReactNoRandomKeyRule
+from .react_no_props_mutation import ReactNoPropsMutationRule
+from .react_no_state_mutation import ReactNoStateMutationRule
+from .react_side_effects_in_render import ReactSideEffectsInRenderRule
+from .react_event_listener_cleanup_required import ReactEventListenerCleanupRequiredRule
+from .react_timer_cleanup_required import ReactTimerCleanupRequiredRule
+from .inertia_reload_without_only import InertiaReloadWithoutOnlyRule
+from .insecure_postmessage_origin_wildcard import InsecurePostMessageOriginWildcardRule
+from .token_storage_insecure_localstorage import TokenStorageInsecureLocalStorageRule
+from .client_open_redirect_unvalidated_navigation import ClientOpenRedirectUnvalidatedNavigationRule
+from .postmessage_receiver_origin_not_verified import PostMessageReceiverOriginNotVerifiedRule
+from .dangerous_html_sink_without_sanitizer import DangerousHtmlSinkWithoutSanitizerRule
 # Phase 1 React rules
 from .useeffect_cleanup_missing import UseEffectCleanupMissingRule
 # Phase 2 React performance rules
@@ -51,6 +73,65 @@ from .autoplay_media import AutoplayMediaRule
 from .redundant_entry import RedundantEntryRule
 from .accessible_authentication import AccessibleAuthenticationRule
 from .focus_not_obscured import FocusNotObscuredRule
+# CSS/Tailwind discipline rules
+from .css_tailwind_best_practice_rules import (
+    CssFontSizePxRule,
+    CssSpacingPxRule,
+    CssFixedLayoutPxRule,
+    TailwindArbitraryValueOveruseRule,
+    TailwindArbitraryTextSizeRule,
+    TailwindArbitrarySpacingRule,
+    TailwindArbitraryLayoutSizeRule,
+    TailwindArbitraryRadiusShadowRule,
+)
+# CSS/Tailwind accessibility rules
+from .css_tailwind_accessibility_rules import (
+    TailwindMotionReduceMissingRule,
+    TailwindAppearanceNoneRiskRule,
+    CssFocusOutlineWithoutReplacementRule,
+    CssHoverOnlyInteractionRule,
+    CssColorOnlyStateIndicatorRule,
+)
+# WCAG/APG AST accessibility rules
+from .wcag_apg_ast_rules import (
+    SemanticWrapperBreakageRule,
+    InteractiveAccessibleNameRequiredRule,
+    JsxAriaAttributeFormatRule,
+    OutsideClickWithoutKeyboardFallbackRule,
+    APGTabsKeyboardContractRule,
+    APGAccordionDisclosureContractRule,
+    APGMenuButtonContractRule,
+    APGComboboxContractRule,
+    DialogFocusRestoreMissingRule,
+)
+# React gap expansion rules
+from .react_gap_expansion_rules import (
+    AvoidPropsToStateCopyRule,
+    PropsStateSyncEffectSmellRule,
+    ControlledUncontrolledInputMismatchRule,
+    UseMemoOveruseRule,
+    UseCallbackOveruseRule,
+    ContextOversizedProviderRule,
+    LazyWithoutSuspenseRule,
+    SuspenseFallbackMissingRule,
+    StaleClosureInTimerRule,
+    StaleClosureInListenerRule,
+    DuplicateKeySourceRule,
+    MissingLoadingStateRule,
+    MissingEmptyStateRule,
+    RefAccessDuringRenderRule,
+    RefUsedAsReactiveStateRule,
+)
+# React SEO expansion rules
+from .react_seo_expansion_rules import (
+    MetaDescriptionMissingOrGenericRule,
+    CanonicalMissingOrInvalidRule,
+    RobotsDirectiveRiskRule,
+    CrawlableInternalNavigationRequiredRule,
+    JsonLdStructuredDataInvalidOrMismatchedRule,
+    H1SingletonViolationRule,
+    PageIndexabilityConflictRule,
+)
 # AST-based rules (higher accuracy)
 from .usecallback_ast import UseCallbackASTRule
 from .usememo_ast import UseMemoASTRule
@@ -75,6 +156,7 @@ __all__ = [
     "NoInlineHooksRule",
     "NoInlineTypesRule",
     "NoInlineServicesRule",
+    "ReactParentChildSpacingOverlapRule",
     "ReactProjectStructureConsistencyRule",
     "InertiaPageMissingHeadRule",
     "InertiaInternalLinkAnchorRule",
@@ -83,6 +165,27 @@ __all__ = [
     "MultipleExportedComponentsPerFileRule",
     "ContextProviderInlineValueRule",
     "UseEffectFetchWithoutAbortRule",
+    "NoDirectUseEffectRule",
+    "DerivedStateInEffectRule",
+    "StateUpdateInRenderRule",
+    "LargeCustomHookRule",
+    "CrossFeatureImportBoundaryRule",
+    "QueryKeyInstabilityRule",
+    "EffectEventRelaySmellRule",
+    "RouteShellMissingErrorBoundaryRule",
+    "UnsafeAsyncHandlerWithoutGuardRule",
+    "ReactNoRandomKeyRule",
+    "ReactNoPropsMutationRule",
+    "ReactNoStateMutationRule",
+    "ReactSideEffectsInRenderRule",
+    "ReactEventListenerCleanupRequiredRule",
+    "ReactTimerCleanupRequiredRule",
+    "InertiaReloadWithoutOnlyRule",
+    "InsecurePostMessageOriginWildcardRule",
+    "TokenStorageInsecureLocalStorageRule",
+    "ClientOpenRedirectUnvalidatedNavigationRule",
+    "PostMessageReceiverOriginNotVerifiedRule",
+    "DangerousHtmlSinkWithoutSanitizerRule",
     # Phase 1 React rules
     "UseEffectCleanupMissingRule",
     # Phase 2 React performance rules
@@ -111,6 +214,55 @@ __all__ = [
     "RedundantEntryRule",
     "AccessibleAuthenticationRule",
     "FocusNotObscuredRule",
+    # CSS/Tailwind discipline rules
+    "CssFontSizePxRule",
+    "CssSpacingPxRule",
+    "CssFixedLayoutPxRule",
+    "TailwindArbitraryValueOveruseRule",
+    "TailwindArbitraryTextSizeRule",
+    "TailwindArbitrarySpacingRule",
+    "TailwindArbitraryLayoutSizeRule",
+    "TailwindArbitraryRadiusShadowRule",
+    # CSS/Tailwind accessibility rules
+    "TailwindMotionReduceMissingRule",
+    "TailwindAppearanceNoneRiskRule",
+    "CssFocusOutlineWithoutReplacementRule",
+    "CssHoverOnlyInteractionRule",
+    "CssColorOnlyStateIndicatorRule",
+    # WCAG/APG AST accessibility rules
+    "SemanticWrapperBreakageRule",
+    "InteractiveAccessibleNameRequiredRule",
+    "JsxAriaAttributeFormatRule",
+    "OutsideClickWithoutKeyboardFallbackRule",
+    "APGTabsKeyboardContractRule",
+    "APGAccordionDisclosureContractRule",
+    "APGMenuButtonContractRule",
+    "APGComboboxContractRule",
+    "DialogFocusRestoreMissingRule",
+    # React gap expansion rules
+    "AvoidPropsToStateCopyRule",
+    "PropsStateSyncEffectSmellRule",
+    "ControlledUncontrolledInputMismatchRule",
+    "UseMemoOveruseRule",
+    "UseCallbackOveruseRule",
+    "ContextOversizedProviderRule",
+    "LazyWithoutSuspenseRule",
+    "SuspenseFallbackMissingRule",
+    "StaleClosureInTimerRule",
+    "StaleClosureInListenerRule",
+    "DuplicateKeySourceRule",
+    "MissingLoadingStateRule",
+    "MissingEmptyStateRule",
+    "RefAccessDuringRenderRule",
+    "RefUsedAsReactiveStateRule",
+    # React SEO expansion rules
+    "MetaDescriptionMissingOrGenericRule",
+    "CanonicalMissingOrInvalidRule",
+    "RobotsDirectiveRiskRule",
+    "CrawlableInternalNavigationRequiredRule",
+    "JsonLdStructuredDataInvalidOrMismatchedRule",
+    "H1SingletonViolationRule",
+    "PageIndexabilityConflictRule",
     # AST-based rules (higher accuracy)
     "UseCallbackASTRule",
     "UseMemoASTRule",

@@ -77,6 +77,10 @@ class UnsafeExternalRedirectRule(Rule):
         "initiateinvoiceonlinepaymentaction",
     )
     _SIMPLE_VAR = re.compile(r"^\$(?P<name>[A-Za-z_][A-Za-z0-9_]*)$")
+    _METHOD_SIGNATURE = re.compile(
+        r"function\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\((?P<params>[^)]*)\)",
+        re.IGNORECASE,
+    )
 
     def analyze(
         self,
@@ -102,7 +106,7 @@ class UnsafeExternalRedirectRule(Rule):
                 continue
             local_window, line = self._local_window(text, match.start())
             method_window = self._method_window(text, match.start())
-            if self._is_trusted_redirect(expr, local_window, method_window):
+            if self._is_trusted_redirect(expr, local_window, method_window, text):
                 continue
             return [
                 self.create_finding(
@@ -144,7 +148,7 @@ class UnsafeExternalRedirectRule(Rule):
         matches.sort(key=lambda item: item[0].start())
         return matches
 
-    def _local_window(self, text: str, start_idx: int, before: int = 16, after: int = 8) -> tuple[str, int]:
+    def _local_window(self, text: str, start_idx: int, before: int = 30, after: int = 12) -> tuple[str, int]:
         lines = text.splitlines()
         line = text.count("\n", 0, start_idx) + 1
         start_line = max(0, line - before - 1)
@@ -163,7 +167,7 @@ class UnsafeExternalRedirectRule(Rule):
             after = len(text)
         return text[start:after]
 
-    def _is_trusted_redirect(self, expr: str, local_window: str, method_window: str) -> bool:
+    def _is_trusted_redirect(self, expr: str, local_window: str, method_window: str, full_text: str) -> bool:
         expr_low = expr.lower()
         window_low = local_window.lower()
         method_low = (method_window or "").lower()
@@ -175,6 +179,12 @@ class UnsafeExternalRedirectRule(Rule):
 
         var_name = self._extract_simple_var_name(expr)
         if var_name:
+            # Track assignment/backflow chains for helper methods and sanitized variables.
+            if self._has_trusted_assignment_chain(var_name, method_window):
+                return True
+            if self._has_trusted_parameter_backflow(var_name, method_window, full_text):
+                return True
+
             for builder in self._TRUSTED_URL_BUILDERS:
                 if re.search(
                     rf"\${re.escape(var_name)}\s*=\s*[^;\n]*{re.escape(builder)}",
@@ -203,3 +213,68 @@ class UnsafeExternalRedirectRule(Rule):
         if not match:
             return None
         return str(match.group("name") or "")
+
+    def _has_trusted_assignment_chain(self, var_name: str, method_window: str) -> bool:
+        visited: set[str] = set()
+        queue: list[str] = [var_name]
+        steps = 0
+
+        while queue and steps < 12:
+            current = queue.pop(0)
+            if current in visited:
+                continue
+            visited.add(current)
+            steps += 1
+
+            for rhs in self._assignment_rhs_for_var(current, method_window):
+                rhs_low = rhs.lower()
+                if any(builder.lower() in rhs_low for builder in self._TRUSTED_URL_BUILDERS):
+                    return True
+                if any(signal.lower() in rhs_low for signal in self._LOCAL_VALIDATION_SIGNALS):
+                    return True
+                nested = self._extract_simple_var_name(rhs)
+                if nested and nested not in visited:
+                    queue.append(nested)
+        return False
+
+    def _assignment_rhs_for_var(self, var_name: str, method_window: str) -> list[str]:
+        if not var_name or not method_window:
+            return []
+        out: list[str] = []
+        pattern = re.compile(
+            rf"\${re.escape(var_name)}\s*=\s*(?P<rhs>[^;\n]+)",
+            re.IGNORECASE,
+        )
+        for match in pattern.finditer(method_window):
+            rhs = str(match.groupdict().get("rhs") or "").strip()
+            if rhs:
+                out.append(rhs)
+        return out
+
+    def _has_trusted_parameter_backflow(self, var_name: str, method_window: str, full_text: str) -> bool:
+        signature = self._METHOD_SIGNATURE.search(method_window or "")
+        if not signature:
+            return False
+        method_name = str(signature.groupdict().get("name") or "").strip()
+        params = str(signature.groupdict().get("params") or "")
+        if not method_name:
+            return False
+        if not re.search(rf"\${re.escape(var_name)}\b", params):
+            return False
+
+        call_pattern = re.compile(
+            rf"->\s*{re.escape(method_name)}\s*\((?P<args>[^)]*)\)",
+            re.IGNORECASE,
+        )
+        for call in call_pattern.finditer(full_text or ""):
+            args = str(call.groupdict().get("args") or "")
+            args_low = args.lower()
+            if any(builder.lower() in args_low for builder in self._TRUSTED_URL_BUILDERS):
+                return True
+            if any(signal.lower() in args_low for signal in self._LOCAL_VALIDATION_SIGNALS):
+                return True
+            for arg_var_match in re.finditer(r"\$(?P<name>[A-Za-z_][A-Za-z0-9_]*)", args):
+                arg_var = str(arg_var_match.groupdict().get("name") or "")
+                if arg_var and self._has_trusted_assignment_chain(arg_var, full_text):
+                    return True
+        return False

@@ -34,6 +34,10 @@ class MissingAuthOnMutatingApiRoutesRule(Rule):
         r"sanctum/csrf-cookie|webhook|health|status|up|ping)(/|$)",
         re.IGNORECASE,
     )
+    _public_action = re.compile(
+        r"(login|logout|register|forgot|reset|verify|verification|password|otp|twofactor|token|csrf|webhook|health|status|ping)",
+        re.IGNORECASE,
+    )
     _state_changing = {"post", "put", "patch", "delete", "any"}
 
     def analyze(
@@ -60,10 +64,12 @@ class MissingAuthOnMutatingApiRoutesRule(Rule):
         return []
 
     def _is_state_changing_method(self, method: str) -> bool:
-        m = (method or "").strip().lower()
+        m = (method or "").strip().lower().replace(" ", "")
         if not m:
             return False
         if m in self._state_changing:
+            return True
+        if any(tok in m for tok in ("post", "put", "patch", "delete")) and ("|" in m or "," in m or "match" in m):
             return True
         if m == "match":
             return True
@@ -84,25 +90,35 @@ class MissingAuthOnMutatingApiRoutesRule(Rule):
 
     def _has_auth_middleware(self, middleware: list[str]) -> bool:
         txt = " ".join([str(x).lower() for x in (middleware or [])])
-        return any(tok in txt for tok in ["auth", "sanctum", "passport"])
+        return any(tok in txt for tok in ["auth", "auth:", "sanctum", "passport", "jwt", "token.auth"])
+
+    def _is_public_auth_action(self, controller: str, action: str) -> bool:
+        payload = f"{controller}@{action}"
+        return bool(self._public_action.search(payload))
 
     def _analyze_routes(self, routes: list) -> list[Finding]:
         out: list[Finding] = []
+        min_confidence = float(self.get_threshold("min_confidence", 0.0) or 0.0)
+        require_state_changing = bool(self.get_threshold("require_state_changing_method", True))
+        respect_public_allowlist = bool(self.get_threshold("respect_public_route_allowlist", True))
+
         for route in routes:
             if not self._is_api_routes_file(route.file_path or ""):
                 continue
 
             method = str(route.method or "").strip().lower()
             uri = str(route.uri or "").strip()
-            if not self._is_state_changing_method(method):
+            if require_state_changing and not self._is_state_changing_method(method):
                 continue
-            if self._is_public_uri(uri):
+            controller = str(route.controller or "").strip()
+            action = str(route.action or "").strip()
+            if respect_public_allowlist and self._is_public_uri(uri):
+                continue
+            if respect_public_allowlist and self._is_public_auth_action(controller, action):
                 continue
             if self._has_auth_middleware(route.middleware or []):
                 continue
 
-            controller = str(route.controller or "").strip()
-            action = str(route.action or "").strip()
             context = f"{method.upper()} {uri}"
             if controller and action:
                 context = f"{context} -> {controller}@{action}"
@@ -113,7 +129,14 @@ class MissingAuthOnMutatingApiRoutesRule(Rule):
                 f"uri={uri}",
                 "auth_middleware_missing",
             ]
+            if controller and action:
+                evidence.append("controller_action_present=true")
+            if self._is_public_uri(uri) or self._is_public_auth_action(controller, action):
+                evidence.append("public_allowlist_checked=true")
 
+            confidence = 0.8 if controller and action else 0.74
+            if confidence + 1e-9 < min_confidence:
+                continue
             out.append(
                 self.create_finding(
                     title="Mutating API route appears to be missing auth middleware",
@@ -132,7 +155,7 @@ class MissingAuthOnMutatingApiRoutesRule(Rule):
                         "or move it under an authenticated group."
                     ),
                     tags=["laravel", "routes", "security", "auth", "multi-tenant"],
-                    confidence=0.78 if controller and action else 0.72,
+                    confidence=confidence,
                     related_methods=[f"{controller}@{action}"] if controller and action else [],
                     evidence_signals=evidence,
                 )

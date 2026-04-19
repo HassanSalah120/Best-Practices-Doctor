@@ -133,6 +133,65 @@ class QueryUsage(BaseModel):
     n_plus_one_reason: str | None = None
 
 
+class MigrationTableChange(BaseModel):
+    """Detected Laravel migration table/column operation."""
+    file_path: str
+    line_number: int
+    table_name: str
+    operation: str  # create_table, alter_table, add_column, drop_column, rename_column, drop_table
+    column_name: str | None = None
+    column_type: str | None = None
+    target_name: str | None = None
+    snippet: str = ""
+    guard_signals: list[str] = Field(default_factory=list)
+
+
+class MigrationIndexDefinition(BaseModel):
+    """Detected Laravel migration index definition."""
+    file_path: str
+    line_number: int
+    table_name: str
+    columns: list[str] = Field(default_factory=list)
+    kind: str = "index"  # index, unique, fulltext, spatial
+    snippet: str = ""
+
+
+class MigrationForeignKeyDefinition(BaseModel):
+    """Detected Laravel migration foreign key definition."""
+    file_path: str
+    line_number: int
+    table_name: str
+    columns: list[str] = Field(default_factory=list)
+    referenced_table: str | None = None
+    referenced_columns: list[str] = Field(default_factory=list)
+    via_constrained: bool = False
+    snippet: str = ""
+
+
+class ModelAttributeConfig(BaseModel):
+    """Model attribute allow/deny list configuration."""
+    file_path: str
+    line_number: int
+    model_name: str
+    model_fqcn: str | None = None
+    property_name: str  # hidden, visible, appends, casts
+    values: list[str] = Field(default_factory=list)
+    mapping: dict[str, str] = Field(default_factory=dict)
+    snippet: str = ""
+
+
+class BroadcastChannelDefinition(BaseModel):
+    """Detected Laravel broadcast channel authorization callback."""
+    file_path: str
+    line_number: int
+    channel_name: str
+    parameters: list[str] = Field(default_factory=list)
+    authorization_kind: str = "unknown"  # guarded, allow_all, deny_all, unknown
+    has_user_parameter: bool = False
+    has_authorization_logic: bool = False
+    snippet: str = ""
+
+
 class DuplicateBlock(BaseModel):
     """Detected duplicate code block."""
     hash: str  # Content hash for matching
@@ -326,16 +385,40 @@ class ProjectContext(BaseModel):
     tenant_mode: str = "unknown"  # tenant | non_tenant | unknown
     tenant_signals: list[str] = Field(default_factory=list)
 
+    # Project/business context (what the project is).
+    # Canonical fields (v2 context schema).
+    project_type: str = "unknown"
+    architecture_style: str = "unknown"
+    capabilities: dict[str, dict[str, object]] = Field(default_factory=dict)
+    team_expectations: dict[str, dict[str, object]] = Field(default_factory=dict)
+    auto_detected_context: dict[str, object] = Field(default_factory=dict)
+
+    # Backwards-compatible field names used by existing rules/UI.
+    project_business_context: str = "unknown"
+    project_business_signals: list[str] = Field(default_factory=list)
+    project_business_confidence: float = 0.0
+    project_business_confidence_kind: str = "unknown"  # structural | heuristic | unknown
+    project_business_source: str = "default"  # explicit | detected | default
+
     backend_framework: str = "unknown"  # laravel | php | unknown
     backend_architecture_profile: str = "unknown"  # mvc | layered | modular | api-first | unknown
     backend_profile_signals: list[str] = Field(default_factory=list)
     backend_profile_confidence: float = 0.0
     backend_profile_confidence_kind: str = "unknown"  # structural | heuristic | unknown
+    backend_profile_source: str = "default"  # explicit | detected | default
     backend_profile_debug: dict[str, object] = Field(default_factory=dict)
 
     # Backwards-compatible coarse bucket used by older rules/tests.
     backend_structure_mode: str = "unknown"  # layered | mvc | unknown
     backend_layers: list[str] = Field(default_factory=list)
+
+    # Technical capabilities and team standards.
+    # Shape:
+    #   {"multi_tenant": {"enabled": true, "confidence": 0.91, "source": "detected", "evidence": [...]}, ...}
+    backend_capabilities: dict[str, dict[str, object]] = Field(default_factory=dict)
+    backend_team_expectations: dict[str, dict[str, object]] = Field(default_factory=dict)
+    context_resolution_signals: list[str] = Field(default_factory=list)
+    context_matrix_version: int | None = None
 
     react_structure_mode: str = "unknown"  # feature-first | category-based | hybrid | unknown
     react_shared_roots: list[str] = Field(default_factory=list)
@@ -351,13 +434,28 @@ class ProjectContext(BaseModel):
         """Structured backend profile debug payload for reports and rule metadata."""
         return {
             "backend_framework": self.backend_framework,
+            "project_type": self.project_type,
+            "architecture_style": self.architecture_style,
+            "capabilities": dict(self.capabilities),
+            "team_expectations": dict(self.team_expectations),
+            "auto_detected_context": dict(self.auto_detected_context),
+            "project_business_context": self.project_business_context,
+            "project_business_signals": list(self.project_business_signals),
+            "project_business_confidence": self.project_business_confidence,
+            "project_business_confidence_kind": self.project_business_confidence_kind,
+            "project_business_source": self.project_business_source,
             "architecture_profile": self.backend_architecture_profile,
             "profile_confidence": self.backend_profile_confidence,
             "profile_confidence_kind": self.backend_profile_confidence_kind,
+            "profile_source": self.backend_profile_source,
             "profile_signals": list(self.backend_profile_signals),
             "profile_debug": dict(self.backend_profile_debug),
             "backend_structure_mode": self.backend_structure_mode,
             "backend_layers": list(self.backend_layers),
+            "backend_capabilities": dict(self.backend_capabilities),
+            "backend_team_expectations": dict(self.backend_team_expectations),
+            "context_resolution_signals": list(self.context_resolution_signals),
+            "context_matrix_version": self.context_matrix_version,
         }
 
 
@@ -405,6 +503,9 @@ class Facts(BaseModel):
     jobs: list[ClassInfo] = Field(default_factory=list)
     events: list[ClassInfo] = Field(default_factory=list)
     listeners: list[ClassInfo] = Field(default_factory=list)
+    notifications: list[ClassInfo] = Field(default_factory=list)
+    mailables: list[ClassInfo] = Field(default_factory=list)
+    observers: list[ClassInfo] = Field(default_factory=list)
     policies: list[ClassInfo] = Field(default_factory=list)
     commands: list[ClassInfo] = Field(default_factory=list)
     
@@ -419,6 +520,13 @@ class Facts(BaseModel):
     
     # --- Database Queries ---
     queries: list[QueryUsage] = Field(default_factory=list)
+
+    # --- Laravel Migrations / Models / Broadcast ---
+    migration_table_changes: list[MigrationTableChange] = Field(default_factory=list)
+    migration_indexes: list[MigrationIndexDefinition] = Field(default_factory=list)
+    migration_foreign_keys: list[MigrationForeignKeyDefinition] = Field(default_factory=list)
+    model_attribute_configs: list[ModelAttributeConfig] = Field(default_factory=list)
+    broadcast_channels: list[BroadcastChannelDefinition] = Field(default_factory=list)
     
     # --- Duplication ---
     duplicates: list[DuplicateBlock] = Field(default_factory=list)

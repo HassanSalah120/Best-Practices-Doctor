@@ -1,82 +1,26 @@
 """
-Modal Trap Focus Rule
-
-Detects modal dialogs that may not trap focus properly.
+Modal Trap Focus Rule (hardened contract checks).
 """
 
 from __future__ import annotations
-
-import re
 
 from schemas.facts import Facts
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from rules.react.jsx_tree_sitter import JsxTreeSitterHelper
 
 
 class ModalTrapFocusRule(Rule):
     id = "modal-trap-focus"
     name = "Modal Focus Trap Missing"
-    description = "Detects modal dialogs that may not trap keyboard focus"
+    description = "Detects dialog/modal widgets missing keyboard focus management contracts"
     category = Category.ACCESSIBILITY
     default_severity = Severity.HIGH
-    type = "regex"
+    type = "ast"
     applicable_project_types: list[str] = []
     regex_file_extensions = [".js", ".jsx", ".ts", ".tsx"]
 
-    # Modal patterns
-    _MODAL_PATTERNS = [
-        re.compile(r"<(?:Dialog|Modal|Popup|Overlay)\b", re.IGNORECASE),
-        re.compile(r'role=["\']dialog["\']', re.IGNORECASE),
-        re.compile(r'role=["\']alertdialog["\']', re.IGNORECASE),
-        re.compile(r'aria-modal=["\']true["\']', re.IGNORECASE),
-        re.compile(r"data-state=[\"']open[\"']", re.IGNORECASE),
-        re.compile(r"className=[\"'][^\"']*modal[^\"']*[\"']", re.IGNORECASE),
-        re.compile(r"className=[\"'][^\"']*dialog[^\"']*[\"']", re.IGNORECASE),
-    ]
-    
-    # Focus trap patterns (good)
-    _FOCUS_TRAP_PATTERNS = [
-        re.compile(r"FocusTrap", re.IGNORECASE),
-        re.compile(r"focus-trap", re.IGNORECASE),
-        re.compile(r"focusTrap", re.IGNORECASE),
-        re.compile(r"createFocusTrap", re.IGNORECASE),
-        re.compile(r"useFocusTrap", re.IGNORECASE),
-        re.compile(r"@react-aria/focus", re.IGNORECASE),
-        re.compile(r"FocusScope", re.IGNORECASE),
-        re.compile(r"aria-modal", re.IGNORECASE),  # Implies focus management
-        re.compile(r"@headlessui/react", re.IGNORECASE),  # Headless UI has built-in focus trap
-        re.compile(r"Dialog\s*=\s*require\(['\"]@headlessui", re.IGNORECASE),
-        re.compile(r"from\s+['\"]@headlessui/react['\"]", re.IGNORECASE),
-        re.compile(r"radix-ui.*dialog", re.IGNORECASE),  # Radix UI has focus trap
-        re.compile(r"@radix-ui/react-dialog", re.IGNORECASE),
-        re.compile(r"@radix-ui/react-alert-dialog", re.IGNORECASE),
-        re.compile(r"DialogContent", re.IGNORECASE),  # shadcn/ui Dialog
-        re.compile(r"AlertDialogContent", re.IGNORECASE),  # shadcn/ui AlertDialog
-        # Manual focus trap implementation patterns
-        re.compile(r"FOCUSABLE_SELECTOR", re.IGNORECASE),  # Focusable element selector constant
-        re.compile(r"getFocusableElements", re.IGNORECASE),  # Function to get focusable elements
-        re.compile(r"handleKeyDown.*Tab", re.IGNORECASE),  # Tab key handler for focus wrap
-        re.compile(r"e\.key.*Tab.*focusable", re.IGNORECASE),  # Tab trap logic
-        re.compile(r"previousActiveElement", re.IGNORECASE),  # Focus restoration pattern
-    ]
-
-    # Patterns indicating file uses a Modal component (inherits focus trap)
-    _MODAL_USAGE_PATTERNS = [
-        re.compile(r"from\s+['\"].*/components/UI/Modal['\"]", re.IGNORECASE),
-        re.compile(r"from\s+['\"].*/Modal['\"]", re.IGNORECASE),
-        re.compile(r"import.*Modal.*from", re.IGNORECASE),
-        re.compile(r"<Modal\b", re.IGNORECASE),  # Using Modal component
-    ]
-    
-    # Close button patterns
-    _CLOSE_PATTERNS = [
-        re.compile(r"onClose", re.IGNORECASE),
-        re.compile(r"close", re.IGNORECASE),
-        re.compile(r"dismiss", re.IGNORECASE),
-        re.compile(r"onDismiss", re.IGNORECASE),
-    ]
-    
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
@@ -85,6 +29,47 @@ class ModalTrapFocusRule(Rule):
         "/storybook/",
     )
 
+    _DIALOG_TAG_HINTS = ("Dialog", "Modal", "AlertDialog")
+    _TRAP_SIGNALS = (
+        "FocusTrap",
+        "FocusScope",
+        "createFocusTrap",
+        "useFocusTrap",
+        "@headlessui/react",
+        "@radix-ui/react-dialog",
+        "@radix-ui/react-alert-dialog",
+        "DialogContent",
+        "AlertDialogContent",
+        "onKeyDown",
+    )
+    _FOCUS_ENTRY_SIGNALS = (
+        "autoFocus",
+        "initialFocus",
+        "initialFocusRef",
+        "onOpenAutoFocus",
+        ".focus(",
+    )
+    _CLOSE_SIGNALS = (
+        "onClose",
+        "onOpenChange",
+        "onDismiss",
+        "Escape",
+        "Esc",
+        "setOpen(false)",
+    )
+    _FOCUS_RESTORE_SIGNALS = (
+        "onCloseAutoFocus",
+        "returnFocus",
+        "restoreFocus",
+        "previousActiveElement",
+        "triggerRef.current.focus",
+        "focusTrigger",
+    )
+
+    def __init__(self, config):
+        super().__init__(config)
+        self._jsx = JsxTreeSitterHelper()
+
     def analyze(
         self,
         facts: Facts,
@@ -92,7 +77,7 @@ class ModalTrapFocusRule(Rule):
     ) -> list[Finding]:
         return []
 
-    def analyze_regex(
+    def analyze_ast(
         self,
         file_path: str,
         content: str,
@@ -101,66 +86,109 @@ class ModalTrapFocusRule(Rule):
     ) -> list[Finding]:
         if self._is_allowlisted_path(file_path):
             return []
+        if not self._jsx.is_ready():
+            return []
 
-        findings: list[Finding] = []
-        
-        # Check if file has modal patterns
-        has_modal = any(p.search(content) for p in self._MODAL_PATTERNS)
-        if not has_modal:
-            return findings
-        
-        # Check if focus trap is implemented
-        has_focus_trap = any(p.search(content) for p in self._FOCUS_TRAP_PATTERNS)
-        if has_focus_trap:
-            return findings
+        tree = self._jsx.parse_tree(file_path, content or "")
+        if not tree or not getattr(tree, "root_node", None):
+            return []
 
-        # Check if file uses a Modal component that has built-in focus trap
-        uses_modal_component = any(p.search(content) for p in self._MODAL_USAGE_PATTERNS)
-        if uses_modal_component:
-            return findings
-        
-        # Find modal location for line number
-        line = 1
-        for p in self._MODAL_PATTERNS:
-            m = p.search(content)
-            if m:
-                line = content.count("\n", 0, m.start()) + 1
-                break
-        
-        findings.append(
+        dialog_nodes = self._find_dialog_nodes(tree.root_node, (content or "").encode("utf-8"))
+        if not dialog_nodes:
+            return []
+
+        text = content or ""
+        has_trap_signal = any(s in text for s in self._TRAP_SIGNALS)
+        has_focus_entry_signal = any(s in text for s in self._FOCUS_ENTRY_SIGNALS)
+        has_close_signal = any(s in text for s in self._CLOSE_SIGNALS)
+        has_focus_restore_signal = any(s in text for s in self._FOCUS_RESTORE_SIGNALS)
+
+        missing: list[str] = []
+        if not has_focus_entry_signal:
+            missing.append("focus entry")
+        if not has_trap_signal:
+            missing.append("focus trap")
+        if not has_close_signal:
+            missing.append("keyboard close")
+        if not has_focus_restore_signal:
+            missing.append("focus restore")
+
+        # High-precision: only emit when at least trap or close is missing.
+        if has_trap_signal and has_close_signal:
+            return []
+        if len(missing) < 2:
+            return []
+
+        line = min(node.start_point.row + 1 for node in dialog_nodes)
+        return [
             self.create_finding(
-                title="Modal may lack focus trap",
-                context=f"{file_path}:{line}:modal-focus",
+                title="Dialog widget may miss APG focus management contract",
+                context=f"{file_path}:{line}:dialog-contract",
                 file=file_path,
                 line_start=line,
                 description=(
-                    "Modal dialog detected but no focus trap implementation found. "
-                    "Keyboard focus can escape the modal, making navigation confusing."
+                    "Dialog/modal widget detected with missing focus management signals: "
+                    f"{', '.join(missing)}."
                 ),
                 why_it_matters=(
-                    "WCAG 2.4.3 requires focus to be contained within dialogs.\n"
-                    "- Keyboard users may tab to background content behind the modal\n"
-                    "- Screen reader users may navigate away from the dialog\n"
-                    "- Creates confusing experience for assistive technology users"
+                    "APG dialog pattern expects focus entry, focus containment, keyboard close, and focus restoration "
+                    "to keep keyboard and assistive technology navigation reliable."
                 ),
                 suggested_fix=(
-                    "1. Use a focus trap library: focus-trap-react, @react-aria/focus\n"
-                    "2. Or implement manual focus trap:\n"
-                    "   - Track first/last focusable elements\n"
-                    "   - Wrap focus from last to first on Tab\n"
-                    "   - Wrap focus from first to last on Shift+Tab\n"
-                    "3. Ensure Escape key closes the modal"
+                    "Use a proven dialog primitive with built-in focus trap/restore, or implement full APG dialog "
+                    "keyboard and focus lifecycle contract explicitly."
                 ),
-                tags=["ux", "a11y", "modal", "focus", "keyboard", "accessibility"],
-                confidence=0.70,
+                tags=["a11y", "wcag", "apg", "dialog", "keyboard", "focus"],
+                confidence=0.86,
                 evidence_signals=[
-                    "modal_detected=true",
-                    "focus_trap_missing=true",
+                    "widget_type=dialog",
+                    f"missing_apg_signals={','.join(missing)}",
+                    f"focus_entry_signal={int(has_focus_entry_signal)}",
+                    f"focus_restore_signal={int(has_focus_restore_signal)}",
+                    f"keyboard_contract_missing={int(not has_close_signal)}",
                 ],
+                metadata={
+                    "decision_profile": {
+                        "widget_type": "dialog",
+                        "missing_apg_signals": ",".join(missing),
+                        "focus_entry_signal": bool(has_focus_entry_signal),
+                        "focus_restore_signal": bool(has_focus_restore_signal),
+                        "keyboard_contract_missing": bool(not has_close_signal),
+                    }
+                },
             )
-        )
+        ]
 
-        return findings
+    def analyze_regex(
+        self,
+        file_path: str,
+        content: str,
+        facts: Facts,
+        metrics: dict[str, MethodMetrics] | None = None,
+    ) -> list[Finding]:
+        # Backward-compatible alias for older tests/callers that still invoke analyze_regex directly.
+        return self.analyze_ast(file_path, content, facts, metrics)
+
+    def _find_dialog_nodes(self, root, content_bytes: bytes) -> list:
+        nodes = []
+        for node in self._jsx.iter_jsx_elements(root):
+            opening = self._jsx.get_opening_node(node)
+            tag = self._jsx.get_tag_name(opening, content_bytes)
+            attrs = self._jsx.get_attributes(opening, content_bytes)
+            attr_map = {a.name: a for a in attrs}
+
+            if any(tag.endswith(hint) for hint in self._DIALOG_TAG_HINTS):
+                nodes.append(node)
+                continue
+            role_attr = attr_map.get("role")
+            if role_attr and (role_attr.static_value or "").lower() in {"dialog", "alertdialog"}:
+                nodes.append(node)
+                continue
+            aria_modal = attr_map.get("aria-modal")
+            if aria_modal and (aria_modal.static_value or "").lower() == "true":
+                nodes.append(node)
+                continue
+        return nodes
 
     def _is_allowlisted_path(self, file_path: str) -> bool:
         low = (file_path or "").lower().replace("\\", "/")

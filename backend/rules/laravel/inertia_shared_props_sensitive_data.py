@@ -52,14 +52,35 @@ class InertiaSharedPropsSensitiveDataRule(Rule):
         norm = (file_path or "").replace("\\", "/").lower()
         text = content or ""
         low = text.lower()
-        if not any(hint in norm for hint in self._PATH_HINTS) and not any(hint in low for hint in self._FILE_HINTS):
+        require_inertia_context = bool(self.get_threshold("require_inertia_context", True))
+        require_global_share_context = bool(self.get_threshold("require_global_share_context", True))
+        min_signal_count = int(self.get_threshold("min_signal_count", 1) or 1)
+        min_confidence = float(self.get_threshold("min_confidence", 0.0) or 0.0)
+
+        inertia_context, global_share_context, context_signals = self._detect_context(norm, low)
+        if require_inertia_context and not inertia_context:
+            return []
+        if require_global_share_context and not global_share_context:
+            return []
+        if len(context_signals) < min_signal_count:
             return []
 
-        match = self._RAW_USER.search(text) or self._ARRAY_DUMP.search(text)
+        raw_match = self._RAW_USER.search(text)
+        array_dump_match = self._ARRAY_DUMP.search(text)
+        match = raw_match or array_dump_match
         if not match:
             return []
 
         line = text.count("\n", 0, match.start()) + 1
+        confidence = 0.91 if raw_match else 0.88
+        if not global_share_context:
+            confidence -= 0.12
+        if confidence + 1e-9 < min_confidence:
+            return []
+
+        evidence = list(context_signals)
+        evidence.append("raw_user_shared=true" if raw_match else "raw_user_array_dump=true")
+        evidence.append(f"file={file_path}")
         return [
             self.create_finding(
                 title="Inertia shared props expose the raw authenticated user object",
@@ -79,7 +100,29 @@ class InertiaSharedPropsSensitiveDataRule(Rule):
                     "instead of returning the full model or `toArray()` result."
                 ),
                 tags=["laravel", "inertia", "security", "shared-props"],
-                confidence=0.9,
-                evidence_signals=["raw_user_shared=true", f"file={file_path}"],
+                confidence=confidence,
+                evidence_signals=evidence,
             )
         ]
+
+    def _detect_context(self, norm_path: str, content_lower: str) -> tuple[bool, bool, list[str]]:
+        signals: list[str] = []
+        inertia_context = False
+        global_share_context = False
+
+        if any(hint in norm_path for hint in self._PATH_HINTS):
+            inertia_context = True
+            signals.append("inertia_context=path_hint")
+        if "inertia::share" in content_lower:
+            inertia_context = True
+            global_share_context = True
+            signals.append("inertia_context=inertia_share_call")
+        if "function share(" in content_lower or "parent::share(" in content_lower:
+            inertia_context = True
+            global_share_context = True
+            signals.append("global_share_context=share_method")
+        if not global_share_context and any(hint in content_lower for hint in self._FILE_HINTS):
+            global_share_context = True
+            signals.append("global_share_context=file_hint")
+
+        return inertia_context, global_share_context, signals

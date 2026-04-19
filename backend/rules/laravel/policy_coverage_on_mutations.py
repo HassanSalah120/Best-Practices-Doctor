@@ -12,6 +12,12 @@ from schemas.facts import Facts, MethodInfo
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from core.project_recommendations import (
+    enabled_capabilities,
+    enabled_team_standards,
+    project_aware_guidance,
+    recommendation_context_tags,
+)
 
 
 class PolicyCoverageOnMutationsRule(Rule):
@@ -77,6 +83,11 @@ class PolicyCoverageOnMutationsRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings: list[Finding] = []
+        min_write_queries = int(self.get_threshold("min_write_queries", 1) or 1)
+        min_mutation_signals = int(self.get_threshold("min_mutation_signals", 2) or 2)
+        strict_public_action_exemptions = bool(self.get_threshold("strict_public_action_exemptions", True))
+        capabilities = enabled_capabilities(facts)
+        team_standards = enabled_team_standards(facts)
         controller_names = {c.name for c in facts.controllers}
         if not controller_names:
             return findings
@@ -94,6 +105,7 @@ class PolicyCoverageOnMutationsRule(Rule):
             write_queries[key] = write_queries.get(key, 0) + 1
 
         route_protected = self._route_protection_map(facts)
+        routes_by_target = self._routes_by_target(facts)
         controller_ctor_protected = self._controller_ctor_protection_map(facts)
 
         for method in facts.methods:
@@ -103,16 +115,29 @@ class PolicyCoverageOnMutationsRule(Rule):
                 continue
             if self._is_allowlisted_path(method.file_path):
                 continue
-            if method.name.lower() in self._PUBLIC_ACTION_NAMES:
+            if strict_public_action_exemptions and method.name.lower() in self._PUBLIC_ACTION_NAMES:
                 continue
 
             key = (method.file_path, method.name)
             write_count = int(write_queries.get(key, 0))
             mutation_by_name = method.name.lower() in self._MUTATION_METHOD_NAMES
             has_model_query = any(q.model for q in queries_by_method.get(key, []))
-            # Keep signal high: require direct query evidence.
-            is_mutation = write_count > 0 or (mutation_by_name and has_model_query)
+            route_ctx = routes_by_target.get((method.class_name.lower(), method.name.lower()), [])
+            mutation_signal_score = 0
+            if mutation_by_name:
+                mutation_signal_score += 1
+            if write_count >= min_write_queries:
+                mutation_signal_score += 1
+            if route_ctx and any("{" in str(getattr(route, "uri", "") or "") for route in route_ctx):
+                mutation_signal_score += 1
+            if route_ctx and any(self._route_has_auth_middleware(route) for route in route_ctx):
+                mutation_signal_score += 1
+
+            # Keep signal high: require direct query evidence and context score.
+            is_mutation = (write_count >= min_write_queries) or (mutation_by_name and has_model_query)
             if not is_mutation:
+                continue
+            if mutation_signal_score < min_mutation_signals:
                 continue
 
             if self._method_has_auth_guard(method):
@@ -125,6 +150,7 @@ class PolicyCoverageOnMutationsRule(Rule):
             confidence = 0.65
             if write_count > 0:
                 confidence = min(0.95, 0.75 + (0.05 * min(write_count, 4)))
+            guidance = project_aware_guidance(facts, focus="orchestration_boundaries")
 
             evidence = [f"method={method.method_fqn}"]
             if mutation_by_name:
@@ -159,10 +185,30 @@ class PolicyCoverageOnMutationsRule(Rule):
                         "2. Protect routes with `auth` and ability middleware (`can:...`) where appropriate\n"
                         "3. Prefer policy methods for resource-level decisions (create/update/delete)\n"
                         "4. Add feature tests for forbidden access paths"
-                    ),
-                    tags=["laravel", "security", "authorization", "policy"],
+                    ) + (f"\n\nProject-aware guidance:\n{guidance}" if guidance else ""),
+                    tags=["laravel", "security", "authorization", "policy", *recommendation_context_tags(facts)],
                     confidence=confidence,
                     evidence_signals=evidence,
+                    metadata={
+                        "decision_profile": {
+                            "decision": "emit",
+                            "project_business_context": str(getattr(getattr(facts, "project_context", None), "project_business_context", "unknown") or "unknown"),
+                            "capabilities": sorted(capabilities),
+                            "team_standards": sorted(team_standards),
+                            "decision_summary": "Mutation flow matched authorization-risk signals without policy/gate protection.",
+                            "decision_reasons": [
+                                f"mutation_by_name={int(mutation_by_name)}",
+                                f"write_queries={write_count}",
+                                f"route_guard={int(route_protected.get((method.class_name.lower(), method.name.lower()), False))}",
+                                f"mutation_signal_score={mutation_signal_score}",
+                                f"min_mutation_signals={min_mutation_signals}",
+                            ],
+                        },
+                        "overlap_group": "authorization-boundary",
+                        "overlap_scope": method.method_fqn,
+                        "overlap_rank": 210,
+                        "overlap_role": "parent",
+                    },
                 )
             )
 
@@ -182,6 +228,20 @@ class PolicyCoverageOnMutationsRule(Rule):
             if has_guard:
                 out[(controller.lower(), action)] = True
         return out
+
+    def _routes_by_target(self, facts: Facts) -> dict[tuple[str, str], list]:
+        out: dict[tuple[str, str], list] = {}
+        for route in facts.routes or []:
+            controller = self._normalize_controller_name(route.controller or "")
+            action = (route.action or "").strip().lower()
+            if not controller or not action:
+                continue
+            out.setdefault((controller.lower(), action), []).append(route)
+        return out
+
+    def _route_has_auth_middleware(self, route) -> bool:
+        text = " ".join(str(mw).lower() for mw in (getattr(route, "middleware", []) or []))
+        return any(token in text for token in self._AUTH_MIDDLEWARE_TOKENS)
 
     def _controller_ctor_protection_map(self, facts: Facts) -> dict[str, bool]:
         out: dict[str, bool] = {}

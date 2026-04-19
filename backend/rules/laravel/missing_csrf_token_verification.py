@@ -43,6 +43,9 @@ class MissingCsrfTokenVerificationRule(Rule):
         "logout",          # Logout
         "register",        # Registration
         "password/*",      # Password reset
+        "forgot-password", # Laravel auth scaffold
+        "reset-password",  # Laravel auth scaffold
+        "confirm-password",# Laravel auth scaffold
         "email/*",         # Email verification
         "sanctum/*",       # Sanctum API
         "broadcasting/*",  # Broadcasting auth
@@ -59,6 +62,15 @@ class MissingCsrfTokenVerificationRule(Rule):
 
     # Route files that don't have CSRF by default
     _API_ROUTES_FILES = {"routes/api.php", "routes/auth.php"}
+    _AUTH_ROUTE_HINTS = {
+        "forgot-password",
+        "reset-password",
+        "confirm-password",
+        "verify-email",
+        "email/verification-notification",
+        "two-factor-challenge",
+        "two-factor-challenge/email",
+    }
 
     def analyze(
         self,
@@ -78,6 +90,8 @@ class MissingCsrfTokenVerificationRule(Rule):
             if self._is_exempt_route(uri_lower):
                 continue
             if self._matches_exempt_pattern(uri_lower, csrf_exempt_patterns):
+                continue
+            if self._is_auth_scaffold_route(route, uri_lower, web_route_includes):
                 continue
 
             # Check middleware
@@ -254,4 +268,26 @@ class MissingCsrfTokenVerificationRule(Rule):
                     return True
             elif uri == pattern or uri.startswith(pattern + "/"):
                 return True
+        return False
+
+    def _is_auth_scaffold_route(self, route: RouteInfo, uri: str, web_route_includes: set[str]) -> bool:
+        uri_low = (uri or "").strip("/").lower()
+        if not uri_low:
+            return False
+        if uri_low not in self._AUTH_ROUTE_HINTS and not any(
+            uri_low.startswith(f"{hint}/") for hint in self._AUTH_ROUTE_HINTS
+        ):
+            return False
+
+        middleware = {str(m).lower() for m in (route.middleware or [])}
+        if not ({"auth", "guest"} & middleware):
+            return False
+
+        route_path = (route.file_path or "").replace("\\", "/").lower()
+        if route_path.endswith("routes/auth.php") or "/routes/auth-" in route_path:
+            return True
+
+        if self._is_in_web_include_chain(route.file_path, web_route_includes):
+            return True
+
         return False

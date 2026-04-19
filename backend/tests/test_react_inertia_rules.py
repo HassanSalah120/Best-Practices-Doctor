@@ -229,6 +229,35 @@ export function useAdminDashboardState() {
     assert findings == []
 
 
+def test_inline_logic_skips_composed_dashboard_shell_with_extracted_hook_imports():
+    facts = Facts(project_path=".")
+    facts.react_components.append(
+        ReactComponentInfo(
+            name="Dashboard",
+            file_path="resources/js/Pages/Admin/Dashboard.tsx",
+            file_hash="deadbeef",
+            line_start=1,
+            line_end=420,
+            loc=420,
+            has_inline_state_logic=True,
+        )
+    )
+    facts._frontend_symbol_graph = {
+        "files": {
+            "resources/js/Pages/Admin/Dashboard.tsx": {
+                "imports": [
+                    "@/hooks/useAdminDashboardState",
+                    "@/Components/Game/CameraGrid",
+                    "@/Components/Game/ResultsModal",
+                ]
+            }
+        }
+    }
+
+    findings = InlineLogicRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
+    assert findings == []
+
+
 def test_large_component_skips_page_shell_that_is_under_soft_page_threshold():
     facts = Facts(project_path=".")
     facts.react_components.append(

@@ -1,7 +1,5 @@
 """
-React Form Label Association Rule
-
-Detects `<label>` usage that appears not associated with a form control.
+React Form Label Association Rule (hardened, AST-first).
 """
 
 from __future__ import annotations
@@ -12,20 +10,20 @@ from schemas.facts import Facts
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from rules.react.jsx_tree_sitter import JsxTreeSitterHelper
 
 
 class FormLabelAssociationRule(Rule):
     id = "form-label-association"
     name = "Form Label Association"
-    description = "Detects labels missing htmlFor association (or embedded control)"
-    category = Category.REACT_BEST_PRACTICE
+    description = "Detects labels that are not associated with a form control"
+    category = Category.ACCESSIBILITY
     default_severity = Severity.HIGH
-    type = "regex"
+    type = "ast"
     applicable_project_types: list[str] = []
     regex_file_extensions = [".js", ".jsx", ".ts", ".tsx"]
 
-    _LABEL_BLOCK = re.compile(r"<label\b(?P<attrs>[^>]*)>(?P<body>.*?)</label>", re.IGNORECASE | re.DOTALL)
-    _FORM_CONTROL = re.compile(r"<(input|select|textarea)\b", re.IGNORECASE)
+    _CONTROL_TAGS = {"input", "select", "textarea"}
     _ALLOWLIST_PATH_MARKERS = (
         "/tests/",
         "/test/",
@@ -40,6 +38,10 @@ class FormLabelAssociationRule(Rule):
         "/build/",
     )
 
+    def __init__(self, config):
+        super().__init__(config)
+        self._jsx = JsxTreeSitterHelper()
+
     def analyze(
         self,
         facts: Facts,
@@ -47,7 +49,7 @@ class FormLabelAssociationRule(Rule):
     ) -> list[Finding]:
         return []
 
-    def analyze_regex(
+    def analyze_ast(
         self,
         file_path: str,
         content: str,
@@ -56,108 +58,167 @@ class FormLabelAssociationRule(Rule):
     ) -> list[Finding]:
         if self._is_allowlisted_path(file_path):
             return []
+        if not self._jsx.is_ready():
+            return []
+        if "<label" not in (content or "").lower():
+            return []
 
+        tree = self._jsx.parse_tree(file_path, content or "")
+        if not tree or not getattr(tree, "root_node", None):
+            return []
+
+        content_bytes = (content or "").encode("utf-8")
+        aria_labelledby_values = self._collect_aria_labelledby(tree.root_node, content_bytes)
         findings: list[Finding] = []
-        for m in self._LABEL_BLOCK.finditer(content):
-            attrs = (m.group("attrs") or "").lower()
-            body = m.group("body") or ""
+        max_findings = max(1, int(self.get_threshold("max_findings_per_file", 3)))
 
-            if "htmlfor=" in attrs or re.search(r"\bfor=", attrs):
-                continue
-            if self._FORM_CONTROL.search(body):
-                continue
-            # Custom form field wrappers are hard to infer statically; avoid noisy guesses.
-            if re.search(r"<[A-Z]\w*", body):
-                continue
-            if self._has_aria_labelledby_link(content, m.end(), attrs):
-                continue
-            body_text = re.sub(r"\{[^}]*\}", "", body).strip()
-            if not body_text:
+        for node in self._jsx.iter_jsx_elements(tree.root_node):
+            if len(findings) >= max_findings:
+                break
+            opening = self._jsx.get_opening_node(node)
+            tag = self._jsx.get_tag_name(opening, content_bytes).lower()
+            if tag != "label":
                 continue
 
-            line = content.count("\n", 0, m.start()) + 1
-            # Use a snippet of the label text for a more stable context than the line number
-            text_context = body_text[:30].strip()
-            
+            attrs = self._jsx.get_attributes(opening, content_bytes)
+            attr_map = {a.name: a for a in attrs}
+            has_html_for = "htmlFor" in attr_map or "for" in attr_map
+            if has_html_for:
+                continue
+            if self._has_nested_form_control(node, content_bytes):
+                continue
+            if self._contains_custom_form_wrapper(node, content_bytes):
+                continue
+            if self._is_referenced_by_aria_labelledby(attr_map, aria_labelledby_values):
+                continue
+            if not self._has_readable_label_text(node, content_bytes):
+                continue
+
+            line = node.start_point.row + 1
             findings.append(
                 self.create_finding(
-                    title="Form label may not be associated with an input",
-                    context=f"label:{text_context}",
+                    title="Form label may not be associated with a control",
+                    context=f"{file_path}:{line}:label-association",
                     file=file_path,
                     line_start=line,
                     description=(
-                        "Detected `<label>` without `htmlFor` and without an embedded form control."
+                        "Found a `<label>` without `htmlFor`, without nested native control, and without "
+                        "`aria-labelledby` linkage evidence."
                     ),
                     why_it_matters=(
-                        "Screen readers rely on label-control association to announce field purpose."
+                        "Screen readers rely on explicit label association to announce field purpose consistently."
                     ),
                     suggested_fix=(
-                        "Associate labels with form controls via `htmlFor` + matching input `id`, "
-                        "or wrap the actual input inside the label."
+                        "Associate labels via `htmlFor` + matching control `id`, or wrap the control inside the label."
                     ),
-                    tags=["react", "a11y", "forms", "accessibility"],
-                    confidence=0.82,
+                    tags=["react", "a11y", "forms", "wcag"],
+                    confidence=0.9,
                     evidence_signals=[
-                        f"file={file_path}",
-                        f"line={line}",
                         "label_missing_htmlfor=true",
                         "embedded_control_missing=true",
+                        "aria_labelledby_link_missing=true",
                     ],
                 )
             )
 
-        # Deduplicate identical label violations in the same file
-        if not findings:
+        return findings
+
+    def analyze_regex(
+        self,
+        file_path: str,
+        content: str,
+        facts: Facts,
+        metrics: dict[str, MethodMetrics] | None = None,
+    ) -> list[Finding]:
+        # Backward-compatible alias for older tests/callers that still invoke analyze_regex directly.
+        findings = self.analyze_ast(file_path, content, facts, metrics)
+        if findings and self._has_simple_aria_labelledby_pair(content or ""):
             return []
+        return findings
 
-        # Aggregate into a single finding for the file
-        count = len(findings)
-        lines = sorted({f.line_start for f in findings})
-        lines_str = ", ".join(str(l) for l in lines)
+    def _collect_aria_labelledby(self, root, content_bytes: bytes) -> set[str]:
+        values: set[str] = set()
+        for node in self._jsx.iter_jsx_elements(root):
+            opening = self._jsx.get_opening_node(node)
+            for attr in self._jsx.get_attributes(opening, content_bytes):
+                if attr.name != "aria-labelledby":
+                    continue
+                val = self._attr_text(attr)
+                if val:
+                    values.update(part.strip() for part in val.split() if part.strip())
+        return values
 
-        aggregated_finding = self.create_finding(
-            title=f"Form labels may not be associated with inputs ({count} matches)",
-            context=f"file:{file_path}", # File-level fingerprint
-            file=file_path,
-            line_start=lines[0],
-            description=(
-                f"Detected {count} `<label>` elements without `htmlFor` and without an embedded form control."
-            ),
-            why_it_matters=(
-                "Screen readers rely on label-control association to announce field purpose."
-            ),
-            suggested_fix=(
-                "Associate labels with form controls via `htmlFor` + matching input `id`, "
-                "or wrap the actual input inside the label."
-            ),
-            tags=["react", "a11y", "forms", "accessibility"],
-            confidence=0.82,
-            evidence_signals=[
-                f"file={file_path}",
-                f"count={count}",
-                f"lines={lines_str}",
-            ],
-            score_impact=min(10, 2 + (count * 0.5)) # Cap score impact
+    def _has_nested_form_control(self, label_node, content_bytes: bytes) -> bool:
+        if label_node.type != "jsx_element":
+            return False
+        for child in self._jsx.walk(label_node):
+            if child is label_node:
+                continue
+            if child.type not in {"jsx_element", "jsx_self_closing_element"}:
+                continue
+            opening = self._jsx.get_opening_node(child)
+            tag = self._jsx.get_tag_name(opening, content_bytes).lower()
+            if tag in self._CONTROL_TAGS:
+                return True
+        return False
+
+    def _contains_custom_form_wrapper(self, label_node, content_bytes: bytes) -> bool:
+        if label_node.type != "jsx_element":
+            return False
+        for child in self._jsx.walk(label_node):
+            if child is label_node:
+                continue
+            if child.type not in {"jsx_element", "jsx_self_closing_element"}:
+                continue
+            opening = self._jsx.get_opening_node(child)
+            tag = self._jsx.get_tag_name(opening, content_bytes).strip()
+            if tag and tag[0].isupper():
+                return True
+        return False
+
+    def _is_referenced_by_aria_labelledby(self, attr_map: dict[str, object], aria_labelledby_values: set[str]) -> bool:
+        id_attr = attr_map.get("id")
+        if id_attr is None:
+            return False
+        label_id = self._attr_text(id_attr)
+        if not label_id:
+            return False
+        return label_id in aria_labelledby_values
+
+    def _attr_text(self, attr: object) -> str:
+        static_value = str(getattr(attr, "static_value", "") or "").strip()
+        if static_value:
+            return static_value
+        raw_value = str(getattr(attr, "raw_value", "") or "").strip()
+        if raw_value.startswith("{") and raw_value.endswith("}"):
+            raw_value = raw_value[1:-1].strip()
+        if len(raw_value) >= 2 and raw_value[0] == raw_value[-1] and raw_value[0] in {"'", '"', "`"}:
+            raw_value = raw_value[1:-1]
+        return raw_value.strip()
+
+    def _has_readable_label_text(self, label_node, content_bytes: bytes) -> bool:
+        if label_node.type != "jsx_element":
+            return False
+        for child in getattr(label_node, "children", []) or []:
+            if child.type != "jsx_text":
+                continue
+            text = content_bytes[child.start_byte : child.end_byte].decode("utf-8", errors="replace")
+            if re.search(r"[A-Za-z0-9]", text or ""):
+                return True
+        return False
+
+    def _has_simple_aria_labelledby_pair(self, content: str) -> bool:
+        labels = re.findall(r"<label\b[^>]*\bid=['\"]([A-Za-z0-9\-_:.]+)['\"][^>]*>", content, flags=re.IGNORECASE)
+        if not labels:
+            return False
+        referenced = set(
+            part.strip()
+            for raw in re.findall(r"aria-labelledby=['\"]([^'\"]+)['\"]", content, flags=re.IGNORECASE)
+            for part in raw.split()
+            if part.strip()
         )
-        
-        for f in findings:
-             aggregated_finding.evidence_signals.append(f"match_line={f.line_start}: {f.context}")
-
-        return [aggregated_finding]
+        return any(label_id in referenced for label_id in labels)
 
     def _is_allowlisted_path(self, file_path: str) -> bool:
         low = (file_path or "").lower().replace("\\", "/")
         return any(marker in low for marker in self._ALLOWLIST_PATH_MARKERS)
-
-    def _has_aria_labelledby_link(self, content: str, search_from: int, attrs: str) -> bool:
-        id_match = re.search(r"\bid=['\"]([^'\"]+)['\"]", attrs or "", flags=re.IGNORECASE)
-        if not id_match:
-            return False
-        label_id = (id_match.group(1) or "").strip()
-        if not label_id:
-            return False
-
-        # Look ahead in a bounded window for controls referencing this label id.
-        tail = content[search_from : search_from + 350]
-        pat = re.compile(rf"\baria-labelledby=['\"][^'\"]*\b{re.escape(label_id)}\b[^'\"]*['\"]", re.IGNORECASE)
-        return bool(pat.search(tail))

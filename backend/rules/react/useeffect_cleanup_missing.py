@@ -37,7 +37,7 @@ class UseEffectCleanupMissingRule(Rule):
         # WebSocket
         re.compile(r"new\s+WebSocket\s*\(", re.IGNORECASE),
         re.compile(r"socket\.connect\s*\(", re.IGNORECASE),
-        # Fetch (covered by separate rule, but included for completeness)
+        # Fetch is optional (configured via threshold include_fetch_effects)
         re.compile(r"fetch\s*\(", re.IGNORECASE),
         # Event sources
         re.compile(r"new\s+EventSource\s*\(", re.IGNORECASE),
@@ -67,6 +67,7 @@ class UseEffectCleanupMissingRule(Rule):
         re.compile(r"cancelled\s*=\s*true", re.IGNORECASE),
         re.compile(r"canceled\s*=\s*true", re.IGNORECASE),
         re.compile(r"ignore\s*=\s*true", re.IGNORECASE),
+        re.compile(r"return\s+[a-zA-Z_][a-zA-Z0-9_]*\s*;", re.IGNORECASE),  # return cleanup;
     ]
 
     _USE_EFFECT_PATTERN = re.compile(r"\buseEffect\s*\(", re.IGNORECASE)
@@ -99,6 +100,8 @@ class UseEffectCleanupMissingRule(Rule):
         if any(allow in norm_path for allow in self._ALLOWLIST_PATHS):
             return findings
 
+        include_fetch_effects = bool(self.get_threshold("include_fetch_effects", False))
+        min_side_effect_signals = max(1, int(self.get_threshold("min_side_effect_signals", 1)))
         text = content or ""
 
         # Find all useEffect blocks
@@ -114,6 +117,10 @@ class UseEffectCleanupMissingRule(Rule):
                         detected_effects.append(effect_name)
 
             if not detected_effects:
+                continue
+            if not include_fetch_effects:
+                detected_effects = [effect for effect in detected_effects if effect != "fetch"]
+            if len(detected_effects) < min_side_effect_signals:
                 continue
 
             # Check for cleanup patterns
@@ -182,6 +189,19 @@ class UseEffectCleanupMissingRule(Rule):
                     ),
                     confidence=0.85,
                     tags=["react", "useeffect", "cleanup", "memory-leak", "hooks"],
+                    evidence_signals=[
+                        f"detected_effects={','.join(detected_effects)}",
+                        f"include_fetch_effects={int(include_fetch_effects)}",
+                        f"min_side_effect_signals={min_side_effect_signals}",
+                    ],
+                    metadata={
+                        "decision_profile": {
+                            "detected_effects": detected_effects,
+                            "include_fetch_effects": include_fetch_effects,
+                            "min_side_effect_signals": min_side_effect_signals,
+                            "has_cleanup": has_cleanup,
+                        }
+                    },
                 )
             )
 

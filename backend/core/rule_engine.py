@@ -18,6 +18,7 @@ from schemas.finding import Finding, FindingClassification, Severity
 from core.ruleset import Ruleset, RuleConfig
 from rules.base import Rule, RuleResult
 from core.path_utils import normalize_rel_path
+from core.context_profiles import ContextProfileMatrix, ContextSignalState, EffectiveContext
 
 # Import all rules
 from rules.laravel import (
@@ -36,10 +37,13 @@ from rules.laravel import (
     ControllerQueryDirectRule,
     ControllerBusinessLogicRule,
     ControllerInlineValidationRule,
+    ControllerIndexFilterDuplicationRule,
     DtoSuggestionRule,
     MassAssignmentRiskRule,
     ActionClassSuggestionRule,
+    ActionClassNamingConsistencyRule,
     MassiveModelRule,
+    ModelCrossModelQueryRule,
     UnsafeFileUploadRule,
     NoJsonEncodeInControllersRule,
     ApiResourceUsageRule,
@@ -57,6 +61,11 @@ from rules.laravel import (
     BladeXssRiskRule,
     UserModelMissingMustVerifyEmailRule,
     RegistrationMissingRegisteredEventRule,
+    MissingForeignKeyInMigrationRule,
+    MissingIndexOnLookupColumnsRule,
+    DestructiveMigrationWithoutSafetyGuardRule,
+    ModelHiddenSensitiveAttributesMissingRule,
+    SensitiveModelAppendsRiskRule,
     SensitiveRoutesMissingVerifiedMiddlewareRule,
     TenantAccessMiddlewareMissingRule,
     SignedRoutesMissingSignatureMiddlewareRule,
@@ -64,13 +73,39 @@ from rules.laravel import (
     AuthorizationMissingOnSensitiveReadsRule,
     InsecureSessionCookieConfigRule,
     UnsafeCspPolicyRule,
+    SsrfRiskHttpClientRule,
+    PathTraversalFileAccessRule,
+    InsecureFileDownloadResponseRule,
+    WebhookSignatureMissingRule,
+    IdorRiskMissingOwnershipCheckRule,
+    SensitiveRouteRateLimitMissingRule,
+    SanctumTokenScopeMissingRule,
+    SessionFixationRegenerateMissingRule,
+    WeakPasswordPolicyValidationRule,
+    UploadMimeExtensionMismatchRule,
+    ArchiveUploadZipSlipRiskRule,
+    UploadSizeLimitMissingRule,
+    CsrfExceptionWildcardRiskRule,
+    HostHeaderPoisoningRiskRule,
+    XmlXxeRiskRule,
+    ZipBombRiskRule,
+    SensitiveResponseCacheControlMissingRule,
+    PasswordResetTokenHardeningMissingRule,
+    SecurityHeadersBaselineMissingRule,
+    WebhookReplayProtectionMissingRule,
     JobMissingIdempotencyGuardRule,
     ComposerDependencyBelowSecureVersionRule,
     NpmDependencyBelowSecureVersionRule,
     InertiaSharedPropsSensitiveDataRule,
     InertiaSharedPropsEagerQueryRule,
+    InertiaSharedPropsPayloadBudgetRule,
     JobMissingRetryPolicyRule,
     JobHttpCallMissingTimeoutRule,
+    NotificationShouldQueueMissingRule,
+    ListenerShouldQueueMissingForIoBoundHandlerRule,
+    BroadcastChannelAuthorizationMissingRule,
+    ObserverHeavyLogicRule,
+    PublicApiVersioningMissingRule,
     # Security rules
     HardcodedSecretsRule,
     SensitiveDataLoggingRule,
@@ -84,6 +119,7 @@ from rules.laravel import (
     ColumnSelectionSuggestionRule,
     MissingCacheForReferenceDataRule,
     MissingPaginationRule,
+    ErrorPagesMissingRule,
     NullFilteringSuggestionRule,
     AssetVersioningCheckRule,
     # Architecture rules
@@ -128,6 +164,7 @@ from rules.react import (
     NoInlineHooksRule,
     NoInlineTypesRule,
     NoInlineServicesRule,
+    ReactParentChildSpacingOverlapRule,
     ReactProjectStructureConsistencyRule,
     InertiaPageMissingHeadRule,
     InertiaInternalLinkAnchorRule,
@@ -136,6 +173,27 @@ from rules.react import (
     MultipleExportedComponentsPerFileRule,
     ContextProviderInlineValueRule,
     UseEffectFetchWithoutAbortRule,
+    NoDirectUseEffectRule,
+    DerivedStateInEffectRule,
+    StateUpdateInRenderRule,
+    LargeCustomHookRule,
+    CrossFeatureImportBoundaryRule,
+    QueryKeyInstabilityRule,
+    EffectEventRelaySmellRule,
+    RouteShellMissingErrorBoundaryRule,
+    UnsafeAsyncHandlerWithoutGuardRule,
+    ReactNoRandomKeyRule,
+    ReactNoPropsMutationRule,
+    ReactNoStateMutationRule,
+    ReactSideEffectsInRenderRule,
+    ReactEventListenerCleanupRequiredRule,
+    ReactTimerCleanupRequiredRule,
+    InertiaReloadWithoutOnlyRule,
+    InsecurePostMessageOriginWildcardRule,
+    TokenStorageInsecureLocalStorageRule,
+    ClientOpenRedirectUnvalidatedNavigationRule,
+    PostMessageReceiverOriginNotVerifiedRule,
+    DangerousHtmlSinkWithoutSanitizerRule,
     # Phase 1 React rules
     UseEffectCleanupMissingRule,
     # Phase 2 React performance rules
@@ -164,6 +222,54 @@ from rules.react import (
     RedundantEntryRule,
     AccessibleAuthenticationRule,
     FocusNotObscuredRule,
+    CssFontSizePxRule,
+    CssSpacingPxRule,
+    CssFixedLayoutPxRule,
+    TailwindArbitraryValueOveruseRule,
+    TailwindArbitraryTextSizeRule,
+    TailwindArbitrarySpacingRule,
+    TailwindArbitraryLayoutSizeRule,
+    TailwindArbitraryRadiusShadowRule,
+    # CSS/Tailwind accessibility rules
+    TailwindMotionReduceMissingRule,
+    TailwindAppearanceNoneRiskRule,
+    CssFocusOutlineWithoutReplacementRule,
+    CssHoverOnlyInteractionRule,
+    CssColorOnlyStateIndicatorRule,
+    # WCAG/APG AST accessibility rules
+    SemanticWrapperBreakageRule,
+    InteractiveAccessibleNameRequiredRule,
+    JsxAriaAttributeFormatRule,
+    OutsideClickWithoutKeyboardFallbackRule,
+    APGTabsKeyboardContractRule,
+    APGAccordionDisclosureContractRule,
+    APGMenuButtonContractRule,
+    APGComboboxContractRule,
+    DialogFocusRestoreMissingRule,
+    # React gap expansion rules
+    AvoidPropsToStateCopyRule,
+    PropsStateSyncEffectSmellRule,
+    ControlledUncontrolledInputMismatchRule,
+    UseMemoOveruseRule,
+    UseCallbackOveruseRule,
+    ContextOversizedProviderRule,
+    LazyWithoutSuspenseRule,
+    SuspenseFallbackMissingRule,
+    StaleClosureInTimerRule,
+    StaleClosureInListenerRule,
+    DuplicateKeySourceRule,
+    MissingLoadingStateRule,
+    MissingEmptyStateRule,
+    RefAccessDuringRenderRule,
+    RefUsedAsReactiveStateRule,
+    # React SEO expansion rules
+    MetaDescriptionMissingOrGenericRule,
+    CanonicalMissingOrInvalidRule,
+    RobotsDirectiveRiskRule,
+    CrawlableInternalNavigationRequiredRule,
+    JsonLdStructuredDataInvalidOrMismatchedRule,
+    H1SingletonViolationRule,
+    PageIndexabilityConflictRule,
     # AST-based rules (higher accuracy)
     UseCallbackASTRule,
     UseMemoASTRule,
@@ -207,10 +313,13 @@ ALL_RULES: dict[str, Type[Rule]] = {
     "controller-query-direct": ControllerQueryDirectRule,
     "controller-business-logic": ControllerBusinessLogicRule,
     "controller-inline-validation": ControllerInlineValidationRule,
+    "controller-index-filter-duplication": ControllerIndexFilterDuplicationRule,
     "dto-suggestion": DtoSuggestionRule,
     "mass-assignment-risk": MassAssignmentRiskRule,
     "action-class-suggestion": ActionClassSuggestionRule,
+    "action-class-naming-consistency": ActionClassNamingConsistencyRule,
     "massive-model": MassiveModelRule,
+    "model-cross-model-query": ModelCrossModelQueryRule,
     "unsafe-file-upload": UnsafeFileUploadRule,
     "unused-service-class": UnusedServiceClassRule,
 
@@ -230,10 +339,35 @@ ALL_RULES: dict[str, Type[Rule]] = {
     "blade-xss-risk": BladeXssRiskRule,
     "user-model-missing-must-verify-email": UserModelMissingMustVerifyEmailRule,
     "registration-missing-registered-event": RegistrationMissingRegisteredEventRule,
+    "missing-foreign-key-in-migration": MissingForeignKeyInMigrationRule,
+    "missing-index-on-lookup-columns": MissingIndexOnLookupColumnsRule,
+    "destructive-migration-without-safety-guard": DestructiveMigrationWithoutSafetyGuardRule,
+    "model-hidden-sensitive-attributes-missing": ModelHiddenSensitiveAttributesMissingRule,
+    "sensitive-model-appends-risk": SensitiveModelAppendsRiskRule,
     "sensitive-routes-missing-verified-middleware": SensitiveRoutesMissingVerifiedMiddlewareRule,
     "tenant-access-middleware-missing": TenantAccessMiddlewareMissingRule,
     "signed-routes-missing-signature-middleware": SignedRoutesMissingSignatureMiddlewareRule,
     "unsafe-external-redirect": UnsafeExternalRedirectRule,
+    "ssrf-risk-http-client": SsrfRiskHttpClientRule,
+    "path-traversal-file-access": PathTraversalFileAccessRule,
+    "insecure-file-download-response": InsecureFileDownloadResponseRule,
+    "webhook-signature-missing": WebhookSignatureMissingRule,
+    "idor-risk-missing-ownership-check": IdorRiskMissingOwnershipCheckRule,
+    "sensitive-route-rate-limit-missing": SensitiveRouteRateLimitMissingRule,
+    "sanctum-token-scope-missing": SanctumTokenScopeMissingRule,
+    "session-fixation-regenerate-missing": SessionFixationRegenerateMissingRule,
+    "weak-password-policy-validation": WeakPasswordPolicyValidationRule,
+    "upload-mime-extension-mismatch": UploadMimeExtensionMismatchRule,
+    "archive-upload-zip-slip-risk": ArchiveUploadZipSlipRiskRule,
+    "upload-size-limit-missing": UploadSizeLimitMissingRule,
+    "csrf-exception-wildcard-risk": CsrfExceptionWildcardRiskRule,
+    "host-header-poisoning-risk": HostHeaderPoisoningRiskRule,
+    "xml-xxe-risk": XmlXxeRiskRule,
+    "zip-bomb-risk": ZipBombRiskRule,
+    "sensitive-response-cache-control-missing": SensitiveResponseCacheControlMissingRule,
+    "password-reset-token-hardening-missing": PasswordResetTokenHardeningMissingRule,
+    "security-headers-baseline-missing": SecurityHeadersBaselineMissingRule,
+    "webhook-replay-protection-missing": WebhookReplayProtectionMissingRule,
     "authorization-missing-on-sensitive-reads": AuthorizationMissingOnSensitiveReadsRule,
     "insecure-session-cookie-config": InsecureSessionCookieConfigRule,
     "unsafe-csp-policy": UnsafeCspPolicyRule,
@@ -242,8 +376,14 @@ ALL_RULES: dict[str, Type[Rule]] = {
     "npm-dependency-below-secure-version": NpmDependencyBelowSecureVersionRule,
     "inertia-shared-props-sensitive-data": InertiaSharedPropsSensitiveDataRule,
     "inertia-shared-props-eager-query": InertiaSharedPropsEagerQueryRule,
+    "inertia-shared-props-payload-budget": InertiaSharedPropsPayloadBudgetRule,
     "job-missing-retry-policy": JobMissingRetryPolicyRule,
     "job-http-call-missing-timeout": JobHttpCallMissingTimeoutRule,
+    "notification-shouldqueue-missing": NotificationShouldQueueMissingRule,
+    "listener-shouldqueue-missing-for-io-bound-handler": ListenerShouldQueueMissingForIoBoundHandlerRule,
+    "broadcast-channel-authorization-missing": BroadcastChannelAuthorizationMissingRule,
+    "observer-heavy-logic": ObserverHeavyLogicRule,
+    "public-api-versioning-missing": PublicApiVersioningMissingRule,
     
     # Security rules (Laravel)
     "hardcoded-secrets": HardcodedSecretsRule,
@@ -259,6 +399,7 @@ ALL_RULES: dict[str, Type[Rule]] = {
     "column-selection-suggestion": ColumnSelectionSuggestionRule,
     "missing-cache-for-reference-data": MissingCacheForReferenceDataRule,
     "missing-pagination": MissingPaginationRule,
+    "error-pages-missing": ErrorPagesMissingRule,
     "null-filtering-suggestion": NullFilteringSuggestionRule,
     "asset-versioning-check": AssetVersioningCheckRule,
     
@@ -305,6 +446,7 @@ ALL_RULES: dict[str, Type[Rule]] = {
     "no-inline-hooks": NoInlineHooksRule,
     "no-inline-types": NoInlineTypesRule,
     "no-inline-services": NoInlineServicesRule,
+    "react-parent-child-spacing-overlap": ReactParentChildSpacingOverlapRule,
     "react-project-structure-consistency": ReactProjectStructureConsistencyRule,
     "inertia-page-missing-head": InertiaPageMissingHeadRule,
     "inertia-internal-link-anchor": InertiaInternalLinkAnchorRule,
@@ -313,6 +455,27 @@ ALL_RULES: dict[str, Type[Rule]] = {
     "multiple-exported-react-components": MultipleExportedComponentsPerFileRule,
     "context-provider-inline-value": ContextProviderInlineValueRule,
     "react-useeffect-fetch-without-abort": UseEffectFetchWithoutAbortRule,
+    "no-direct-useeffect": NoDirectUseEffectRule,
+    "derived-state-in-effect": DerivedStateInEffectRule,
+    "state-update-in-render": StateUpdateInRenderRule,
+    "large-custom-hook": LargeCustomHookRule,
+    "cross-feature-import-boundary": CrossFeatureImportBoundaryRule,
+    "query-key-instability": QueryKeyInstabilityRule,
+    "effect-event-relay-smell": EffectEventRelaySmellRule,
+    "route-shell-missing-error-boundary": RouteShellMissingErrorBoundaryRule,
+    "unsafe-async-handler-without-guard": UnsafeAsyncHandlerWithoutGuardRule,
+    "react-no-random-key": ReactNoRandomKeyRule,
+    "react-no-props-mutation": ReactNoPropsMutationRule,
+    "react-no-state-mutation": ReactNoStateMutationRule,
+    "react-side-effects-in-render": ReactSideEffectsInRenderRule,
+    "react-event-listener-cleanup-required": ReactEventListenerCleanupRequiredRule,
+    "react-timer-cleanup-required": ReactTimerCleanupRequiredRule,
+    "inertia-reload-without-only": InertiaReloadWithoutOnlyRule,
+    "insecure-postmessage-origin-wildcard": InsecurePostMessageOriginWildcardRule,
+    "token-storage-insecure-localstorage": TokenStorageInsecureLocalStorageRule,
+    "client-open-redirect-unvalidated-navigation": ClientOpenRedirectUnvalidatedNavigationRule,
+    "postmessage-receiver-origin-not-verified": PostMessageReceiverOriginNotVerifiedRule,
+    "dangerous-html-sink-without-sanitizer": DangerousHtmlSinkWithoutSanitizerRule,
     
     # Phase 1 React rules
     "useeffect-cleanup-missing": UseEffectCleanupMissingRule,
@@ -346,6 +509,52 @@ ALL_RULES: dict[str, Type[Rule]] = {
     "redundant-entry": RedundantEntryRule,
     "accessible-authentication": AccessibleAuthenticationRule,
     "focus-not-obscured": FocusNotObscuredRule,
+    "semantic-wrapper-breakage": SemanticWrapperBreakageRule,
+    "interactive-accessible-name-required": InteractiveAccessibleNameRequiredRule,
+    "jsx-aria-attribute-format": JsxAriaAttributeFormatRule,
+    "outside-click-without-keyboard-fallback": OutsideClickWithoutKeyboardFallbackRule,
+    "apg-tabs-keyboard-contract": APGTabsKeyboardContractRule,
+    "apg-accordion-disclosure-contract": APGAccordionDisclosureContractRule,
+    "apg-menu-button-contract": APGMenuButtonContractRule,
+    "apg-combobox-contract": APGComboboxContractRule,
+    "dialog-focus-restore-missing": DialogFocusRestoreMissingRule,
+    # React gap expansion rules
+    "avoid-props-to-state-copy": AvoidPropsToStateCopyRule,
+    "props-state-sync-effect-smell": PropsStateSyncEffectSmellRule,
+    "controlled-uncontrolled-input-mismatch": ControlledUncontrolledInputMismatchRule,
+    "usememo-overuse": UseMemoOveruseRule,
+    "usecallback-overuse": UseCallbackOveruseRule,
+    "context-oversized-provider": ContextOversizedProviderRule,
+    "lazy-without-suspense": LazyWithoutSuspenseRule,
+    "suspense-fallback-missing": SuspenseFallbackMissingRule,
+    "stale-closure-in-timer": StaleClosureInTimerRule,
+    "stale-closure-in-listener": StaleClosureInListenerRule,
+    "duplicate-key-source": DuplicateKeySourceRule,
+    "missing-loading-state": MissingLoadingStateRule,
+    "missing-empty-state": MissingEmptyStateRule,
+    "ref-access-during-render": RefAccessDuringRenderRule,
+    "ref-used-as-reactive-state": RefUsedAsReactiveStateRule,
+    # React SEO expansion rules
+    "meta-description-missing-or-generic": MetaDescriptionMissingOrGenericRule,
+    "canonical-missing-or-invalid": CanonicalMissingOrInvalidRule,
+    "robots-directive-risk": RobotsDirectiveRiskRule,
+    "crawlable-internal-navigation-required": CrawlableInternalNavigationRequiredRule,
+    "jsonld-structured-data-invalid-or-mismatched": JsonLdStructuredDataInvalidOrMismatchedRule,
+    "h1-singleton-violation": H1SingletonViolationRule,
+    "page-indexability-conflict": PageIndexabilityConflictRule,
+    "css-font-size-px": CssFontSizePxRule,
+    "css-spacing-px": CssSpacingPxRule,
+    "css-fixed-layout-px": CssFixedLayoutPxRule,
+    "tailwind-arbitrary-value-overuse": TailwindArbitraryValueOveruseRule,
+    "tailwind-arbitrary-text-size": TailwindArbitraryTextSizeRule,
+    "tailwind-arbitrary-spacing": TailwindArbitrarySpacingRule,
+    "tailwind-arbitrary-layout-size": TailwindArbitraryLayoutSizeRule,
+    "tailwind-arbitrary-radius-shadow": TailwindArbitraryRadiusShadowRule,
+    "tailwind-motion-reduce-missing": TailwindMotionReduceMissingRule,
+    "tailwind-appearance-none-risk": TailwindAppearanceNoneRiskRule,
+    "css-focus-outline-without-replacement": CssFocusOutlineWithoutReplacementRule,
+    "css-hover-only-interaction": CssHoverOnlyInteractionRule,
+    "css-color-only-state-indicator": CssColorOnlyStateIndicatorRule,
     
     # AST-based React rules (higher accuracy)
     "usecallback-ast": UseCallbackASTRule,
@@ -369,6 +578,10 @@ class RuleEngine:
         self.ruleset = ruleset
         self.rules: list[Rule] = []
         self.selected_rules = set(selected_rules) if selected_rules else None
+        try:
+            self._context_matrix = ContextProfileMatrix.load_default()
+        except Exception:
+            self._context_matrix = None
         self._load_rules()
     
     def _load_rules(self) -> None:
@@ -384,6 +597,7 @@ class RuleEngine:
             if config.enabled:
                 try:
                     rule_instance = rule_class(config)
+                    setattr(rule_instance, "_base_thresholds", dict(getattr(config, "thresholds", {}) or {}))
                     self.rules.append(rule_instance)
                     logger.debug(f"Loaded rule: {rule_id}")
                 except Exception as e:
@@ -415,6 +629,7 @@ class RuleEngine:
         
         result = EngineResult()
         start = time.perf_counter()
+        self._apply_context_calibration(facts)
 
         def _overrides(rule: Rule, method_name: str) -> bool:
             method = getattr(rule.__class__, method_name, None)
@@ -702,6 +917,100 @@ class RuleEngine:
         )
         
         return result
+
+    def _apply_context_calibration(self, facts: Facts) -> None:
+        if self._context_matrix is None:
+            return
+        effective_context = self._build_effective_context_from_facts(facts)
+        for rule in self.rules:
+            self._reset_rule_runtime_state(rule)
+            calibration = self._context_matrix.calibrate_rule(rule.id, effective_context)
+            setattr(rule, "_context_calibration", calibration)
+            setattr(rule, "_runtime_effective_context", effective_context)
+            if calibration.get("enabled") is False:
+                rule.enabled = False
+                continue
+            severity_raw = str(calibration.get("severity", "") or "").strip().lower()
+            if severity_raw:
+                try:
+                    rule.severity = Severity(severity_raw)
+                except Exception:
+                    pass
+            thresholds = calibration.get("thresholds")
+            if isinstance(thresholds, dict) and thresholds:
+                merged = dict(getattr(rule.config, "thresholds", {}) or {})
+                merged.update({str(k): v for k, v in thresholds.items()})
+                rule.config.thresholds = merged
+
+    def _reset_rule_runtime_state(self, rule: Rule) -> None:
+        # Reset runtime state before applying context calibration so repeated runs remain deterministic.
+        rule.enabled = bool(getattr(rule.config, "enabled", True))
+        base_thresholds = getattr(rule, "_base_thresholds", None)
+        if isinstance(base_thresholds, dict):
+            rule.config.thresholds = dict(base_thresholds)
+        if getattr(rule.config, "severity", None):
+            try:
+                rule.severity = Severity(str(rule.config.severity))
+            except Exception:
+                rule.severity = rule.default_severity
+        else:
+            rule.severity = rule.default_severity
+
+    def _build_effective_context_from_facts(self, facts: Facts) -> EffectiveContext:
+        project_context = getattr(facts, "project_context", None)
+        if project_context is None:
+            return EffectiveContext()
+
+        effective = EffectiveContext(
+            framework=str(getattr(project_context, "backend_framework", "laravel") or "laravel"),
+            project_type=str(
+                getattr(project_context, "project_type", None)
+                or getattr(project_context, "project_business_context", "unknown")
+                or "unknown"
+            ),
+            project_type_confidence=float(getattr(project_context, "project_business_confidence", 0.0) or 0.0),
+            project_type_confidence_kind=str(getattr(project_context, "project_business_confidence_kind", "unknown") or "unknown"),
+            project_type_source=str(getattr(project_context, "project_business_source", "default") or "default"),
+            architecture_profile=str(
+                getattr(project_context, "architecture_style", None)
+                or getattr(project_context, "backend_architecture_profile", "unknown")
+                or "unknown"
+            ),
+            architecture_profile_confidence=float(getattr(project_context, "backend_profile_confidence", 0.0) or 0.0),
+            architecture_profile_confidence_kind=str(getattr(project_context, "backend_profile_confidence_kind", "unknown") or "unknown"),
+            architecture_profile_source=str(getattr(project_context, "backend_profile_source", "default") or "default"),
+        )
+
+        capabilities_payload = (
+            getattr(project_context, "capabilities", None)
+            or getattr(project_context, "backend_capabilities", {})
+            or {}
+        )
+        for key, payload in capabilities_payload.items():
+            if not isinstance(payload, dict):
+                continue
+            effective.capabilities[str(key)] = ContextSignalState(
+                enabled=bool(payload.get("enabled", False)),
+                confidence=float(payload.get("confidence", 0.0) or 0.0),
+                source=str(payload.get("source", "default") or "default"),
+                evidence=list(payload.get("evidence", []) or []),
+            )
+
+        expectations_payload = (
+            getattr(project_context, "team_expectations", None)
+            or getattr(project_context, "backend_team_expectations", {})
+            or {}
+        )
+        for key, payload in expectations_payload.items():
+            if not isinstance(payload, dict):
+                continue
+            effective.team_expectations[str(key)] = ContextSignalState(
+                enabled=bool(payload.get("enabled", False)),
+                confidence=float(payload.get("confidence", 0.0) or 0.0),
+                source=str(payload.get("source", "default") or "default"),
+                evidence=list(payload.get("evidence", []) or []),
+            )
+        return effective
 
     def _profile_confidence_floor(self) -> float:
         name = str(getattr(self.ruleset, "name", "") or "").strip().lower()

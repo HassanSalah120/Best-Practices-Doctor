@@ -67,6 +67,28 @@ class UserModelMissingMustVerifyEmailRule(Rule):
         if self._INTENTIONALLY_DISABLED.search(content or ""):
             return []
 
+        skip_for_token_api_only = bool(self.get_threshold("skip_for_token_api_only", True))
+        min_confidence = float(self.get_threshold("min_confidence", 0.0) or 0.0)
+        token_api_only = self._is_token_api_only_context(facts)
+        if skip_for_token_api_only and token_api_only:
+            return []
+
+        confidence = 0.92
+        if str(getattr(facts.project_context, "backend_architecture_profile", "") or "").lower() == "api-first":
+            confidence -= 0.08
+        if str(getattr(facts.project_context, "project_business_context", "") or "").lower() == "api_backend":
+            confidence -= 0.05
+        confidence = max(0.0, min(0.96, confidence))
+        if confidence + 1e-9 < min_confidence:
+            return []
+
+        evidence = [
+            f"file={file_path}",
+            "extends_authenticatable=true",
+            "implements_mustverifyemail=false",
+            f"token_api_only_context={'true' if token_api_only else 'false'}",
+        ]
+
         return [
             self.create_finding(
                 title="User model does not implement MustVerifyEmail",
@@ -85,11 +107,45 @@ class UserModelMissingMustVerifyEmailRule(Rule):
                     " ensure verification notifications/events are enabled in onboarding flows."
                 ),
                 tags=["laravel", "security", "email-verification", "auth"],
-                confidence=0.92,
-                evidence_signals=[
-                    f"file={file_path}",
-                    "extends_authenticatable=true",
-                    "implements_mustverifyemail=false",
-                ],
+                confidence=confidence,
+                evidence_signals=evidence,
             )
         ]
+
+    def _is_token_api_only_context(self, facts: Facts) -> bool:
+        routes = list(facts.routes or [])
+        profile = str(getattr(facts.project_context, "backend_architecture_profile", "") or "").lower()
+        project_type = str(getattr(facts.project_context, "project_business_context", "") or "").lower()
+        is_api_context = profile == "api-first" or project_type == "api_backend"
+        if not is_api_context:
+            return False
+        if self._has_email_verification_signal(routes):
+            return False
+        if not routes:
+            return True
+
+        token_auth_routes = 0
+        non_api_routes = 0
+        for route in routes:
+            route_file = (route.file_path or "").replace("\\", "/").lower()
+            if not (route_file == "routes/api.php" or route_file.endswith("/routes/api.php")):
+                non_api_routes += 1
+
+            uri = str(route.uri or "").lower()
+            middleware_txt = " ".join(str(x).lower() for x in (route.middleware or []))
+            if any(tok in middleware_txt for tok in ("sanctum", "passport", "jwt", "token")):
+                token_auth_routes += 1
+            elif any(tok in uri for tok in ("token", "login", "auth")):
+                token_auth_routes += 1
+
+        return non_api_routes == 0 and token_auth_routes > 0
+
+    def _has_email_verification_signal(self, routes: list) -> bool:
+        for route in routes:
+            uri = str(route.uri or "").lower()
+            action = str(route.action or "").lower()
+            if "verify" in uri or "verification" in uri:
+                return True
+            if "verify" in action or "verification" in action:
+                return True
+        return False

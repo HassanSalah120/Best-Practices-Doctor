@@ -1,4 +1,11 @@
-import type { ScanJob, ScanReport, FileSummary, Finding } from "@/types/api";
+import type {
+  ScanJob,
+  ScanReport,
+  FileSummary,
+  Finding,
+  ScanProjectContextOverrides,
+  ProjectContextSuggestionResponse,
+} from "@/types/api";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauriRuntime } from "@/lib/tauri";
 
@@ -103,6 +110,7 @@ export class ApiClient {
     projectPath: string,
     ruleset?: string,
     selectedRules?: string[],
+    projectContextOverrides?: ScanProjectContextOverrides,
   ): Promise<{ job_id: string }> {
     return this.request("/scan", {
       method: "POST",
@@ -110,6 +118,20 @@ export class ApiClient {
         path: projectPath,
         ruleset_path: ruleset,
         selected_rules: selectedRules,
+        project_context_overrides: projectContextOverrides,
+      }),
+    });
+  }
+
+  static async suggestProjectContext(
+    projectPath: string,
+    ruleset?: string,
+  ): Promise<ProjectContextSuggestionResponse> {
+    return this.request("/context/suggest", {
+      method: "POST",
+      body: JSON.stringify({
+        path: projectPath,
+        ruleset_path: ruleset,
       }),
     });
   }

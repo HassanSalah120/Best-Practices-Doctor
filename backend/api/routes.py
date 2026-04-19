@@ -13,6 +13,7 @@ from core.job_manager import job_manager, CancellationToken, JobManager
 from core.detector import ProjectDetector
 from core.ruleset import Ruleset, DEFAULT_RULESET
 from core.sarif import findings_to_sarif
+from core.hashing import fast_hash_hex
 from schemas.report import ScanJob, ScanReport
 from .auth import verify_token
 
@@ -31,6 +32,13 @@ class ScanRequest(BaseModel):
     pr_mode: bool = False
     pr_gate_preset: str | None = None
     selected_rules: list[str] | None = None  # For advanced profile: only run these rules
+    project_context_overrides: dict[str, object] | None = None
+
+
+class ContextSuggestRequest(BaseModel):
+    """Request payload for pre-scan project context suggestion."""
+    path: str
+    ruleset_path: str | None = None
 
 
 class ScanResponse(BaseModel):
@@ -70,6 +78,126 @@ async def health_check():
     return {"status": "ok", "version": "1.0.0"}
 
 
+def _suggest_overrides_from_context_payload(payload: dict[str, object]) -> dict[str, object]:
+    project_type = str(payload.get("project_type") or payload.get("project_business_context") or "unknown").strip()
+    architecture_style = str(payload.get("architecture_style") or payload.get("backend_architecture_profile") or "unknown").strip()
+    capabilities_payload = payload.get("capabilities") or payload.get("backend_capabilities") or {}
+    expectations_payload = payload.get("team_expectations") or payload.get("backend_team_expectations") or {}
+
+    overrides: dict[str, object] = {}
+    if project_type and project_type != "unknown":
+        overrides["project_type"] = project_type
+    if architecture_style and architecture_style != "unknown":
+        overrides["architecture_profile"] = architecture_style
+
+    capabilities: dict[str, bool] = {}
+    if isinstance(capabilities_payload, dict):
+        for key, info in capabilities_payload.items():
+            if not isinstance(info, dict):
+                continue
+            enabled = bool(info.get("enabled", False))
+            confidence = float(info.get("confidence", 0.0) or 0.0)
+            if enabled and confidence >= 0.55:
+                capabilities[str(key)] = True
+    if capabilities:
+        overrides["capabilities"] = capabilities
+
+    expectations: dict[str, bool] = {}
+    if isinstance(expectations_payload, dict):
+        for key, info in expectations_payload.items():
+            if not isinstance(info, dict):
+                continue
+            enabled = bool(info.get("enabled", False))
+            confidence = float(info.get("confidence", 0.0) or 0.0)
+            if enabled and confidence >= 0.6:
+                expectations[str(key)] = True
+    if expectations:
+        overrides["team_expectations"] = expectations
+
+    return overrides
+
+
+def _pin_overrides_from_context_payload(payload: dict[str, object]) -> dict[str, object]:
+    """
+    Build an explicit context snapshot from detected payload.
+
+    Unlike suggestion mode, this keeps both enabled and disabled capability/team
+    states so subsequent rescans stay stable even when heuristic detection shifts.
+    """
+    project_type = str(payload.get("project_type") or payload.get("project_business_context") or "unknown").strip()
+    architecture_style = str(payload.get("architecture_style") or payload.get("backend_architecture_profile") or "unknown").strip()
+    capabilities_payload = payload.get("capabilities") or payload.get("backend_capabilities") or {}
+    expectations_payload = payload.get("team_expectations") or payload.get("backend_team_expectations") or {}
+
+    overrides: dict[str, object] = {"context_lock_mode": "pinned_detected_snapshot"}
+    if project_type and project_type != "unknown":
+        overrides["project_type"] = project_type
+    if architecture_style and architecture_style != "unknown":
+        overrides["architecture_profile"] = architecture_style
+
+    capabilities: dict[str, bool] = {}
+    if isinstance(capabilities_payload, dict):
+        for key, info in capabilities_payload.items():
+            if not isinstance(info, dict):
+                continue
+            capabilities[str(key)] = bool(info.get("enabled", False))
+    if capabilities:
+        overrides["capabilities"] = capabilities
+
+    expectations: dict[str, bool] = {}
+    if isinstance(expectations_payload, dict):
+        for key, info in expectations_payload.items():
+            if not isinstance(info, dict):
+                continue
+            expectations[str(key)] = bool(info.get("enabled", False))
+    if expectations:
+        overrides["team_expectations"] = expectations
+
+    return overrides
+
+
+@router.post("/context/suggest")
+async def suggest_project_context(request: ContextSuggestRequest):
+    """
+    Build a lightweight pre-scan context suggestion from project structure.
+
+    This powers the setup UI so users can accept/edit detected context before a full scan.
+    """
+    import asyncio
+    from analysis.facts_builder import FactsBuilder
+
+    path = Path(request.path)
+    if not path.exists():
+        raise HTTPException(status_code=400, detail=f"Path does not exist: {request.path}")
+    if not path.is_dir():
+        raise HTTPException(status_code=400, detail=f"Path is not a directory: {request.path}")
+
+    detector = ProjectDetector(str(path))
+    project_info = await asyncio.to_thread(detector.detect)
+
+    ruleset = Ruleset.load_default(override_path=request.ruleset_path)
+    builder = FactsBuilder(
+        project_info=project_info,
+        ignore_patterns=ruleset.scan.ignore,
+        max_file_size_kb=ruleset.scan.max_file_size_kb,
+        max_files=ruleset.scan.max_files,
+        context_overrides=None,
+    )
+    facts = await asyncio.to_thread(builder.build)
+
+    project_context = getattr(facts, "project_context", None)
+    context_payload = project_context.model_dump() if project_context is not None else {}
+    suggested_overrides = _suggest_overrides_from_context_payload(context_payload)
+    pinned_overrides = _pin_overrides_from_context_payload(context_payload)
+
+    return {
+        "framework": str(context_payload.get("backend_framework", "unknown") or "unknown"),
+        "project_context": context_payload,
+        "suggested_context": suggested_overrides,
+        "pinned_context": pinned_overrides,
+    }
+
+
 # --- Scan function using real analysis pipeline ---
 
 async def run_scan(
@@ -81,6 +209,7 @@ async def run_scan(
     pr_mode: bool,
     pr_gate_preset: str | None,
     selected_rules: list[str] | None,
+    project_context_overrides: dict[str, object] | None,
     job_id: str,
     token: CancellationToken,
     manager: JobManager,
@@ -152,6 +281,7 @@ async def run_scan(
         cancellation_check=token.is_cancelled,
         max_file_size_kb=ruleset.scan.max_file_size_kb,
         max_files=ruleset.scan.max_files,
+        context_overrides=project_context_overrides,
     )
     
     # Progress callback for facts building - handled thread-safely
@@ -233,6 +363,12 @@ async def run_scan(
         ruleset_path=str(ruleset_path) if ruleset_path else None,
         rules_executed=rule_engine.get_rule_ids(),
     )
+    try:
+        if not isinstance(report.analysis_debug, dict):
+            report.analysis_debug = {}
+        report.analysis_debug["requested_project_context"] = dict(project_context_overrides or {})
+    except Exception:
+        pass
 
     # Phase 11: compute UI hotspots from derived metrics/facts (do not change scoring behavior).
     try:
@@ -363,6 +499,7 @@ async def start_scan(request: ScanRequest):
         request.pr_mode,
         request.pr_gate_preset,
         request.selected_rules,
+        request.project_context_overrides,
     )
     
     return ScanResponse(job_id=job_id, status="running")
@@ -1024,10 +1161,9 @@ async def get_scan_trends(job_id: str, limit: int = Query(10, ge=2, le=50)):
     
     try:
         from core.scan_history import ScanHistoryManager
-        import hashlib
         
         manager = ScanHistoryManager()
-        project_hash = hashlib.sha256(report.project_path.encode()).hexdigest()[:16]
+        project_hash = fast_hash_hex(report.project_path, 16)
         trend = manager.get_trend(project_hash, limit=limit)
         
         return trend
@@ -1044,10 +1180,9 @@ async def get_category_trend(job_id: str, category: str, limit: int = Query(10, 
     
     try:
         from core.scan_history import ScanHistoryManager
-        import hashlib
         
         manager = ScanHistoryManager()
-        project_hash = hashlib.sha256(report.project_path.encode()).hexdigest()[:16]
+        project_hash = fast_hash_hex(report.project_path, 16)
         trend = manager.get_category_trend(project_hash, category, limit=limit)
         
         return trend
@@ -1088,10 +1223,9 @@ async def clear_scan_history(job_id: str):
     
     try:
         from core.scan_history import ScanHistoryManager
-        import hashlib
         
         manager = ScanHistoryManager()
-        project_hash = hashlib.sha256(report.project_path.encode()).hexdigest()[:16]
+        project_hash = fast_hash_hex(report.project_path, 16)
         cleared = manager.clear_history(project_hash)
         
         return {"status": "cleared" if cleared else "not_found"}

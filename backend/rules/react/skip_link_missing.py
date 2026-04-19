@@ -1,7 +1,5 @@
 """
-Skip Link Missing Rule
-
-Detects pages that lack skip-to-content links for keyboard users.
+Skip Link Missing Rule (hardened for shell/layout scope).
 """
 
 from __future__ import annotations
@@ -17,61 +15,33 @@ from rules.base import Rule
 class SkipLinkMissingRule(Rule):
     id = "skip-link-missing"
     name = "Skip Link Missing"
-    description = "Detects pages without skip-to-content link for keyboard navigation"
+    description = "Detects shell/layout files without a valid skip-to-content link"
     category = Category.ACCESSIBILITY
     default_severity = Severity.HIGH
     type = "regex"
     applicable_project_types: list[str] = []
     regex_file_extensions = [".js", ".jsx", ".ts", ".tsx"]
 
-    # Skip link patterns
-    _SKIP_LINK_PATTERNS = [
-        re.compile(r"<a[^>]*href=[\"']#main[\"']", re.IGNORECASE),
-        re.compile(r"<a[^>]*href=[\"']#content[\"']", re.IGNORECASE),
-        re.compile(r"<a[^>]*href=[\"']#skip[\"']", re.IGNORECASE),
-        re.compile(r"<a[^>]*href=[\"']#main-content[\"']", re.IGNORECASE),
-        re.compile(r"skip\s*(?:to\s*)?(?:main|content)", re.IGNORECASE),
-        re.compile(r"skip-link", re.IGNORECASE),
-        re.compile(r"skipLink", re.IGNORECASE),
-    ]
-    
-    # Main content landmarks
-    _MAIN_CONTENT_PATTERNS = [
-        re.compile(r"<main\b", re.IGNORECASE),
-        re.compile(r'role=["\']main["\']', re.IGNORECASE),
-        re.compile(r'id=["\']main["\']', re.IGNORECASE),
-        re.compile(r'id=["\']content["\']', re.IGNORECASE),
-        re.compile(r'id=["\']main-content["\']', re.IGNORECASE),
-    ]
-    
-    # Page-like files (layouts, pages) - only layouts need skip links
-    _LAYOUT_PATTERNS = [
-        re.compile(r"/layouts?/", re.IGNORECASE),
-        re.compile(r"Layout\.tsx?$", re.IGNORECASE),
-        re.compile(r"[A-Z][a-zA-Z]*Layout\.tsx?$"),  # XxLayout.tsx
-        re.compile(r"/App\.tsx?$", re.IGNORECASE),  # Main App component
-        re.compile(r"/_app\.tsx?$", re.IGNORECASE),  # Next.js _app
-        re.compile(r"/_document\.tsx?$", re.IGNORECASE),  # Next.js _document
-    ]
-    
-    # Files that should be excluded
-    _NON_LAYOUT_FILES = [
-        re.compile(r"/pages/", re.IGNORECASE),  # Individual pages don't need skip links
-        re.compile(r"/components/", re.IGNORECASE),
-        re.compile(r"/hooks/", re.IGNORECASE),
-        re.compile(r"/types/", re.IGNORECASE),
-        re.compile(r"/utils?/", re.IGNORECASE),
-        re.compile(r"/i18n/", re.IGNORECASE),
-    ]
-    
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
         "/__tests__/",
         "/stories/",
         "/storybook/",
-        "/components/ui/",  # Reusable UI components don't need skip links
+        "/components/ui/",
     )
+    _SHELL_PATH_PATTERNS = (
+        "/layouts/",
+        "/layout/",
+        "/app.tsx",
+        "/_app.tsx",
+        "/_document.tsx",
+    )
+    _PAGE_PATH_MARKERS = ("/pages/", "/screens/", "/views/", "/components/")
+    _SKIP_LINK_RE = re.compile(r"<a\b[^>]*href=['\"]#(?P<target>[A-Za-z0-9\-_:.]+)['\"][^>]*>", re.IGNORECASE)
+    _MAIN_ID_RE = re.compile(r"<main\b[^>]*id=['\"](?P<id>[A-Za-z0-9\-_:.]+)['\"][^>]*>", re.IGNORECASE)
+    _MAIN_ROLE_ID_RE = re.compile(r"<[^>]+\brole=['\"]main['\"][^>]*id=['\"](?P<id>[A-Za-z0-9\-_:.]+)['\"][^>]*>", re.IGNORECASE)
+    _MAIN_ROLE_RE = re.compile(r"<[^>]+\brole=['\"]main['\"][^>]*>", re.IGNORECASE)
 
     def analyze(
         self,
@@ -90,62 +60,70 @@ class SkipLinkMissingRule(Rule):
         if self._is_allowlisted_path(file_path):
             return []
 
-        findings: list[Finding] = []
-        norm_path = (file_path or "").replace("\\", "/").lower()
+        path_low = (file_path or "").lower().replace("\\", "/")
+        content_text = content or ""
+        if not self._is_shell_or_entry_file(path_low, content_text):
+            return []
 
-        # Skip non-layout files
-        if any(p.search(norm_path) for p in self._NON_LAYOUT_FILES):
-            return findings
+        main_targets: set[str] = set()
+        for m in self._MAIN_ID_RE.finditer(content_text):
+            main_targets.add((m.group("id") or "").strip())
+        for m in self._MAIN_ROLE_ID_RE.finditer(content_text):
+            main_targets.add((m.group("id") or "").strip())
+        has_main_landmark = bool(main_targets) or bool(self._MAIN_ROLE_RE.search(content_text)) or ("<main" in content_text.lower())
+        if not has_main_landmark:
+            return []
 
-        # Check if this is a layout file
-        is_layout = any(p.search(norm_path) for p in self._LAYOUT_PATTERNS)
-        if not is_layout:
-            return findings
-        
-        # Check if file has main content landmark
-        has_main_content = any(p.search(content) for p in self._MAIN_CONTENT_PATTERNS)
-        if not has_main_content:
-            return findings  # No main content to skip to
-        
-        # Check if skip link exists
-        has_skip_link = any(p.search(content) for p in self._SKIP_LINK_PATTERNS)
-        if has_skip_link:
-            return findings  # Skip link present
-        
-        findings.append(
-            self.create_finding(
-                title="Page missing skip-to-content link",
-                context=f"file:{file_path}",
-                file=file_path,
-                line_start=1,
-                description=(
-                    "This page has main content but no skip link. "
-                    "Keyboard users must tab through all navigation to reach content."
-                ),
-                why_it_matters=(
-                    "Skip links allow keyboard users to bypass repetitive navigation blocks.\n"
-                    "- Required by WCAG 2.4.1 (Bypass Blocks)\n"
-                    "- Essential for users who navigate by keyboard\n"
-                    "- Screen reader users can jump to main content, but sighted keyboard users cannot"
-                ),
-                suggested_fix=(
-                    "Add a skip link at the start of the page:\n"
-                    "<a href=\"#main\" className=\"sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4\">\n"
-                    "  Skip to main content\n"
-                    "</a>\n"
-                    "<main id=\"main\">...</main>"
-                ),
-                tags=["ux", "a11y", "skip-link", "keyboard", "accessibility"],
-                confidence=0.75,
-                evidence_signals=[
-                    "skip_link_missing=true",
-                    "main_content_present=true",
-                ],
-            )
+        skip_targets = [(m.group("target") or "").strip() for m in self._SKIP_LINK_RE.finditer(content_text)]
+        if not skip_targets:
+            return [self._finding(file_path, 1, "missing_skip_link", "none", "none")]
+
+        valid_target = False
+        if not main_targets:
+            # If no explicit main id but main landmark exists, allow conventional targets.
+            valid_target = any(t in {"main", "content", "main-content"} for t in skip_targets)
+        else:
+            valid_target = any(t in main_targets for t in skip_targets)
+
+        if valid_target:
+            return []
+        return [self._finding(file_path, 1, "invalid_skip_target", ",".join(skip_targets[:3]), ",".join(sorted(main_targets)[:3]))]
+
+    def _finding(self, file_path: str, line: int, reason: str, skip_target: str, main_target: str) -> Finding:
+        return self.create_finding(
+            title="Shell/layout is missing a valid skip-to-content link",
+            context=f"{file_path}:{line}:skip-link",
+            file=file_path,
+            line_start=line,
+            description=(
+                "Found a shell/layout structure with main content but no valid skip link target pairing."
+            ),
+            why_it_matters=(
+                "WCAG bypass-blocks behavior requires keyboard users to skip repeated navigation and reach main content quickly."
+            ),
+            suggested_fix=(
+                "Add a top-of-shell skip link with a target that matches your main content landmark id, "
+                "for example `<a href=\"#main\" className=\"sr-only focus:not-sr-only\">Skip to main content</a>` "
+                "and `<main id=\"main\">`."
+            ),
+            tags=["a11y", "wcag", "keyboard", "navigation", "skip-link"],
+            confidence=0.9,
+            evidence_signals=[
+                f"reason={reason}",
+                f"skip_target={skip_target}",
+                f"main_target={main_target}",
+            ],
         )
 
-        return findings
+    def _is_shell_or_entry_file(self, path_low: str, content: str) -> bool:
+        if any(marker in path_low for marker in self._SHELL_PATH_PATTERNS):
+            return True
+        if any(marker in path_low for marker in self._PAGE_PATH_MARKERS):
+            return False
+        # Fallback shell signal in mixed structures.
+        return ("<main" in content.lower()) and ("<nav" in content.lower() or "sidebar" in content.lower())
 
     def _is_allowlisted_path(self, file_path: str) -> bool:
         low = (file_path or "").lower().replace("\\", "/")
         return any(marker in low for marker in self._ALLOWLIST_PATHS)
+

@@ -78,6 +78,25 @@ class OnboardingController {
     assert findings == []
 
 
+def test_registration_missing_registered_event_skips_contract_interfaces_even_with_create_examples():
+    rule = RegistrationMissingRegisteredEventRule(RuleConfig(thresholds={"require_self_service_context": False}))
+    facts = Facts(project_path=".")
+    content = """
+<?php
+namespace App\\Services\\Contracts;
+
+/**
+ * Implementation note: uses User::create($payload) and dispatches Registered downstream.
+ */
+interface UserCommandServiceInterface {
+    public function register(array $payload): mixed;
+}
+"""
+
+    findings = rule.analyze_regex("app/Services/Contracts/UserCommandServiceInterface.php", content, facts)
+    assert findings == []
+
+
 def test_sensitive_routes_missing_verified_middleware_flags_sensitive_web_route():
     facts = Facts(project_path=".")
     facts.routes.append(

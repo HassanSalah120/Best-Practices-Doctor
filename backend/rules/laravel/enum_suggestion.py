@@ -79,6 +79,7 @@ class EnumSuggestionRule(Rule):
     _NOISE_VALUES = {
         "yes", "no", "on", "off", "true", "false", "null", "none", "default",
     }
+    _SQL_OPERATOR_VALUES = {"like", "ilike", "asc", "desc", "in", "not in", "between"}
     _ENUM_CONTEXT_HINTS = (
         "status",
         "state",
@@ -140,6 +141,9 @@ class EnumSuggestionRule(Rule):
             occs = context_to_occurrences[context]
             if not self._is_actionable_context_cluster(context, values, occs):
                 continue
+            # If enums are already common in the codebase, require strong enum-like context.
+            if has_enum_usage and not self._is_enum_like_context(context):
+                continue
             if self._matching_enum_exists(context, existing_enums):
                 continue
 
@@ -184,7 +188,8 @@ class EnumSuggestionRule(Rule):
         if not normalized:
             return False
         return any(
-            enum_name == f"{normalized}enum"
+            enum_name == normalized
+            or enum_name == f"{normalized}enum"
             or enum_name.endswith(f"{normalized}enum")
             or normalized in self._tokenize_enum_name(enum_name)
             for enum_name in existing_enums
@@ -214,6 +219,7 @@ class EnumSuggestionRule(Rule):
         for pattern_name, pattern_values in self.ENUM_PATTERNS.items():
             matching_vals = []
             all_occs = []
+            normalized_contexts: set[str] = set()
             
             for literal in literals:
                 if literal.value.lower() in pattern_values:
@@ -221,9 +227,21 @@ class EnumSuggestionRule(Rule):
                     if relevant:
                         matching_vals.append(literal.value)
                         all_occs.extend(relevant)
+                        for occ in relevant:
+                            normalized = self._normalize_context(getattr(occ, "context", None))
+                            if normalized:
+                                normalized_contexts.add(normalized)
             
             unique_vals = list(set(matching_vals))
-            if len(unique_vals) < 2:
+            if len(unique_vals) < 3:
+                continue
+            enum_contexts = {ctx for ctx in normalized_contexts if self._is_enum_like_context(ctx)}
+            if not enum_contexts:
+                continue
+            competing_contexts = {
+                ctx for ctx in normalized_contexts if self._is_enum_like_context(ctx) and ctx != pattern_name
+            }
+            if competing_contexts:
                 continue
 
             file_count = len({occ.file_path for occ in all_occs if occ.file_path})
@@ -260,7 +278,11 @@ class EnumSuggestionRule(Rule):
             return False
         if cleaned_values.issubset(self._NOISE_VALUES):
             return False
+        if cleaned_values & self._SQL_OPERATOR_VALUES:
+            return False
         if any(self._looks_like_column_identifier(value) for value in cleaned_values):
+            return False
+        if any(self._looks_like_ui_label(value) for value in values):
             return False
         if any(value[:1].isupper() for value in values if value) and context in {"headings", "labels", "columns"}:
             return False
@@ -269,7 +291,10 @@ class EnumSuggestionRule(Rule):
         if self._is_enum_like_context(context):
             return len(occurrences) >= len(cleaned_values)
 
-        # Fallback for weaker contexts: only surface if values are repeated across files.
+        # Fallback for weaker contexts: only surface if values are repeated across files
+        # and still look like canonical enum values.
+        if any(not re.fullmatch(r"[a-z0-9_-]+", value) for value in cleaned_values):
+            return False
         return len(cleaned_values) >= 3 and file_count >= 2 and len(occurrences) >= 4
 
     def _is_enum_like_context(self, context: str) -> bool:
@@ -294,6 +319,17 @@ class EnumSuggestionRule(Rule):
         return bool(re.fullmatch(r"[a-z]+(?:_[a-z0-9]+)+", normalized)) and normalized.endswith(
             ("_id", "_name", "_email", "_title", "_label", "_at", "_code")
         )
+
+    def _looks_like_ui_label(self, value: str) -> bool:
+        text = str(value or "").strip()
+        if not text:
+            return False
+        # Prefer not to suggest enums for title-cased or sentence-like labels.
+        if " " in text:
+            return True
+        if text[:1].isupper() and text[1:].islower():
+            return True
+        return False
 
     def _tokenize_enum_name(self, enum_name: str) -> set[str]:
         expanded = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", enum_name)

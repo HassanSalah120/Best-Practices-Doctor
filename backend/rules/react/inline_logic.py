@@ -4,10 +4,12 @@ Detects API calls and complex logic directly in React components.
 """
 import re
 import os
+from pathlib import Path
 from schemas.facts import Facts, ReactComponentInfo
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from core.path_utils import normalize_rel_path
 
 
 class InlineLogicRule(Rule):
@@ -38,6 +40,27 @@ class InlineLogicRule(Rule):
         re.DOTALL,
     )
     _USE_STATE = re.compile(r"\buseState\s*[<(]")
+    _PAGE_OR_SHELL_PATH_MARKERS = ("/pages/", "/page/", "/screens/", "/screen/", "/views/", "/view/")
+    _LOCAL_UI_IMPORT_MARKERS = (
+        "./",
+        "../",
+        "/components/",
+        "/component/",
+        "/widgets/",
+        "/widget/",
+        "/modals/",
+        "/panels/",
+        "/sections/",
+        "@/components",
+        "@/widgets",
+        "@/pages",
+        "@/screens",
+        "@/views",
+        "@/features",
+    )
+    _API_SIDE_EFFECT_PATTERN = re.compile(r"\b(fetch\s*\(|axios\.)", re.IGNORECASE)
+    _QUERY_HOOK_PATTERN = re.compile(r"\b(useQuery|useSWR)\s*\(", re.IGNORECASE)
+    _SERVICE_IMPORT_MARKERS = ("/services/", "/api/", "service", "client", "repository")
     
     def analyze(
         self,
@@ -45,15 +68,32 @@ class InlineLogicRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings = []
-        
+        min_state_hook_count = max(3, int(self.get_threshold("min_state_hook_count", 4)))
+        suppress_query_hook_usage = bool(self.get_threshold("suppress_query_hook_usage", True))
+        require_fetch_or_axios_for_api_finding = bool(
+            self.get_threshold("require_fetch_or_axios_for_api_finding", True)
+        )
+
         for component in facts.react_components:
             if self._is_hook_module(component.file_path, component.name):
                 continue
             if component.has_api_calls:
-                findings.append(self._create_api_finding(component))
+                api_profile = self._api_profile(component, facts)
+                if suppress_query_hook_usage and api_profile["suppressed_as_query_hook_only"]:
+                    continue
+                if require_fetch_or_axios_for_api_finding and not api_profile["has_direct_fetch_or_axios"]:
+                    continue
+                if api_profile["suppressed_as_orchestrator_shell"]:
+                    continue
+                findings.append(self._create_api_finding(component, api_profile))
             
             if component.has_inline_state_logic:
-                findings.append(self._create_logic_finding(component))
+                logic_profile = self._logic_profile(component, facts)
+                if logic_profile["suppressed_as_composed_shell"]:
+                    continue
+                if logic_profile["state_hook_count"] < min_state_hook_count:
+                    continue
+                findings.append(self._create_logic_finding(component, logic_profile))
         
         return findings
 
@@ -119,12 +159,103 @@ class InlineLogicRule(Rule):
         return findings
 
     def _is_hook_module(self, file_path: str | None, component_name: str | None) -> bool:
-        norm_path = str(file_path or "").replace("\\", "/").lower()
+        norm_path = str(file_path or "").replace("\\", "/")
+        norm_low = norm_path.lower()
         name = str(component_name or "")
         base_name = os.path.splitext(os.path.basename(norm_path))[0]
-        return "/hooks/" in norm_path or name.startswith("use") or base_name.startswith("use")
-    
-    def _create_api_finding(self, component: ReactComponentInfo) -> Finding:
+        return (
+            "/hooks/" in norm_low
+            or bool(re.match(r"^use[A-Z]", name))
+            or bool(re.match(r"^use[A-Z]", base_name))
+        )
+
+    def _component_imports(self, component: ReactComponentInfo, facts: Facts) -> list[str]:
+        imports = [str(imp or "") for imp in (component.imports or []) if str(imp or "").strip()]
+        if imports:
+            return imports
+
+        graph = getattr(facts, "_frontend_symbol_graph", None)
+        files_map = graph.get("files", {}) if isinstance(graph, dict) else {}
+        payload = files_map.get(normalize_rel_path(str(component.file_path or "")))
+        if not isinstance(payload, dict):
+            return []
+        return [str(imp or "") for imp in (payload.get("imports", []) or []) if str(imp or "").strip()]
+
+    def _source_text(self, component: ReactComponentInfo, facts: Facts) -> str:
+        rel_path = normalize_rel_path(str(component.file_path or ""))
+        if not rel_path:
+            return ""
+        root = Path(str(getattr(facts, "project_path", "") or "."))
+        try:
+            return (root / rel_path).read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            return ""
+
+    def _is_composed_shell(self, component: ReactComponentInfo, facts: Facts) -> bool:
+        path = str(component.file_path or "").replace("\\", "/").lower()
+        imports = [str(imp or "").lower().replace("\\", "/") for imp in self._component_imports(component, facts)]
+        has_custom_hook_import = any("/hooks/" in imp or "/use" in imp for imp in imports)
+        local_component_imports = sum(
+            1 for imp in imports if any(marker in imp for marker in self._LOCAL_UI_IMPORT_MARKERS)
+        )
+        is_page_shell = any(marker in path for marker in self._PAGE_OR_SHELL_PATH_MARKERS) or str(component.name or "").endswith(("Page", "Screen", "View"))
+        return is_page_shell and has_custom_hook_import and local_component_imports >= 2
+
+    def _api_profile(self, component: ReactComponentInfo, facts: Facts) -> dict[str, object]:
+        source = self._source_text(component, facts)
+        imports = [str(imp or "").lower().replace("\\", "/") for imp in self._component_imports(component, facts)]
+        has_direct_fetch_or_axios = bool(self._API_SIDE_EFFECT_PATTERN.search(source))
+        has_query_hook_usage = bool(self._QUERY_HOOK_PATTERN.search(source))
+        has_custom_hook_import = any("/hooks/" in imp or "/use" in imp for imp in imports)
+        has_service_import = any(
+            marker in imp
+            for imp in imports
+            for marker in self._SERVICE_IMPORT_MARKERS
+        )
+        local_component_imports = sum(
+            1 for imp in imports if any(marker in imp for marker in self._LOCAL_UI_IMPORT_MARKERS)
+        )
+        suppressed_as_query_hook_only = has_query_hook_usage and not has_direct_fetch_or_axios
+        suppressed_as_orchestrator_shell = (
+            self._is_composed_shell(component, facts)
+            and has_custom_hook_import
+            and has_service_import
+            and not has_direct_fetch_or_axios
+            and local_component_imports >= 2
+        )
+        return {
+            "has_direct_fetch_or_axios": has_direct_fetch_or_axios,
+            "has_query_hook_usage": has_query_hook_usage,
+            "has_custom_hook_import": has_custom_hook_import,
+            "has_service_import": has_service_import,
+            "local_component_imports": local_component_imports,
+            "suppressed_as_query_hook_only": suppressed_as_query_hook_only,
+            "suppressed_as_orchestrator_shell": suppressed_as_orchestrator_shell,
+            "evidence_signals": [
+                f"direct_fetch_or_axios={int(has_direct_fetch_or_axios)}",
+                f"query_hooks={int(has_query_hook_usage)}",
+                f"custom_hook_import={int(has_custom_hook_import)}",
+                f"service_import={int(has_service_import)}",
+                f"local_components={local_component_imports}",
+                f"suppressed_query_only={int(suppressed_as_query_hook_only)}",
+                f"suppressed_shell={int(suppressed_as_orchestrator_shell)}",
+            ],
+        }
+
+    def _logic_profile(self, component: ReactComponentInfo, facts: Facts) -> dict[str, object]:
+        hooks = [str(h or "") for h in (component.hooks_used or [])]
+        state_hook_count = sum(1 for h in hooks if h in {"useState", "useReducer", "useEffect", "useMemo", "useCallback"})
+        composed_shell = self._is_composed_shell(component, facts)
+        return {
+            "state_hook_count": state_hook_count,
+            "suppressed_as_composed_shell": composed_shell,
+            "evidence_signals": [
+                f"state_hooks={state_hook_count}",
+                f"composed_shell={int(composed_shell)}",
+            ],
+        }
+
+    def _create_api_finding(self, component: ReactComponentInfo, profile: dict[str, object]) -> Finding:
         """Create finding for inline API calls."""
         return self.create_finding(
             title="Inline API call in React component",
@@ -148,9 +279,11 @@ class InlineLogicRule(Rule):
             ),
             code_example=self._generate_hook_example(component.name),
             tags=["react", "hooks", "api", "separation-of-concerns"],
+            evidence_signals=profile["evidence_signals"],
+            metadata={"decision_profile": profile},
         )
     
-    def _create_logic_finding(self, component: ReactComponentInfo) -> Finding:
+    def _create_logic_finding(self, component: ReactComponentInfo, profile: dict[str, object]) -> Finding:
         """Create finding for inline state logic."""
         return self.create_finding(
             title="Complex state logic in React component",
@@ -174,6 +307,8 @@ class InlineLogicRule(Rule):
             ),
             code_example=self._generate_state_example(component.name),
             tags=["react", "hooks", "state-management"],
+            evidence_signals=profile["evidence_signals"],
+            metadata={"decision_profile": profile},
         )
     
     def _generate_hook_example(self, name: str) -> str:

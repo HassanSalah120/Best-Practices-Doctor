@@ -319,6 +319,38 @@ def test_too_many_dependencies_accepts_bounded_coordinator_shape():
     assert rule.analyze(facts) == []
 
 
+def test_too_many_dependencies_accepts_bounded_service_facade_with_single_coordinator():
+    facts = Facts(project_path=".")
+    facts.project_context.backend_structure_mode = "layered"
+    facts.project_context.backend_architecture_profile = "layered"
+    ctor = MethodInfo(
+        name="__construct",
+        class_name="LmsGameService",
+        class_fqcn="App\\Services\\Lms\\LmsGameService",
+        method_fqn="App\\Services\\Lms\\LmsGameService::__construct",
+        file_path="app/Services/Lms/LmsGameService.php",
+        file_hash="svc",
+        line_start=10,
+        line_end=20,
+        loc=11,
+        parameters=[
+            "LmsScoringServiceInterface $scoring",
+            "SessionLifecycleServiceInterface $lifecycle",
+            "TurnManagementServiceInterface $turnService",
+            "TeamManagementServiceInterface $teamService",
+            "BoardManagementServiceInterface $boardService",
+            "GameCommandCoordinator $coordinator",
+        ],
+    )
+    facts.methods.append(ctor)
+
+    rule = TooManyDependenciesRule(RuleConfig())
+    profile = rule._dependency_profile(ctor, "layered")
+
+    assert profile["bounded_service_facade"] is True
+    assert rule.analyze(facts) == []
+
+
 def test_god_class_accepts_bounded_coordinator_near_threshold():
     facts = Facts(project_path=".")
     facts.project_context.backend_structure_mode = "layered"
@@ -372,6 +404,64 @@ def test_god_class_accepts_bounded_coordinator_near_threshold():
     public_like = [m for m in facts.methods if m.class_fqcn == cls.fqcn and m.name != "__construct"]
 
     assert rule._is_service_coordinator(cls, public_like, facts.methods, "layered") is True
+    assert rule.analyze(facts) == []
+
+
+def test_god_class_accepts_large_service_that_delegates_through_coordinator():
+    facts = Facts(project_path=".")
+    facts.project_context.backend_structure_mode = "layered"
+    facts.project_context.backend_architecture_profile = "layered"
+    cls = ClassInfo(
+        name="LmsGameService",
+        fqcn="App\\Services\\Lms\\LmsGameService",
+        file_path="app/Services/Lms/LmsGameService.php",
+        file_hash="svc",
+        line_start=1,
+        line_end=380,
+    )
+    facts.classes.append(cls)
+    facts.methods.append(
+        MethodInfo(
+            name="__construct",
+            class_name=cls.name,
+            class_fqcn=cls.fqcn,
+            method_fqn=f"{cls.fqcn}::__construct",
+            file_path=cls.file_path,
+            file_hash="svc",
+            line_start=10,
+            line_end=20,
+            loc=11,
+            parameters=[
+                "LmsScoringServiceInterface $scoring",
+                "SessionLifecycleServiceInterface $lifecycle",
+                "TurnManagementServiceInterface $turnService",
+                "TeamManagementServiceInterface $teamService",
+                "BoardManagementServiceInterface $boardService",
+                "GameCommandCoordinator $coordinator",
+            ],
+        )
+    )
+    for index, name in enumerate(["startCategory", "advanceTurn", "processWrong", "processUndo", "adjustHearts", "getGameStatus"]):
+        facts.methods.append(
+            MethodInfo(
+                name=name,
+                class_name=cls.name,
+                class_fqcn=cls.fqcn,
+                method_fqn=f"{cls.fqcn}::{name}",
+                file_path=cls.file_path,
+                file_hash="svc",
+                line_start=40 + (index * 20),
+                line_end=50 + (index * 20),
+                loc=11,
+                visibility="public",
+                call_sites=["$this->coordinator->execute($payload)", "$this->turnService->currentState($sessionId)"],
+            )
+        )
+
+    rule = GodClassRule(RuleConfig(thresholds={"max_loc": 300, "max_methods": 20}))
+    public_like = [m for m in facts.methods if m.class_fqcn == cls.fqcn and m.name != "__construct"]
+
+    assert rule._is_bounded_service_facade(cls, public_like, facts.methods, "layered") is True
     assert rule.analyze(facts) == []
 
 

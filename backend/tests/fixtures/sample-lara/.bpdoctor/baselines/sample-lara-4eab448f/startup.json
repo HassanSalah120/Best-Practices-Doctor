@@ -1,15 +1,16 @@
 {
   "counts_by_rule": {
+    "error-pages-missing": 1,
     "fat-controller": 1,
     "low-coverage-files": 1,
     "missing-form-request": 1,
     "policy-coverage-on-mutations": 1
   },
   "counts_by_severity": {
-    "high": 2,
+    "high": 3,
     "medium": 2
   },
-  "finding_count": 4,
+  "finding_count": 5,
   "findings": [
     {
       "category": "validation",
@@ -40,11 +41,20 @@
     },
     {
       "category": "architecture",
-      "confidence": 1.0,
+      "confidence": 0.8200000000000001,
       "file": "app/Http/Controllers/UserController.php",
       "fingerprint": "66f69b5556b2",
       "line_start": 11,
       "rule_id": "fat-controller",
+      "severity": "high"
+    },
+    {
+      "category": "laravel_best_practice",
+      "confidence": 0.92,
+      "file": "resources/views/errors",
+      "fingerprint": "dab704e44f3c",
+      "line_start": 1,
+      "rule_id": "error-pages-missing",
       "severity": "high"
     }
   ],
@@ -52,12 +62,13 @@
     "13f9115493f6",
     "408c140509bb",
     "592690769583",
-    "66f69b5556b2"
+    "66f69b5556b2",
+    "dab704e44f3c"
   ],
   "profile": "startup",
   "project_path": "G:/Best-Practices-Doctor/backend/tests/fixtures/sample-lara",
   "project_slug": "sample-lara-4eab448f",
-  "report_hash": "59b8ace7c033",
+  "report_hash": "8807827fdcc6",
   "schema_version": 2,
-  "updated_at": "2026-03-16T23:53:11.505377+00:00"
+  "updated_at": "2026-04-10T18:28:43.869945+00:00"
 }

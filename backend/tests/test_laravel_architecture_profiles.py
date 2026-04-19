@@ -198,6 +198,20 @@ def test_scan_report_exposes_project_context_debug(fixture_path: Path):
     assert project_debug["backend_profile_confidence"] > 0
     assert project_debug["backend_profile_confidence_kind"] in {"structural", "heuristic"}
     assert project_debug["backend_profile_signals"]
+    assert project_debug["project_business_context"] in {
+        "unknown",
+        "saas_platform",
+        "internal_admin_system",
+        "clinic_erp_management",
+        "api_backend",
+        "realtime_game_control_platform",
+        "public_website_with_dashboard",
+        "portal_based_business_app",
+    }
+    assert "backend_capabilities" in project_debug
+    assert isinstance(project_debug["backend_capabilities"], dict)
+    assert "backend_team_expectations" in project_debug
+    assert isinstance(project_debug["backend_team_expectations"], dict)
 
 
 def test_profile_aware_laravel_findings_include_explainable_reasoning(fixture_path: Path):
@@ -217,6 +231,10 @@ def test_profile_aware_laravel_findings_include_explainable_reasoning(fixture_pa
     assert controller_debug["decision_summary"]
     assert controller_debug["profile_confidence_kind"] in {"structural", "heuristic"}
     assert controller_debug["profile_signals"]
+    assert "severity_from" in controller_debug
+    assert "severity_to" in controller_debug
+    assert "severity_reason" in controller_debug
+    assert "recommendation_basis" in controller_debug
     assert any(signal.startswith("profile_confidence_kind=") for signal in controller_finding.evidence_signals)
 
     service_debug = service_finding.metadata["decision_profile"]
@@ -225,4 +243,8 @@ def test_profile_aware_laravel_findings_include_explainable_reasoning(fixture_pa
     assert service_debug["decision_summary"]
     assert service_debug["profile_confidence_kind"] in {"structural", "heuristic"}
     assert service_debug["profile_signals"]
+    assert "severity_from" in service_debug
+    assert "severity_to" in service_debug
+    assert "severity_reason" in service_debug
+    assert "recommendation_basis" in service_debug
     assert any(signal.startswith("profile_confidence_kind=") for signal in service_finding.evidence_signals)

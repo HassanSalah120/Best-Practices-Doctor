@@ -13,6 +13,12 @@ from schemas.facts import Facts, MethodInfo
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from core.project_recommendations import (
+    enabled_capabilities,
+    enabled_team_standards,
+    project_aware_guidance,
+    recommendation_context_tags,
+)
 
 
 class AuthorizationMissingOnSensitiveReadsRule(Rule):
@@ -110,6 +116,10 @@ class AuthorizationMissingOnSensitiveReadsRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings: list[Finding] = []
+        min_read_queries = int(self.get_threshold("min_read_queries", 1) or 1)
+        min_sensitive_score = int(self.get_threshold("min_sensitive_score", 3) or 3)
+        capabilities = enabled_capabilities(facts)
+        team_standards = enabled_team_standards(facts)
         controller_names = {c.name for c in facts.controllers}
         if not controller_names:
             return findings
@@ -140,9 +150,12 @@ class AuthorizationMissingOnSensitiveReadsRule(Rule):
             read_qs = [q for q in qs if self._is_read_query(q.method_chain or "")]
             if not read_qs:
                 continue
+            if len(read_qs) < min_read_queries:
+                continue
 
             route_ctx = routes_by_target.get((method.class_name.lower(), method.name.lower()), [])
-            if not self._looks_sensitive(method, route_ctx, read_qs):
+            sensitivity_score = self._sensitivity_score(method, route_ctx, read_qs)
+            if sensitivity_score < min_sensitive_score:
                 continue
 
             if self._method_has_authz_guard(method):
@@ -162,10 +175,13 @@ class AuthorizationMissingOnSensitiveReadsRule(Rule):
             if method.name.lower() in self._SENSITIVE_METHOD_NAMES:
                 confidence += 0.05
             confidence = min(0.91, confidence)
+            guidance = project_aware_guidance(facts, focus="orchestration_boundaries")
 
             evidence = [
                 f"method={method.method_fqn}",
                 f"read_queries={len(read_qs)}",
+                f"sensitivity_score={sensitivity_score}",
+                f"min_sensitive_score={min_sensitive_score}",
                 "authorization_guard_missing=true",
             ]
             if models:
@@ -194,35 +210,57 @@ class AuthorizationMissingOnSensitiveReadsRule(Rule):
                         "Add explicit read authorization checks such as `$this->authorize('view', $model)` or "
                         "route ability middleware (`can:view,model`). Add forbidden-path tests for other accounts "
                         "or tenants."
-                    ),
-                    tags=["laravel", "security", "authorization", "idor", "read-access"],
+                    ) + (f"\n\nProject-aware guidance:\n{guidance}" if guidance else ""),
+                    tags=["laravel", "security", "authorization", "idor", "read-access", *recommendation_context_tags(facts)],
                     confidence=confidence,
                     evidence_signals=evidence,
+                    metadata={
+                        "decision_profile": {
+                            "decision": "emit",
+                            "project_business_context": str(getattr(getattr(facts, "project_context", None), "project_business_context", "unknown") or "unknown"),
+                            "capabilities": sorted(capabilities),
+                            "team_standards": sorted(team_standards),
+                            "decision_summary": "Sensitive read route matched authorization-risk signals without policy/ability guard.",
+                            "decision_reasons": [
+                                f"route_bindings={len(route_ctx)}",
+                                f"read_queries={len(read_qs)}",
+                                f"sensitivity_score={sensitivity_score}",
+                            ],
+                        },
+                        "overlap_group": "authorization-boundary",
+                        "overlap_scope": method.method_fqn,
+                        "overlap_rank": 180,
+                        "overlap_role": "child",
+                    },
                 )
             )
 
         return findings
 
-    def _looks_sensitive(self, method: MethodInfo, route_ctx: list, queries: list) -> bool:
+    def _sensitivity_score(self, method: MethodInfo, route_ctx: list, queries: list) -> int:
         low_file = (method.file_path or "").lower().replace("\\", "/")
         low_name = (method.name or "").lower()
+        score = 0
 
         if low_name in self._SENSITIVE_METHOD_NAMES:
-            return True
+            score += 2
         if any(marker in low_file for marker in self._SENSITIVE_MARKERS):
-            return True
+            score += 1
 
         for route in route_ctx:
             uri = str(getattr(route, "uri", "") or "").lower()
             if "{" in uri:
-                return True
+                score += 1
             if any(marker in uri for marker in self._SENSITIVE_MARKERS):
-                return True
+                score += 2
 
         if any(self._route_has_auth_middleware(r) for r in route_ctx):
-            return True
+            score += 1
 
-        return any(any(marker in str(q.model or "").lower() for marker in self._SENSITIVE_MARKERS) for q in queries)
+        if any(any(marker in str(q.model or "").lower() for marker in self._SENSITIVE_MARKERS) for q in queries):
+            score += 2
+
+        return score
 
     def _method_has_authz_guard(self, method: MethodInfo) -> bool:
         joined = "\n".join(method.call_sites or [])

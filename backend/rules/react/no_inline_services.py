@@ -209,6 +209,7 @@ class NoInlineServicesRule(Rule):
         """Primary analysis — reads AST-extracted flags from facts.react_components."""
         findings: list[Finding] = []
         seen_files: set[str] = set()
+        min_service_like_helpers = max(1, int(self.get_threshold("min_service_like_helpers", 2)))
 
         for comp in facts.react_components:
             if not comp.has_inline_helper_fns:
@@ -224,6 +225,8 @@ class NoInlineServicesRule(Rule):
 
             helper_names = self._filter_service_like_helpers(comp.inline_helper_names or [])
             if not helper_names:
+                continue
+            if len(helper_names) < min_service_like_helpers:
                 continue
             helper_profile = self._helper_profile(comp, helper_names, facts)
             if helper_profile["suppressed_as_local_glue"]:
@@ -366,6 +369,10 @@ class NoInlineServicesRule(Rule):
         return False
 
     def _helper_profile(self, comp, helper_names: list[str], facts: Facts) -> dict[str, object]:
+        local_glue_max_helpers = max(1, int(self.get_threshold("local_glue_max_helpers", 1)))
+        local_glue_min_local_components = max(1, int(self.get_threshold("local_glue_min_local_components", 1)))
+        allow_page_shell_glue = bool(self.get_threshold("allow_page_shell_glue", True))
+        allow_hybrid_colocation = bool(self.get_threshold("allow_hybrid_feature_colocation", True))
         imports = self._component_imports(comp, facts)
         file_path = str(getattr(comp, "file_path", "") or "").lower().replace("\\", "/")
         imports_from_extracted_modules = self._imports_from_utils(comp, facts)
@@ -383,17 +390,33 @@ class NoInlineServicesRule(Rule):
             or ("/components/" in file_path and (local_component_imports >= 2 or shell_like_name))
             or (has_custom_hook_import and local_component_imports >= 2)
         )
+        react_structure_mode = str(
+            getattr(getattr(facts, "project_context", None), "react_structure_mode", "unknown") or "unknown"
+        ).lower()
         strong_service_helpers = sum(
             1 for name in helper_names if any(name.lower().startswith(prefix) for prefix in self._SERVICE_LIKE_PREFIXES)
         )
-        suppressed_as_local_glue = (
-            bool(imports)
+        suppressed_as_local_glue = False
+        if allow_page_shell_glue:
+            suppressed_as_local_glue = (
+                bool(imports)
+                and (imports_from_extracted_modules or has_custom_hook_import)
+                and layered_page_or_shell
+                and helper_count <= local_glue_max_helpers
+                and local_component_imports >= local_glue_min_local_components
+                and strong_service_helpers <= 1
+            )
+
+        if (
+            not suppressed_as_local_glue
+            and allow_hybrid_colocation
+            and react_structure_mode in {"hybrid", "feature-first"}
+            and helper_count <= max(local_glue_max_helpers, 2)
+            and local_component_imports >= local_glue_min_local_components
+            and strong_service_helpers == 0
             and (imports_from_extracted_modules or has_custom_hook_import)
-            and layered_page_or_shell
-            and helper_count <= 1
-            and local_component_imports >= 1
-            and strong_service_helpers <= 1
-        )
+        ):
+            suppressed_as_local_glue = True
 
         return {
             "suppressed_as_local_glue": suppressed_as_local_glue,
@@ -402,12 +425,14 @@ class NoInlineServicesRule(Rule):
             "has_custom_hook_import": has_custom_hook_import,
             "local_component_imports": local_component_imports,
             "layered_page_or_shell": layered_page_or_shell,
+            "react_structure_mode": react_structure_mode,
             "strong_service_helpers": strong_service_helpers,
             "evidence_signals": [
                 f"helpers={helper_count}",
                 f"imports_from_utils={int(imports_from_extracted_modules)}",
                 f"hooks={int(has_custom_hook_import)}",
                 f"local_components={local_component_imports}",
+                f"react_structure={react_structure_mode}",
                 f"suppressed={int(suppressed_as_local_glue)}",
             ],
         }

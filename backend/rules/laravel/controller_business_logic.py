@@ -8,6 +8,12 @@ from schemas.facts import Facts, MethodInfo
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, FindingClassification, Category, Severity
 from rules.base import Rule
+from core.project_recommendations import (
+    enabled_capabilities,
+    enabled_team_standards,
+    project_aware_guidance,
+    recommendation_context_tags,
+)
 
 
 class ControllerBusinessLogicRule(Rule):
@@ -96,6 +102,15 @@ class ControllerBusinessLogicRule(Rule):
         min_loc = int(self.get_threshold("min_loc", 60))
         min_conf = float(self.get_threshold("min_confidence", 0.6))
         project_context = getattr(facts, "project_context", None)
+        project_business_context = str(getattr(project_context, "project_business_context", "unknown") or "unknown")
+        capabilities = enabled_capabilities(facts)
+        team_standards = enabled_team_standards(facts)
+        if "thin_controllers" in team_standards:
+            min_cyclomatic = max(5, min_cyclomatic - 1)
+            min_loc = max(45, min_loc - 10)
+        if project_business_context in {"saas_platform", "clinic_erp_management", "realtime_game_control_platform"}:
+            min_loc = max(45, min_loc - 5)
+
         auth_flow_context = set(getattr(project_context, "auth_flow_paths", []) or [])
         architecture_profile = str(getattr(project_context, "backend_architecture_profile", "unknown") or "unknown").lower()
         if architecture_profile == "unknown":
@@ -143,6 +158,9 @@ class ControllerBusinessLogicRule(Rule):
                 profile_confidence=profile_confidence,
                 profile_confidence_kind=profile_confidence_kind,
                 profile_signals=profile_signals,
+                project_business_context=project_business_context,
+                capabilities=capabilities,
+                team_standards=team_standards,
             )
             if not has_business_signal and not has_structural_signal:
                 continue
@@ -170,6 +188,8 @@ class ControllerBusinessLogicRule(Rule):
             else:
                 # Controllers often mix validation/queries with branching; treat CC/LOC as primary signal.
                 confidence = max(confidence, min(0.9, 0.5 + (mm.cyclomatic_complexity / 20)))
+            guidance = project_aware_guidance(facts, focus="controller_boundaries")
+            severity = self._calibrated_severity(project_business_context, capabilities, team_standards)
 
             findings.append(
                 self.create_finding(
@@ -196,8 +216,9 @@ class ControllerBusinessLogicRule(Rule):
                         "2. Inject the service/action into the controller\n"
                         "3. Keep the controller method as orchestration (request -> call -> response)\n"
                         "4. Add unit tests for the extracted logic"
-                    ),
-                    tags=["architecture", "controllers", "services", "actions"],
+                    ) + (f"\n\nProject-aware guidance:\n{guidance}" if guidance else ""),
+                    tags=["architecture", "controllers", "services", "actions", *recommendation_context_tags(facts)],
+                    severity=severity,
                     classification=FindingClassification.ADVISORY,
                     confidence=confidence,
                     evidence_signals=decision_profile["evidence_signals"],
@@ -228,8 +249,13 @@ class ControllerBusinessLogicRule(Rule):
         profile_confidence: float = 0.0,
         profile_confidence_kind: str = "unknown",
         profile_signals: list[str] | None = None,
+        project_business_context: str = "unknown",
+        capabilities: set[str] | None = None,
+        team_standards: set[str] | None = None,
     ) -> dict[str, object]:
         profile = self._normalize_architecture_profile(architecture_profile)
+        capabilities = set(capabilities or set())
+        team_standards = set(team_standards or set())
         thin_orchestration = self._looks_like_thin_orchestration(method, metrics, auth_flow_context, profile)
         decision = "suppress" if thin_orchestration else ("emit" if (has_business_signal or has_structural_signal) else "skip")
         suppression_reason = "thin-orchestration" if thin_orchestration else None
@@ -247,6 +273,9 @@ class ControllerBusinessLogicRule(Rule):
             "profile_confidence": round(float(profile_confidence or 0.0), 2),
             "profile_confidence_kind": str(profile_confidence_kind or "unknown"),
             "profile_signals": list(profile_signals or [])[:8],
+            "project_business_context": project_business_context,
+            "capabilities": sorted(capabilities),
+            "team_standards": sorted(team_standards),
             "decision": decision,
             "decision_summary": (
                 f"{decision} under {profile} profile"
@@ -274,6 +303,9 @@ class ControllerBusinessLogicRule(Rule):
                 f"profile={profile}",
                 f"profile_confidence={float(profile_confidence or 0.0):.2f}",
                 f"profile_confidence_kind={profile_confidence_kind or 'unknown'}",
+                f"business_context={project_business_context or 'unknown'}",
+                f"capabilities={','.join(sorted(capabilities)) or 'none'}",
+                f"team_standards={','.join(sorted(team_standards)) or 'none'}",
                 f"cc={metrics.cyclomatic_complexity}",
                 f"loc={method.loc or 0}",
                 f"queries={metrics.query_count}",
@@ -281,6 +313,15 @@ class ControllerBusinessLogicRule(Rule):
                 f"delegation={int(any(marker in str(call or '').lower() for call in (method.call_sites or []) for marker in self._DELEGATION_CALL_MARKERS))}",
             ],
         }
+
+    def _calibrated_severity(self, project_business_context: str, capabilities: set[str], team_standards: set[str]) -> Severity:
+        if "thin_controllers" in team_standards:
+            return Severity.HIGH
+        if project_business_context in {"saas_platform", "clinic_erp_management", "realtime_game_control_platform", "portal_based_business_app"}:
+            return Severity.HIGH
+        if {"multi_tenant", "multi_role_portal"} & set(capabilities):
+            return Severity.HIGH
+        return self.severity
 
     def _looks_like_restful_read_controller_method(self, method: MethodInfo, metrics: MethodMetrics) -> bool:
         method_name = (method.name or "").lower()

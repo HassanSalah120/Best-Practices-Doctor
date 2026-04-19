@@ -29,3 +29,59 @@ def test_duplicate_route_definition_ignores_different_methods():
 
     assert findings == []
 
+
+def test_duplicate_route_definition_prefers_artisan_source_of_truth():
+    facts = Facts(project_path="x")
+    facts.routes = [
+        RouteInfo(
+            method="POST",
+            uri="/transferhistorie/admin/players",
+            file_path="routes/web.php",
+            line_number=11,
+            source="static",
+        ),
+        RouteInfo(
+            method="POST",
+            uri="/transferhistorie/admin/players",
+            file_path="routes/cache.php",
+            line_number=200,
+            source="static",
+        ),
+        RouteInfo(
+            method="POST",
+            uri="/transferhistorie/admin/players",
+            file_path="routes/web.php",
+            line_number=11,
+            source="artisan",
+        ),
+    ]
+
+    rule = DuplicateRouteDefinitionRule(RuleConfig())
+    findings = rule.run(facts, project_type="laravel_blade").findings
+
+    assert findings == []
+
+
+def test_duplicate_route_definition_reports_when_artisan_confirms_duplicate():
+    facts = Facts(project_path="x")
+    facts.routes = [
+        RouteInfo(
+            method="POST",
+            uri="/patients",
+            file_path="routes/web.php",
+            line_number=10,
+            source="artisan",
+        ),
+        RouteInfo(
+            method="POST",
+            uri="/patients",
+            file_path="routes/web.php",
+            line_number=25,
+            source="artisan",
+        ),
+    ]
+
+    rule = DuplicateRouteDefinitionRule(RuleConfig())
+    findings = rule.run(facts, project_type="laravel_blade").findings
+
+    assert len(findings) == 1

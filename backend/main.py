@@ -9,14 +9,29 @@ import uuid
 import sys
 import os
 import socket
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse, ORJSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from config import settings, write_discovery_file, cleanup_port_file
 from api.routes import router
+from core.logging_setup import configure_logging
+
+
+configure_logging()
+logger = logging.getLogger(__name__)
+
+try:
+    import orjson as _orjson  # type: ignore
+
+    DEFAULT_RESPONSE_CLASS = ORJSONResponse
+except Exception:
+    _orjson = None
+    DEFAULT_RESPONSE_CLASS = JSONResponse
 
 
 def get_ephemeral_port() -> int:
@@ -46,10 +61,9 @@ async def lifespan(app: FastAPI):
     if port is not None and token and run_id:
         discovery_path = write_discovery_file(run_id, int(port), str(token))
         app.state.discovery_path = discovery_path
-        print(f"Backend started on http://{settings.host}:{port}")
-        print(f"Discovery: {discovery_path}")
+        logger.info("Backend started", extra={"host": settings.host, "port": port, "discovery": str(discovery_path)})
     else:
-        print("Backend started (standalone mode; no discovery file written)")
+        logger.info("Backend started (standalone mode)")
     
     yield
     
@@ -69,7 +83,7 @@ async def lifespan(app: FastAPI):
                     break
                 except PermissionError:
                     continue
-    print("Backend shutdown complete")
+    logger.info("Backend shutdown complete")
 
 
 app = FastAPI(
@@ -77,6 +91,7 @@ app = FastAPI(
     description="Local Laravel/PHP code quality auditor",
     version="1.0.0",
     lifespan=lifespan,
+    default_response_class=DEFAULT_RESPONSE_CLASS,
 )
 
 # CORS - strict for Tauri (localhost only)

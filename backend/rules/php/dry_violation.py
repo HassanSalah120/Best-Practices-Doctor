@@ -48,6 +48,25 @@ class DryViolationRule(Rule):
         "app/Services/*Reporting*.php",
         "app/Services/*Report*.php",
     ]
+    _LOW_SIGNAL_WRAPPER_SNIPPETS = (
+        "db::transaction(",
+        "return db::transaction(",
+    )
+    _LOW_SIGNAL_DATA_MAPPING_PATH_PREFIXES = (
+        "app/Http/Controllers/",
+        "app/Services/",
+        "app/Actions/",
+        "app/Http/Resources/",
+    )
+    _LOW_SIGNAL_DATA_MAPPING_CONTROL_FLOW = (
+        "if (",
+        "foreach (",
+        "for (",
+        "while (",
+        "switch (",
+        "try {",
+        "catch (",
+    )
     
     def analyze(
         self,
@@ -85,6 +104,12 @@ class DryViolationRule(Rule):
 
             # Skip if any file is in an ignored path (static data, config, etc.)
             if unique_files and any(self._is_ignored_path(fp, ignored_patterns) for fp in unique_files):
+                continue
+            if self._is_low_signal_framework_wrapper_duplicate(duplicate, unique_files):
+                continue
+            if self._is_low_signal_data_mapping_duplicate(duplicate, unique_files):
+                continue
+            if self._is_action_extraction_duplicate(duplicate, unique_files):
                 continue
 
             max_span = max((max(1, int(occ[2]) - int(occ[1]) + 1) for occ in occurrences), default=0)
@@ -242,6 +267,87 @@ class DryViolationRule(Rule):
     def _is_ignored_path(self, file_path: str, patterns: list[str]) -> bool:
         path = self._normalize_path(file_path)
         return any(fnmatch(path, pattern) for pattern in patterns)
+
+    def _is_low_signal_framework_wrapper_duplicate(
+        self,
+        duplicate: DuplicateBlock,
+        unique_files: set[str],
+    ) -> bool:
+        snippet = str(getattr(duplicate, "code_snippet", "") or "").lower()
+        if not snippet:
+            return False
+        if not any(token in snippet for token in self._LOW_SIGNAL_WRAPPER_SNIPPETS):
+            return False
+        if int(getattr(duplicate, "token_count", 0) or 0) > 110:
+            return False
+        return bool(unique_files) and all(
+            path.startswith("app/Actions/") or path.startswith("app/Services/")
+            for path in unique_files
+        )
+
+    def _is_low_signal_data_mapping_duplicate(
+        self,
+        duplicate: DuplicateBlock,
+        unique_files: set[str],
+    ) -> bool:
+        snippet = str(getattr(duplicate, "code_snippet", "") or "")
+        if not snippet:
+            return False
+        token_count = int(getattr(duplicate, "token_count", 0) or 0)
+        if token_count > 140:
+            return False
+        if snippet.count("=>") < 5:
+            return False
+
+        normalized = snippet.lower().replace("\n", " ")
+        if any(token in normalized for token in self._LOW_SIGNAL_DATA_MAPPING_CONTROL_FLOW):
+            return False
+
+        if not unique_files:
+            return False
+
+        if not all(path.startswith(self._LOW_SIGNAL_DATA_MAPPING_PATH_PREFIXES) for path in unique_files):
+            return False
+
+        return True
+
+    def _is_action_extraction_duplicate(
+        self,
+        duplicate: DuplicateBlock,
+        unique_files: set[str],
+    ) -> bool:
+        normalized_files = {self._normalize_path(path) for path in unique_files}
+        lower_files = {path.lower() for path in normalized_files}
+        if not lower_files:
+            return False
+        if not any(path.startswith("app/actions/") for path in lower_files):
+            return False
+        if not all(path.startswith(("app/actions/", "app/services/")) for path in lower_files):
+            return False
+        if len(lower_files) > 3 or len(list(duplicate.occurrences or [])) > 4:
+            return False
+
+        token_count = int(getattr(duplicate, "token_count", 0) or 0)
+        if token_count > 180:
+            return False
+
+        max_span = max(
+            (max(1, int(occ[2]) - int(occ[1]) + 1) for occ in (duplicate.occurrences or [])),
+            default=0,
+        )
+        if max_span > 45:
+            return False
+
+        domains = {
+            parts[2]
+            for path in lower_files
+            if (parts := path.split("/")) and len(parts) >= 4 and parts[0] == "app" and parts[1] in {"actions", "services"}
+        }
+        if not domains or len(domains) > 1:
+            return False
+
+        snippet = str(getattr(duplicate, "code_snippet", "") or "").lower()
+        return not any(token in snippet for token in ("route::", "schema::", "view(", "migration", "create table"))
 
     def _create_finding(self, duplicate: DuplicateBlock) -> Finding:
         """Create finding for duplicate block."""

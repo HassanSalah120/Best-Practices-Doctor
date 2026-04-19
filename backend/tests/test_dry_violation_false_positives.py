@@ -108,3 +108,54 @@ def test_dry_violation_ignores_same_file_only_duplicates_by_default():
     rule2 = DryViolationRule(RuleConfig(thresholds={"min_unique_files": 1}))
     res2 = rule2.run(facts, project_type="laravel_api")
     assert len(res2.findings) == 1
+
+
+def test_dry_violation_ignores_low_signal_data_mapping_duplicates():
+    facts = Facts(project_path=".")
+    facts.duplicates.append(
+        DuplicateBlock(
+            hash="serializer-hash",
+            token_count=96,
+            occurrences=[
+                ("app/Http/Controllers/Admin/TopicController.php", 30, 52),
+                ("app/Services/TopicViewService.php", 40, 62),
+            ],
+            code_snippet=(
+                "return [\n"
+                "  'public_id' => $topic->public_id,\n"
+                "  'title' => $topic->title,\n"
+                "  'description' => $topic->description,\n"
+                "  'status' => $topic->status->value,\n"
+                "  'published_at' => optional($topic->published_at)?->toIso8601String(),\n"
+                "  'closed_at' => optional($topic->closed_at)?->toIso8601String(),\n"
+                "];"
+            ),
+        )
+    )
+
+    rule = DryViolationRule(RuleConfig())
+    res = rule.run(facts, project_type="laravel_api")
+    assert not res.findings
+
+
+def test_dry_violation_ignores_action_extraction_duplicates_within_same_domain():
+    facts = Facts(project_path=".")
+    facts.duplicates.append(
+        DuplicateBlock(
+            hash="action-extraction",
+            token_count=136,
+            occurrences=[
+                ("app/Actions/Lms/AdvanceTurnAction.php", 40, 68),
+                ("app/Services/Lms/LmsGameService.php", 860, 888),
+            ],
+            code_snippet=(
+                "$nextPlayer = $this->turnService->nextPlayer($sessionId);\n"
+                "$this->activityLog->record($sessionId, 'advance_turn', $actorId);\n"
+                "return ['current_player_id' => $nextPlayer->id, 'session_id' => $sessionId];"
+            ),
+        )
+    )
+
+    rule = DryViolationRule(RuleConfig())
+    res = rule.run(facts, project_type="laravel_api")
+    assert not res.findings

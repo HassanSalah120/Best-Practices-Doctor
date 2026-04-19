@@ -44,6 +44,7 @@ class ScanConfig(BaseModel):
         "database/factories/**",
         ".git/**",
         "tests/**",
+        "**/tests/**",
         "*.min.js",
         "*.min.css",
     ])
@@ -113,6 +114,34 @@ class Ruleset(BaseModel):
         if v != 1:
             raise ValueError(f"Unsupported schema version: {v}. Expected: 1")
         return v
+
+    @classmethod
+    def _overlay_user_ruleset_on_base(cls, base: "Ruleset", user: "Ruleset") -> "Ruleset":
+        """Overlay a user ruleset on top of a base profile.
+
+        This keeps new rules from the base profile while preserving explicit
+        user overrides.
+        """
+        merged = base.model_copy(deep=True)
+
+        # Rule-level overrides are merged key-by-key so missing user entries
+        # still inherit current profile defaults.
+        merged.rules = {**base.rules, **user.rules}
+
+        # Only replace top-level settings when the user ruleset explicitly set
+        # those fields in YAML.
+        if "name" in user.model_fields_set:
+            merged.name = user.name
+        if "description" in user.model_fields_set:
+            merged.description = user.description
+        if "scan" in user.model_fields_set:
+            merged.scan = user.scan
+        if "scoring" in user.model_fields_set:
+            merged.scoring = user.scoring
+        if "project_types" in user.model_fields_set:
+            merged.project_types = user.project_types
+
+        return merged
     
     @classmethod
     def load(cls, path: str | Path) -> "Ruleset":
@@ -157,24 +186,37 @@ class Ruleset(BaseModel):
 
         Precedence:
         1. `override_path` (if provided)
-        2. User ruleset in app data dir (when `BPD_APP_DATA_DIR` is set, i.e., Tauri runtime)
+        2. User ruleset overlaid on active profile (when app-data ruleset exists)
         3. Active ruleset profile YAML (startup/balanced/strict)
         4. `ruleset.default.yaml` in current working directory (legacy fallback)
         5. `backend/ruleset.default.yaml` (packaged legacy fallback)
         6. Built-in defaults (`Ruleset.default()`), then `Ruleset()` as last resort
         """
-        candidates: list[Path] = []
-
+        # 1) Explicit override path always wins.
         if override_path:
-            candidates.append(Path(override_path))
+            try:
+                p = Path(override_path)
+                if p.exists():
+                    rs = cls.load(p)
+                    try:
+                        if rs._maybe_migrate_legacy_scoring_weights():
+                            logger.info(f"Migrated legacy scoring weights in ruleset: {p}")
+                    except Exception:
+                        pass
+                    return rs
+            except Exception:
+                pass
+
+        user_ruleset_path: Path | None = None
+        active_profile_path: Path | None = None
 
         # Persisted user ruleset (Tauri sets BPD_APP_DATA_DIR for the sidecar).
         app_data_dir = os.environ.get("BPD_APP_DATA_DIR")
         if app_data_dir:
             try:
-                candidates.append(Path(app_data_dir) / "ruleset.yaml")
+                user_ruleset_path = Path(app_data_dir) / "ruleset.yaml"
             except Exception:
-                pass
+                user_ruleset_path = None
 
         # Active profile YAML (user-scoped via settings.json, stored in app data dir).
         try:
@@ -184,10 +226,45 @@ class Ruleset(BaseModel):
             active = get_active_ruleset_profile(default="startup")
             p = get_profile_path(active)
             if p:
-                candidates.append(p)
+                active_profile_path = p
+        except Exception:
+            active_profile_path = None
+
+        # 2) Overlay user ruleset on top of active profile so newly added rules
+        # in the profile are inherited by older user rulesets.
+        try:
+            if user_ruleset_path and user_ruleset_path.exists() and active_profile_path and active_profile_path.exists():
+                base = cls.load(active_profile_path)
+                user = cls.load(user_ruleset_path)
+                rs = cls._overlay_user_ruleset_on_base(base, user)
+                try:
+                    if rs._maybe_migrate_legacy_scoring_weights():
+                        logger.info(
+                            "Migrated legacy scoring weights in merged user/profile ruleset"
+                        )
+                except Exception:
+                    pass
+                return rs
         except Exception:
             pass
 
+        # 3) Backward-compatible fallback to standalone user ruleset.
+        try:
+            if user_ruleset_path and user_ruleset_path.exists():
+                rs = cls.load(user_ruleset_path)
+                try:
+                    if rs._maybe_migrate_legacy_scoring_weights():
+                        logger.info(f"Migrated legacy scoring weights in ruleset: {user_ruleset_path}")
+                except Exception:
+                    pass
+                return rs
+        except Exception:
+            pass
+
+        # 4+) Fallback candidates.
+        candidates: list[Path] = []
+        if active_profile_path:
+            candidates.append(active_profile_path)
         candidates.append(Path("ruleset.default.yaml"))
 
         # Packaged/committed fallback relative to this module (backend/ruleset.default.yaml)
@@ -201,8 +278,6 @@ class Ruleset(BaseModel):
             try:
                 if p.exists():
                     rs = cls.load(p)
-                    # Backward-compatible migration for older default rulesets that omitted
-                    # SRP/Validation/Performance weights (which would otherwise become 0).
                     try:
                         if rs._maybe_migrate_legacy_scoring_weights():
                             logger.info(f"Migrated legacy scoring weights in ruleset: {p}")
@@ -342,14 +417,174 @@ class Ruleset(BaseModel):
                 "controller-query-direct": RuleConfig(enabled=True, severity="high", category="laravel_best_practice", thresholds={"max_queries_per_method": 0}),
                 "controller-business-logic": RuleConfig(enabled=True, severity="high", category="architecture", thresholds={"min_cyclomatic": 8, "min_loc": 60, "min_confidence": 0.6}),
                 "controller-inline-validation": RuleConfig(enabled=True, severity="medium", category="validation", thresholds={"high_if_rules_ge": 6, "min_confidence": 0.65}),
+                "controller-index-filter-duplication": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="architecture",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.74},
+                ),
                 "mass-assignment-risk": RuleConfig(enabled=True, severity="high", category="security"),
                 "unsafe-file-upload": RuleConfig(enabled=True, severity="high", category="security"),
                 "user-model-missing-must-verify-email": RuleConfig(enabled=True, severity="high", category="security"),
                 "registration-missing-registered-event": RuleConfig(enabled=True, severity="high", category="security"),
+                "missing-foreign-key-in-migration": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="laravel_best_practice",
+                    thresholds={"min_confidence": 0.78},
+                ),
+                "missing-index-on-lookup-columns": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="performance",
+                    thresholds={"min_confidence": 0.74},
+                ),
+                "destructive-migration-without-safety-guard": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="laravel_best_practice",
+                    thresholds={"min_confidence": 0.84},
+                ),
+                "model-hidden-sensitive-attributes-missing": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"min_confidence": 0.82},
+                ),
+                "sensitive-model-appends-risk": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"min_confidence": 0.86},
+                ),
                 "sensitive-routes-missing-verified-middleware": RuleConfig(enabled=True, severity="high", category="security"),
                 "tenant-access-middleware-missing": RuleConfig(enabled=True, severity="high", category="security"),
                 "signed-routes-missing-signature-middleware": RuleConfig(enabled=True, severity="high", category="security"),
                 "unsafe-external-redirect": RuleConfig(enabled=True, severity="high", category="security"),
+                "ssrf-risk-http-client": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"require_external_integrations_capability": True, "min_confidence": 0.82},
+                ),
+                "path-traversal-file-access": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"min_confidence": 0.84},
+                ),
+                "insecure-file-download-response": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"require_auth_or_ownership_guard": True, "min_confidence": 0.84},
+                ),
+                "webhook-signature-missing": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"require_external_integrations_capability": True, "min_confidence": 0.84},
+                ),
+                "idor-risk-missing-ownership-check": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"require_multi_role_portal_capability": True, "min_confidence": 0.8},
+                ),
+                "sensitive-route-rate-limit-missing": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"require_public_surface_capability": True, "min_confidence": 0.8},
+                ),
+                "sanctum-token-scope-missing": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="security",
+                    thresholds={
+                        "require_sanctum_signal": True,
+                        "require_multi_role_portal_capability": True,
+                        "min_confidence": 0.8,
+                    },
+                ),
+                "session-fixation-regenerate-missing": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"min_confidence": 0.82},
+                ),
+                "weak-password-policy-validation": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="security",
+                    thresholds={"min_required_length": 8, "min_confidence": 0.76},
+                ),
+                "upload-mime-extension-mismatch": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"require_upload_capability": True, "min_confidence": 0.82},
+                ),
+                "archive-upload-zip-slip-risk": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"require_upload_capability": True, "min_confidence": 0.84},
+                ),
+                "upload-size-limit-missing": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="security",
+                    thresholds={"require_upload_capability": True, "min_confidence": 0.76},
+                ),
+                "csrf-exception-wildcard-risk": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"min_confidence": 0.85},
+                ),
+                "host-header-poisoning-risk": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"min_confidence": 0.8},
+                ),
+                "xml-xxe-risk": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"min_confidence": 0.78},
+                ),
+                "zip-bomb-risk": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"require_upload_capability": True, "min_confidence": 0.8},
+                ),
+                "sensitive-response-cache-control-missing": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="security",
+                    thresholds={"min_confidence": 0.75},
+                ),
+                "password-reset-token-hardening-missing": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"min_confidence": 0.8},
+                ),
+                "security-headers-baseline-missing": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="security",
+                    thresholds={"min_confidence": 0.74},
+                ),
+                "webhook-replay-protection-missing": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"require_external_integrations_capability": True, "min_confidence": 0.8},
+                ),
                 "authorization-missing-on-sensitive-reads": RuleConfig(enabled=True, severity="high", category="security"),
                 "insecure-session-cookie-config": RuleConfig(enabled=True, severity="high", category="security"),
                 "unsafe-csp-policy": RuleConfig(enabled=True, severity="high", category="security"),
@@ -358,9 +593,59 @@ class Ruleset(BaseModel):
                 "npm-dependency-below-secure-version": RuleConfig(enabled=True, severity="high", category="security"),
                 "inertia-shared-props-sensitive-data": RuleConfig(enabled=True, severity="high", category="security"),
                 "inertia-shared-props-eager-query": RuleConfig(enabled=True, severity="medium", category="performance"),
+                "inertia-shared-props-payload-budget": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="performance",
+                    thresholds={"require_global_share_context": True, "min_confidence": 0.75},
+                ),
                 "job-missing-retry-policy": RuleConfig(enabled=True, severity="medium", category="security"),
                 "job-http-call-missing-timeout": RuleConfig(enabled=True, severity="medium", category="security"),
+                "notification-shouldqueue-missing": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="performance",
+                    thresholds={"min_confidence": 0.8},
+                ),
+                "listener-shouldqueue-missing-for-io-bound-handler": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="performance",
+                    thresholds={"min_confidence": 0.82},
+                ),
+                "broadcast-channel-authorization-missing": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"min_confidence": 0.84},
+                ),
+                "observer-heavy-logic": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="architecture",
+                    thresholds={"max_method_loc": 35, "max_side_effect_calls": 6},
+                ),
                 "no-json-encode-in-controllers": RuleConfig(enabled=True, severity="medium", category="laravel_best_practice"),
+                "error-pages-missing": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="laravel_best_practice",
+                    thresholds={
+                        "core_4xx_codes": ["404"],
+                        "core_5xx_codes": ["500"],
+                        "recommended_4xx_codes": ["403", "419", "429"],
+                        "recommended_5xx_codes": ["503"],
+                        "flag_recommended": True,
+                        "flag_recommended_inertia": False,
+                        "min_recommended_missing": 2,
+                    },
+                ),
+                "public-api-versioning-missing": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="laravel_best_practice",
+                    thresholds={"min_confidence": 0.78},
+                ),
                 "api-resource-usage": RuleConfig(enabled=True, severity="medium", category="laravel_best_practice"),
                 "no-log-debug-in-app": RuleConfig(enabled=True, severity="low", category="maintainability"),
                 "no-closure-routes": RuleConfig(enabled=True, severity="medium", category="architecture"),
@@ -374,7 +659,19 @@ class Ruleset(BaseModel):
                 "tenant-scope-enforcement": RuleConfig(enabled=True, severity="high", category="security", thresholds={"min_project_signals": 5, "min_method_queries": 1}),
                 "dto-suggestion": RuleConfig(enabled=True, severity="medium", category="maintainability", thresholds={"min_keys": 6}),
                 "action-class-suggestion": RuleConfig(enabled=True, severity="low", category="architecture"),
+                "action-class-naming-consistency": RuleConfig(
+                    enabled=True,
+                    severity="low",
+                    category="architecture",
+                    thresholds={"max_findings_per_file": 20, "min_confidence": 0.8},
+                ),
                 "massive-model": RuleConfig(enabled=True, severity="medium", category="maintainability", thresholds={"max_methods": 15, "max_loc": 400}),
+                "model-cross-model-query": RuleConfig(
+                    enabled=True,
+                    severity="low",
+                    category="architecture",
+                    thresholds={"max_findings_per_file": 3, "min_confidence": 0.74},
+                ),
                 "blade-xss-risk": RuleConfig(enabled=True, severity="high", category="security"),
                 "dry-violation": RuleConfig(enabled=True, severity="medium", category="dry", thresholds={"min_token_count": 50, "min_occurrences": 2}),
                 "high-complexity": RuleConfig(enabled=True, severity="high", category="complexity", thresholds={"max_cyclomatic": 10}),
@@ -397,14 +694,319 @@ class Ruleset(BaseModel):
                 "large-react-component": RuleConfig(enabled=True, severity="medium", category="react_best_practice", thresholds={"max_loc": 200}),
                 "inline-api-logic": RuleConfig(enabled=True, severity="high", category="react_best_practice"),
                 "react-useeffect-deps": RuleConfig(enabled=True, severity="medium", category="react_best_practice"),
+                "exhaustive-deps-ast": RuleConfig(enabled=True, severity="medium", category="react_best_practice"),
+                "usecallback-ast": RuleConfig(enabled=True, severity="medium", category="react_best_practice"),
+                "usememo-ast": RuleConfig(enabled=True, severity="medium", category="react_best_practice"),
                 "react-no-array-index-key": RuleConfig(enabled=True, severity="medium", category="react_best_practice"),
                 "hooks-in-conditional-or-loop": RuleConfig(enabled=True, severity="high", category="react_best_practice"),
                 "missing-key-on-list-render": RuleConfig(enabled=True, severity="high", category="react_best_practice"),
                 "hardcoded-user-facing-strings": RuleConfig(enabled=True, severity="medium", category="react_best_practice"),
                 "interactive-element-a11y": RuleConfig(enabled=True, severity="high", category="react_best_practice"),
                 "form-label-association": RuleConfig(enabled=True, severity="high", category="react_best_practice"),
+                "modal-trap-focus": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.82},
+                ),
+                "skip-link-missing": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 1, "min_confidence": 0.85},
+                ),
+                "focus-indicator-missing": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 3, "min_confidence": 0.9},
+                ),
+                "touch-target-size": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="accessibility",
+                    thresholds={"min_touch_target_px": 44, "max_findings_per_file": 3},
+                ),
+                "semantic-wrapper-breakage": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 3, "min_confidence": 0.9},
+                ),
+                "interactive-accessible-name-required": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 4, "min_confidence": 0.88},
+                ),
+                "jsx-aria-attribute-format": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 5, "min_confidence": 0.9},
+                ),
+                "outside-click-without-keyboard-fallback": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.84},
+                ),
+                "apg-tabs-keyboard-contract": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.86},
+                ),
+                "apg-accordion-disclosure-contract": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.84},
+                ),
+                "apg-menu-button-contract": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.86},
+                ),
+                "apg-combobox-contract": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.86},
+                ),
+                "dialog-focus-restore-missing": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.84},
+                ),
+                "avoid-props-to-state-copy": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.72},
+                ),
+                "props-state-sync-effect-smell": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.74},
+                ),
+                "controlled-uncontrolled-input-mismatch": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 3, "min_confidence": 0.82},
+                ),
+                "usememo-overuse": RuleConfig(
+                    enabled=True,
+                    severity="low",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.8},
+                ),
+                "usecallback-overuse": RuleConfig(
+                    enabled=True,
+                    severity="low",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.8},
+                ),
+                "context-oversized-provider": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="performance",
+                    thresholds={
+                        "max_findings_per_file": 2,
+                        "max_provider_keys_without_split": 6,
+                        "min_confidence": 0.78,
+                    },
+                ),
+                "lazy-without-suspense": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="react_best_practice",
+                    thresholds={"min_confidence": 0.84},
+                ),
+                "suspense-fallback-missing": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.82},
+                ),
+                "stale-closure-in-timer": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.82},
+                ),
+                "stale-closure-in-listener": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.82},
+                ),
+                "duplicate-key-source": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.76},
+                ),
+                "missing-loading-state": RuleConfig(
+                    enabled=True,
+                    severity="low",
+                    category="react_best_practice",
+                    thresholds={"min_confidence": 0.7},
+                ),
+                "missing-empty-state": RuleConfig(
+                    enabled=True,
+                    severity="low",
+                    category="react_best_practice",
+                    thresholds={"min_confidence": 0.7},
+                ),
+                "ref-access-during-render": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.84},
+                ),
+                "ref-used-as-reactive-state": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 1, "min_confidence": 0.78},
+                ),
+                "meta-description-missing-or-generic": RuleConfig(
+                    enabled=True,
+                    severity="low",
+                    category="react_best_practice",
+                    thresholds={"require_public_surface_signal": True, "min_confidence": 0.8},
+                ),
+                "canonical-missing-or-invalid": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"require_public_surface_signal": True, "min_confidence": 0.82},
+                ),
+                "robots-directive-risk": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"require_public_surface_signal": True, "min_confidence": 0.86},
+                ),
+                "crawlable-internal-navigation-required": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"require_public_surface_signal": True, "min_confidence": 0.78},
+                ),
+                "jsonld-structured-data-invalid-or-mismatched": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.86},
+                ),
+                "h1-singleton-violation": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"require_public_surface_signal": True, "min_confidence": 0.8},
+                ),
+                "page-indexability-conflict": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="react_best_practice",
+                    thresholds={"require_public_surface_signal": True, "min_confidence": 0.9},
+                ),
                 "no-inline-types": RuleConfig(enabled=True, severity="medium", category="maintainability"),
                 "no-inline-services": RuleConfig(enabled=True, severity="medium", category="maintainability"),
+                "react-parent-child-spacing-overlap": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={
+                        "max_findings_per_file": 2,
+                        "require_same_value": True,
+                        "allowed_responsive_scopes": ["base", "sm", "md", "lg", "xl", "2xl"],
+                    },
+                ),
+                "css-font-size-px": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"min_px": 12, "max_findings_per_file": 3},
+                ),
+                "css-spacing-px": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"min_px": 8, "max_findings_per_file": 4},
+                ),
+                "css-fixed-layout-px": RuleConfig(
+                    enabled=True,
+                    severity="low",
+                    category="react_best_practice",
+                    thresholds={"min_px": 240, "max_findings_per_file": 3},
+                ),
+                "tailwind-arbitrary-value-overuse": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"min_arbitrary_count": 3, "max_findings_per_file": 3},
+                ),
+                "tailwind-arbitrary-text-size": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 3},
+                ),
+                "tailwind-arbitrary-spacing": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 3},
+                ),
+                "tailwind-arbitrary-layout-size": RuleConfig(
+                    enabled=True,
+                    severity="low",
+                    category="react_best_practice",
+                    thresholds={"min_px": 200, "max_findings_per_file": 3},
+                ),
+                "tailwind-arbitrary-radius-shadow": RuleConfig(
+                    enabled=True,
+                    severity="low",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 3},
+                ),
+                "tailwind-motion-reduce-missing": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.88},
+                ),
+                "tailwind-appearance-none-risk": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 3, "min_confidence": 0.86},
+                ),
+                "css-focus-outline-without-replacement": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 3, "min_confidence": 0.92},
+                ),
+                "css-hover-only-interaction": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.84},
+                ),
+                "css-color-only-state-indicator": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="accessibility",
+                    thresholds={"max_findings_per_file": 2, "min_confidence": 0.82},
+                ),
                 "inertia-page-missing-head": RuleConfig(enabled=True, severity="medium", category="react_best_practice", thresholds={"min_confidence": 0.65}),
                 "inertia-internal-link-anchor": RuleConfig(enabled=True, severity="medium", category="react_best_practice"),
                 "inertia-form-uses-fetch": RuleConfig(enabled=True, severity="medium", category="react_best_practice"),
@@ -412,6 +1014,126 @@ class Ruleset(BaseModel):
                 "multiple-exported-react-components": RuleConfig(enabled=True, severity="low", category="maintainability"),
                 "context-provider-inline-value": RuleConfig(enabled=True, severity="medium", category="performance"),
                 "react-useeffect-fetch-without-abort": RuleConfig(enabled=True, severity="medium", category="react_best_practice"),
+                "derived-state-in-effect": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"min_set_calls": 1, "max_set_calls": 2, "require_dependency_signal": True},
+                ),
+                "state-update-in-render": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 3},
+                ),
+                "large-custom-hook": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="maintainability",
+                    thresholds={"max_loc": 280, "min_overflow_lines": 30, "min_logic_signals": 4},
+                ),
+                "cross-feature-import-boundary": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="architecture",
+                    thresholds={"allow_entrypoint_import": True, "max_findings_per_file": 3},
+                ),
+                "query-key-instability": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="performance",
+                    thresholds={"max_findings_per_file": 2},
+                ),
+                "react-no-random-key": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 2},
+                ),
+                "react-no-props-mutation": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="react_best_practice",
+                    thresholds={"require_component_signal": True, "max_findings_per_file": 2},
+                ),
+                "react-no-state-mutation": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="react_best_practice",
+                    thresholds={"max_state_vars": 12, "max_findings_per_file": 3},
+                ),
+                "react-side-effects-in-render": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 3},
+                ),
+                "react-event-listener-cleanup-required": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 2},
+                ),
+                "react-timer-cleanup-required": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"include_set_timeout": False, "max_findings_per_file": 2},
+                ),
+                "inertia-reload-without-only": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="performance",
+                    thresholds={"max_findings_per_file": 2},
+                ),
+                "insecure-postmessage-origin-wildcard": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"require_public_surface_capability": True, "min_confidence": 0.9},
+                ),
+                "token-storage-insecure-localstorage": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"require_public_surface_capability": True, "min_confidence": 0.85},
+                ),
+                "client-open-redirect-unvalidated-navigation": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"require_public_surface_capability": True, "min_confidence": 0.82},
+                ),
+                "postmessage-receiver-origin-not-verified": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"require_public_surface_capability": True, "min_confidence": 0.82},
+                ),
+                "dangerous-html-sink-without-sanitizer": RuleConfig(
+                    enabled=True,
+                    severity="high",
+                    category="security",
+                    thresholds={"min_confidence": 0.82},
+                ),
+                "effect-event-relay-smell": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 2},
+                ),
+                "route-shell-missing-error-boundary": RuleConfig(
+                    enabled=True,
+                    severity="low",
+                    category="react_best_practice",
+                    thresholds={"min_data_signals": 2},
+                ),
+                "unsafe-async-handler-without-guard": RuleConfig(
+                    enabled=True,
+                    severity="medium",
+                    category="react_best_practice",
+                    thresholds={"max_findings_per_file": 2},
+                ),
             }
         )
     

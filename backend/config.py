@@ -30,6 +30,7 @@ class Settings(BaseSettings):
         "public/build/**",
         ".git/**",
         "tests/**",
+        "**/tests/**",
         "*.min.js",
         "*.min.css",
     ])

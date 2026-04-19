@@ -13,14 +13,22 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 import { ApiClient } from "@/lib/api";
 import { isTauriRuntime } from "@/lib/tauri";
+import type { ProjectContextDebug, ScanProjectContextOverrides } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { ProjectContextConfigurator } from "@/components/setup/ProjectContextConfigurator";
 import { cn } from "@/lib/utils";
 
 interface WelcomeScreenProps {
-  onStartScan: (path: string, profile: string, selectedRules?: Set<string>) => void;
+  onStartScan: (
+    path: string,
+    profile: string,
+    selectedRules?: Set<string>,
+    projectContextOverrides?: ScanProjectContextOverrides,
+  ) => void;
   initialProfile?: string;
+  initialProjectContextOverrides?: ScanProjectContextOverrides;
   onProfileChange?: (profile: string) => void;
   onOpenRuleset?: () => void;
   onOpenAdvancedConfig?: () => void;
@@ -71,6 +79,7 @@ const FLOW_CARDS = [
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onStartScan,
   initialProfile = "startup",
+  initialProjectContextOverrides,
   onProfileChange,
   onOpenRuleset,
   onOpenAdvancedConfig,
@@ -81,6 +90,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   const [profiles, setProfiles] = useState<string[]>(["startup", "balanced", "strict", "advanced"]);
   const [activeProfile, setActiveProfile] = useState<string>(initialProfile);
   const [profilesLoading, setProfilesLoading] = useState(false);
+  const [projectContextOverrides, setProjectContextOverrides] = useState<ScanProjectContextOverrides | undefined>(
+    initialProjectContextOverrides,
+  );
+  const [detectingContext, setDetectingContext] = useState(false);
+  const [detectedContext, setDetectedContext] = useState<ProjectContextDebug | null>(null);
+  const [contextApplyMode, setContextApplyMode] = useState<"suggested" | "pinned">("suggested");
   const isTauri = isTauriRuntime();
 
   useEffect(() => {
@@ -92,6 +107,23 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       return initialProfile;
     });
   }, [initialProfile]);
+
+  useEffect(() => {
+    setProjectContextOverrides(initialProjectContextOverrides);
+  }, [initialProjectContextOverrides]);
+
+  useEffect(() => {
+    const mode = String(initialProjectContextOverrides?.context_lock_mode ?? "").trim();
+    if (mode === "pinned_detected_snapshot") {
+      setContextApplyMode("pinned");
+    } else if (mode === "suggested_detected_context") {
+      setContextApplyMode("suggested");
+    }
+  }, [initialProjectContextOverrides]);
+
+  useEffect(() => {
+    setDetectedContext(null);
+  }, [path]);
 
   useEffect(() => {
     onProfileChange?.(activeProfile);
@@ -161,7 +193,40 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
   const handleStart = () => {
     if (path.trim()) {
-      onStartScan(path.trim(), activeProfile, activeProfile === "advanced" ? selectedRules : undefined);
+      onStartScan(
+        path.trim(),
+        activeProfile,
+        activeProfile === "advanced" ? selectedRules : undefined,
+        projectContextOverrides,
+      );
+    }
+  };
+
+  const handleAutoDetectContext = async () => {
+    if (!path.trim()) return;
+    try {
+      setDetectingContext(true);
+      const response = await ApiClient.suggestProjectContext(path.trim());
+      const autoSuggested = response.suggested_context;
+      const pinnedSnapshot = response.pinned_context;
+      const nextContext =
+        contextApplyMode === "pinned"
+          ? pinnedSnapshot
+          : autoSuggested;
+      if (nextContext) {
+        setProjectContextOverrides({
+          ...nextContext,
+          context_lock_mode:
+            contextApplyMode === "pinned"
+              ? "pinned_detected_snapshot"
+              : "suggested_detected_context",
+        });
+      }
+      setDetectedContext(response.project_context ?? null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to auto-detect project context");
+    } finally {
+      setDetectingContext(false);
     }
   };
 
@@ -364,6 +429,96 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               <div className="mt-2 text-sm leading-6 text-white/60">
                 {(PROFILE_COPY[activeProfile] ?? PROFILE_COPY.startup).description}
               </div>
+            </div>
+
+            <ProjectContextConfigurator
+              value={projectContextOverrides}
+              onChange={setProjectContextOverrides}
+            />
+
+            <div className="space-y-2 rounded-[1.25rem] border border-white/10 bg-slate-950/35 p-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-white/45">
+                  Context suggestion
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAutoDetectContext}
+                  disabled={!path.trim() || detectingContext}
+                  className="border-cyan-400/25 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/20"
+                >
+                  {detectingContext ? "Detecting..." : "Auto-detect from codebase"}
+                </Button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setContextApplyMode("suggested")}
+                  className={cn(
+                    "rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors",
+                    contextApplyMode === "suggested"
+                      ? "border-cyan-300/40 bg-cyan-400/20 text-cyan-100"
+                      : "border-white/10 bg-white/5 text-white/60 hover:border-white/20 hover:text-white/80",
+                  )}
+                >
+                  Apply suggested
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContextApplyMode("pinned")}
+                  className={cn(
+                    "rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors",
+                    contextApplyMode === "pinned"
+                      ? "border-fuchsia-300/40 bg-fuchsia-400/20 text-fuchsia-100"
+                      : "border-white/10 bg-white/5 text-white/60 hover:border-white/20 hover:text-white/80",
+                  )}
+                >
+                  Pin detected snapshot
+                </button>
+              </div>
+              <div className="text-[11px] text-white/50">
+                Suggested keeps conservative high-confidence overrides. Pinned snapshot locks detected values so rescans stay stable.
+              </div>
+              {detectedContext ? (
+                <div className="space-y-1 text-xs text-white/60">
+                  <div>
+                    Detected:{" "}
+                    <span className="font-semibold text-white/80">
+                      {String(
+                        detectedContext.project_type ||
+                          detectedContext.project_business_context ||
+                          "unknown",
+                      )}
+                    </span>
+                    {" · "}
+                    <span className="font-semibold text-white/80">
+                      {String(
+                        detectedContext.architecture_style ||
+                          detectedContext.backend_architecture_profile ||
+                          "unknown",
+                      )}
+                    </span>
+                  </div>
+                  <div>
+                    Apply mode:{" "}
+                    <span className="font-semibold text-white/80">
+                      {contextApplyMode === "pinned" ? "Pinned snapshot" : "Suggested overrides"}
+                    </span>
+                  </div>
+                  {Array.isArray(detectedContext.context_resolution_signals) &&
+                  detectedContext.context_resolution_signals.length > 0 ? (
+                    <div className="font-mono text-[11px] text-white/50">
+                      {detectedContext.context_resolution_signals.slice(0, 4).join(" | ")}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="text-xs text-white/50">
+                  Use this to prefill project context from detected architecture/business signals before scan.
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">

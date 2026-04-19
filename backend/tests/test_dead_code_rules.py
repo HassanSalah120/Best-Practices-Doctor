@@ -1,4 +1,6 @@
 from core.ruleset import RuleConfig
+from core.rule_engine import create_engine, ALL_RULES
+from core.ruleset import Ruleset
 from rules.php.unused_private_method import UnusedPrivateMethodRule
 from rules.laravel.unused_service_class import UnusedServiceClassRule
 from schemas.facts import Facts, ClassInfo, MethodInfo, ClassConstAccess
@@ -83,6 +85,62 @@ def test_unused_private_method_flags_only_unreferenced_private_methods():
     assert any(f.rule_id == "unused-private-method" and f.context.endswith("::unusedHelper") for f in findings)
     assert not any("::usedHelper" in f.context for f in findings)
     assert not any("__construct" in f.context for f in findings)
+
+
+def test_unused_private_method_detects_calls_embedded_in_assignments_and_scoped_expressions():
+    facts = Facts(project_path=".")
+
+    facts.classes.append(
+        ClassInfo(
+            name="LmsGameService",
+            fqcn="App\\Services\\Lms\\LmsGameService",
+            file_path="app/Services/Lms/LmsGameService.php",
+            file_hash="svc",
+            line_start=1,
+            line_end=180,
+        )
+    )
+
+    facts.methods.append(
+        MethodInfo(
+            name="startCategory",
+            class_name="LmsGameService",
+            class_fqcn="App\\Services\\Lms\\LmsGameService",
+            file_path="app/Services/Lms/LmsGameService.php",
+            file_hash="svc",
+            visibility="public",
+            line_start=20,
+            line_end=50,
+            loc=31,
+            call_sites=[
+                "$category = $this->fetchCategory($config['categoryId']);",
+                "$this->validateParticipantCount($participants);",
+                "$seriesId = self::ensureActiveSeries();",
+            ],
+        )
+    )
+
+    for line, name in [(70, "fetchCategory"), (80, "validateParticipantCount"), (90, "ensureActiveSeries"), (100, "unusedHelper")]:
+        facts.methods.append(
+            MethodInfo(
+                name=name,
+                class_name="LmsGameService",
+                class_fqcn="App\\Services\\Lms\\LmsGameService",
+                file_path="app/Services/Lms/LmsGameService.php",
+                file_hash="svc",
+                visibility="private",
+                line_start=line,
+                line_end=line + 5,
+                loc=6,
+            )
+        )
+
+    findings = UnusedPrivateMethodRule(RuleConfig()).run(facts, project_type="laravel_blade").findings
+
+    assert any(f.context.endswith("::unusedHelper") for f in findings)
+    assert not any(f.context.endswith("::fetchCategory") for f in findings)
+    assert not any(f.context.endswith("::validateParticipantCount") for f in findings)
+    assert not any(f.context.endswith("::ensureActiveSeries") for f in findings)
 
 
 def test_unused_service_class_is_not_flagged_when_referenced_via_type_hint():
@@ -243,3 +301,25 @@ def test_unused_service_class_is_not_flagged_when_referenced_via_interface_type_
 
     findings = UnusedServiceClassRule(RuleConfig()).run(facts, project_type="laravel_blade").findings
     assert findings == []
+
+
+def test_unused_service_class_survives_strict_confidence_filter():
+    facts = Facts(project_path=".")
+    facts.classes.append(
+        ClassInfo(
+            name="UnusedService",
+            fqcn="App\\Services\\UnusedService",
+            file_path="app/Services/UnusedService.php",
+            file_hash="svc",
+            line_start=1,
+            line_end=40,
+        )
+    )
+
+    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES.keys()}
+    rules["unused-service-class"] = RuleConfig(enabled=True)
+    ruleset = Ruleset(rules=rules, name="strict")
+    engine = create_engine(ruleset=ruleset, selected_rules=["unused-service-class"])
+    result = engine.run(facts, project_type="laravel_blade")
+
+    assert any(f.rule_id == "unused-service-class" and f.context == "App\\Services\\UnusedService" for f in result.findings)

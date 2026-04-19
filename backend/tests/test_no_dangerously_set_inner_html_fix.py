@@ -79,6 +79,38 @@ export const UnsafeComponent = ({ html }) => {
     assert findings[0].rule_id == "no-dangerously-set-inner-html"
 
 
+def test_multiline_style_tag_usage_flagged():
+    """Multiline <style dangerouslySetInnerHTML={...}> usage SHOULD be flagged."""
+    rule = NoDangerouslySetInnerHtmlRule(RuleConfig())
+    content = """
+import React from 'react';
+
+export const UnsafeStyle = () => {
+    return (
+        <style
+            dangerouslySetInnerHTML={{
+                __html: `
+                    @keyframes spin {
+                        from { transform: rotate(0deg); }
+                        to { transform: rotate(360deg); }
+                    }
+                `
+            }}
+        />
+    );
+};
+"""
+    findings = rule.analyze_regex(
+        file_path="resources/js/components/UnsafeStyle.tsx",
+        content=content,
+        facts=Facts(project_path="."),
+        metrics=None,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].rule_id == "no-dangerously-set-inner-html"
+
+
 def test_dompurify_usage_not_flagged():
     """Usage with DOMPurify should NOT be flagged."""
     rule = NoDangerouslySetInnerHtmlRule(RuleConfig())

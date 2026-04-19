@@ -44,13 +44,24 @@ class JobMissingIdempotencyGuardRule(Rule):
         "::create(",
         "insert(",
     )
+    _DB_ONLY_SIDE_EFFECTS = (
+        "db::",
+        "->save(",
+        "->update(",
+        "->delete(",
+        "::create(",
+        "insert(",
+    )
     _GUARDS = (
         "shouldbeunique",
+        "shouldbeuniqueuntilprocessing",
         "withoutoverlapping",
         "cache::lock",
         "uniqueid(",
         "updateorcreate(",
         "firstorcreate(",
+        "insertorignore(",
+        "firstornew(",
         "upsert(",
         "lockforupdate(",
         "idempot",
@@ -74,27 +85,41 @@ class JobMissingIdempotencyGuardRule(Rule):
         norm = (file_path or "").replace("\\", "/").lower()
         if "/jobs/" not in f"/{norm}":
             return []
+        require_queue_capability = bool(self.get_threshold("require_queue_capability", False))
+        if require_queue_capability and not self._queue_or_integration_capability_enabled(facts):
+            return []
 
         text = content or ""
         low = text.lower()
-        if "function handle" not in low:
+        handle_body, handle_line = self._extract_handle_body(text)
+        if not handle_body:
             return []
         if "shouldqueue" not in low:
             return []
-        if not any(token in low for token in self._SIDE_EFFECTS):
+        body_low = handle_body.lower()
+        side_effect_hits = [token for token in self._SIDE_EFFECTS if token in body_low]
+        if not side_effect_hits:
             return []
         if any(token in low for token in self._GUARDS):
             return []
+        if bool(self.get_threshold("ignore_db_only_jobs", True)):
+            if side_effect_hits and all(token in self._DB_ONLY_SIDE_EFFECTS for token in side_effect_hits):
+                return []
 
-        handle_match = re.search(r"function\s+handle\s*\(", text, re.IGNORECASE)
-        line = text.count("\n", 0, handle_match.start()) + 1 if handle_match else 1
+        confidence = 0.72 + (0.03 * min(len(side_effect_hits), 3))
+        if any(token in side_effect_hits for token in ("http::", "mail::", "notification::")):
+            confidence += 0.04
+        confidence = min(0.95, confidence)
+        min_confidence = float(self.get_threshold("min_confidence", 0.0) or 0.0)
+        if confidence + 1e-9 < min_confidence:
+            return []
 
         return [
             self.create_finding(
                 title="Queued job shows side effects without an idempotency guard",
                 context=f"file:{file_path}",
                 file=file_path,
-                line_start=line,
+                line_start=handle_line,
                 description=(
                     "Detected a queued job with visible side-effect operations but no clear uniqueness, "
                     "locking, or idempotent write signal."
@@ -108,7 +133,39 @@ class JobMissingIdempotencyGuardRule(Rule):
                     "write patterns such as `updateOrCreate` or `upsert` for jobs that can be retried or enqueued twice."
                 ),
                 tags=["laravel", "security", "queues", "jobs", "idempotency"],
-                confidence=0.78,
-                evidence_signals=["queued_job_side_effects=true", "idempotency_guard_missing=true"],
+                confidence=confidence,
+                evidence_signals=[
+                    "queued_job_side_effects=true",
+                    "idempotency_guard_missing=true",
+                    f"side_effect_count={len(side_effect_hits)}",
+                ],
             )
         ]
+
+    def _queue_or_integration_capability_enabled(self, facts: Facts) -> bool:
+        caps = getattr(getattr(facts, "project_context", None), "backend_capabilities", {}) or {}
+        required = ("queue_heavy", "external_integrations_heavy", "billing", "notifications_heavy", "realtime")
+        for key in required:
+            payload = caps.get(key)
+            if isinstance(payload, dict) and bool(payload.get("enabled", False)):
+                return True
+        return False
+
+    def _extract_handle_body(self, text: str) -> tuple[str, int]:
+        match = re.search(r"function\s+handle\s*\([^)]*\)\s*(?::\s*[^{]+)?\{", text, re.IGNORECASE)
+        if not match:
+            return "", 1
+        start = match.end()
+        line = text.count("\n", 0, match.start()) + 1
+        depth = 1
+        i = start
+        while i < len(text):
+            ch = text[i]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start:i], line
+            i += 1
+        return text[start:], line

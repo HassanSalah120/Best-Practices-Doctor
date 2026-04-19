@@ -105,6 +105,8 @@ class NPlusOneRiskRule(Rule):
         r")\b",
         re.IGNORECASE,
     )
+    _LAYERED_BOUNDARY_TOKENS = ("repository", "repo", "service")
+    _LAYERED_LOAD_VERBS = ("get", "list", "load", "fetch", "find", "query", "retrieve")
 
     def _looks_scalar_member(self, rel: str) -> bool:
         r = (rel or "").strip().lower()
@@ -238,6 +240,25 @@ class NPlusOneRiskRule(Rule):
                     return True
         return False
 
+    def _delegates_collection_loading_to_boundary(self, method: object | None) -> bool:
+        if method is None:
+            return False
+        joined = " ".join(str(x or "") for x in getattr(method, "call_sites", []) or []).lower()
+        if not joined:
+            return False
+        return any(token in joined for token in self._LAYERED_BOUNDARY_TOKENS) and any(
+            verb in joined for verb in self._LAYERED_LOAD_VERBS
+        )
+
+    def _accepts_collection_parameter(self, method: object | None) -> bool:
+        if method is None:
+            return False
+        for param in getattr(method, "parameters", []) or []:
+            low = str(param or "").lower()
+            if "collection" in low:
+                return True
+        return False
+
     def analyze(
         self,
         facts: Facts,
@@ -245,11 +266,22 @@ class NPlusOneRiskRule(Rule):
     ) -> list[Finding]:
         findings: list[Finding] = []
         min_confidence = float(self.get_threshold("min_confidence", 0.55))
+        require_model_match = bool(self.get_threshold("require_model_match", False))
+        require_local_or_strong = bool(
+            self.get_threshold("require_local_query_context_or_strong_relation_signal", False)
+        )
+        require_select_query_context = bool(self.get_threshold("require_select_query_context", False))
+        min_evidence_signals = int(self.get_threshold("min_evidence_signals", 1) or 1)
 
         # Index queries by method for confidence tuning.
         q_by_method: dict[tuple[str, str], list[QueryUsage]] = {}
         for q in facts.queries:
             q_by_method.setdefault((q.file_path, q.method_name), []).append(q)
+        methods_by_key = {
+            (m.file_path, m.name): m
+            for m in (facts.methods or [])
+            if getattr(m, "file_path", None) and getattr(m, "name", None)
+        }
 
         model_relations, global_relation_names = self._build_model_relation_index(facts)
 
@@ -272,18 +304,24 @@ class NPlusOneRiskRule(Rule):
             occurrences = len(ras)
 
             qs = q_by_method.get((file_path, method_name), [])
-            has_any_query = len(qs) > 0
-            has_any_eager = any(q.has_eager_loading for q in qs)
+            select_qs = [q for q in qs if str(getattr(q, "query_type", "select") or "select").lower() == "select"]
+            method_info = methods_by_key.get((file_path, method_name))
+            has_any_query = len(select_qs) > 0
+            has_any_eager = any(q.has_eager_loading for q in select_qs)
             rel = (relation or "").strip().lower()
 
             # If the relation is explicitly eager-loaded in this method's queries,
             # it is NOT an N+1 — skip it entirely.
-            if self._is_eager_loaded_in_queries(rel, qs):
+            if self._is_eager_loaded_in_queries(rel, select_qs):
                 continue
 
             # Also check if ANY query in the file has eager loading for this relation
             # (handles cases where data is fetched in a helper method)
-            all_file_queries = [q for q in facts.queries if q.file_path == file_path]
+            all_file_queries = [
+                q
+                for q in facts.queries
+                if q.file_path == file_path and str(getattr(q, "query_type", "select") or "select").lower() == "select"
+            ]
             if self._is_eager_loaded_in_queries(rel, all_file_queries):
                 continue
 
@@ -291,7 +329,7 @@ class NPlusOneRiskRule(Rule):
             if model_key not in model_relations:
                 # Fallback for generic loop vars like `$item`, `$row`, `$entry`:
                 # if the method clearly queries one model type, use it as context.
-                q_model_key = self._infer_model_key_from_queries(qs, model_relations)
+                q_model_key = self._infer_model_key_from_queries(select_qs, model_relations)
                 if q_model_key:
                     model_key = q_model_key
             model_known = model_key in model_relations
@@ -299,6 +337,29 @@ class NPlusOneRiskRule(Rule):
             model_mismatch = model_known and not model_match
             access_method = (sample.access_type or "").strip().lower() == "method"
             global_match = rel in global_relation_names
+            strong_relation_signal = access_method or model_match or (
+                global_match and (loop_kind or "").strip().lower() == "foreach"
+            )
+            layered_delegate = (
+                facts.project_context.backend_architecture_profile in {"layered", "modular"}
+                and self._delegates_collection_loading_to_boundary(method_info)
+                and not has_any_query
+                and not access_method
+            )
+            layered_collection_mapper = (
+                facts.project_context.backend_architecture_profile in {"layered", "modular"}
+                and self._accepts_collection_parameter(method_info)
+                and not has_any_query
+                and not access_method
+                and ("/services/" in file_path.lower().replace("\\", "/") or "/actions/" in file_path.lower().replace("\\", "/"))
+            )
+
+            if require_model_match and not model_match:
+                continue
+            if require_local_or_strong and not has_any_query and not strong_relation_signal:
+                continue
+            if require_select_query_context and not has_any_query and not strong_relation_signal:
+                continue
 
             # Strong mismatch signal: variable likely maps to a known model, but accessed
             # member is not a declared relation on that model.
@@ -316,21 +377,35 @@ class NPlusOneRiskRule(Rule):
 
             # Signal-based confidence.
             signal = 0.0
+            evidence_count = 0
             if access_method:
                 signal += 0.45
+                evidence_count += 1
             if model_match:
                 signal += 0.35
+                evidence_count += 1
             elif global_match:
                 signal += 0.20
+                evidence_count += 1
             elif rel.endswith("s") and rel not in {"status", "settings", "notes"}:
                 signal += 0.15
 
             if has_any_query and not has_any_eager:
                 signal += 0.30
+                evidence_count += 1
             elif has_any_query and has_any_eager:
                 signal += 0.15
+                evidence_count += 1
+            else:
+                signal -= 0.18
+            if layered_delegate:
+                signal -= 0.20
+            if layered_collection_mapper:
+                signal -= 0.25
 
             confidence = min(0.95, 0.20 + signal)
+            if evidence_count < min_evidence_signals:
+                continue
 
             # Avoid noisy weak signals.
             if confidence < min_confidence:
@@ -338,6 +413,16 @@ class NPlusOneRiskRule(Rule):
 
             ctx_cls = sample.class_fqcn or ""
             ctx = f"{ctx_cls}::{method_name}:{sample.base_var}->{relation}:{loop_kind}"
+            evidence = [
+                f"loop_kind={loop_kind}",
+                f"relation={rel}",
+                f"select_query_context={'true' if has_any_query else 'false'}",
+                f"model_match={'true' if model_match else 'false'}",
+                f"access_method={'true' if access_method else 'false'}",
+                f"evidence_count={evidence_count}",
+            ]
+            if has_any_eager:
+                evidence.append("local_eager_loading=true")
 
             findings.append(
                 self.create_finding(
@@ -371,6 +456,7 @@ class NPlusOneRiskRule(Rule):
                     ),
                     confidence=confidence,
                     tags=["performance", "n+1", "eloquent", "eager-loading"],
+                    evidence_signals=evidence,
                 )
             )
 

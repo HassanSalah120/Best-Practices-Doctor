@@ -56,11 +56,15 @@ class LargeComponentRule(Rule):
         
         # Backwards/forwards compatible threshold keys.
         max_lines = self.get_threshold("max_lines", self.get_threshold("max_loc", 200))
+        min_loc_to_consider = max(120, int(self.get_threshold("min_loc_to_consider", 240)))
+        min_overflow_lines = max(0, int(self.get_threshold("min_overflow_lines", 20)))
         
         for component in facts.react_components:
+            if component.loc < min_loc_to_consider:
+                continue
             profile = self._component_profile(component, max_lines, facts)
             threshold = int(profile["threshold"])
-            if component.loc > threshold:
+            if component.loc >= (threshold + min_overflow_lines):
                 findings.append(self._create_finding(component, threshold, profile))
         
         return findings
@@ -82,21 +86,41 @@ class LargeComponentRule(Rule):
         is_feature_shell = local_component_imports >= 3 or (has_custom_hook_import and local_component_imports >= 2)
         is_composed_shell = has_custom_hook_import and local_component_imports >= 2
         is_complex_ui_shell = is_feature_shell or any(token in name_low for token in self._SHELL_NAME_MARKERS)
+        project_type = str(getattr(getattr(facts, "project_context", None), "project_type", "unknown") or "unknown")
+        react_mode = str(
+            getattr(getattr(facts, "project_context", None), "react_structure_mode", "unknown") or "unknown"
+        ).lower()
+        capabilities = getattr(getattr(facts, "project_context", None), "capabilities", {}) or {}
+        has_realtime = bool((capabilities.get("realtime") or {}).get("enabled", False))
+        has_mixed_dashboard = bool((capabilities.get("mixed_public_dashboard") or {}).get("enabled", False))
+
+        shell_threshold = int(self.get_threshold("max_lines_component_shell", 420))
+        feature_threshold = int(self.get_threshold("max_lines_feature_shell", 520))
+        composed_threshold = int(self.get_threshold("max_lines_composed_shell", 700))
+        static_threshold = int(self.get_threshold("max_lines_static_page", 420))
 
         threshold = base_threshold
         if not is_page:
             if is_feature_shell or (is_complex_ui_shell and (is_composed_shell or local_component_imports >= 2)):
-                threshold = max(base_threshold, 400)
+                threshold = max(base_threshold, shell_threshold)
             else:
                 threshold = base_threshold
         elif is_composed_shell and is_complex_ui_shell:
-            threshold = max(base_threshold, 650)
+            threshold = max(base_threshold, composed_threshold)
         elif is_feature_shell:
-            threshold = max(base_threshold, 500)
+            threshold = max(base_threshold, feature_threshold)
         elif has_custom_hook_import or is_static_marketing_page:
-            threshold = max(base_threshold, 400)
+            threshold = max(base_threshold, static_threshold)
         else:
             threshold = max(base_threshold, 300)
+
+        if project_type == "realtime_game_control_platform" or has_realtime:
+            threshold += 100
+        elif project_type in {"portal_based_business_app", "public_website_with_dashboard"} or has_mixed_dashboard:
+            threshold += 60
+
+        if react_mode == "hybrid":
+            threshold += 40
 
         return {
             "threshold": threshold,
@@ -107,12 +131,16 @@ class LargeComponentRule(Rule):
             "is_composed_shell": is_composed_shell,
             "is_feature_shell": is_feature_shell,
             "is_complex_ui_shell": is_complex_ui_shell,
+            "project_type": project_type,
+            "react_structure_mode": react_mode,
             "evidence_signals": [
                 f"is_page={int(is_page)}",
                 f"hooks={int(has_custom_hook_import)}",
                 f"local_components={local_component_imports}",
                 f"feature_shell={int(is_feature_shell)}",
                 f"complex_shell={int(is_complex_ui_shell)}",
+                f"project_type={project_type}",
+                f"react_structure={react_mode}",
                 f"threshold={threshold}",
             ],
         }

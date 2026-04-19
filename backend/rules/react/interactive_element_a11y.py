@@ -1,7 +1,8 @@
 """
-React Interactive Element A11y Rule
+React Interactive Element A11y Rule (AST-first).
 
-Detects clickable non-semantic elements missing keyboard/role accessibility support.
+Detects non-semantic clickable elements that are missing keyboard operability
+contracts (role, keyboard handlers, tabIndex).
 """
 
 from __future__ import annotations
@@ -12,23 +13,20 @@ from schemas.facts import Facts
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from rules.react.jsx_tree_sitter import JsxTreeSitterHelper
 
 
 class InteractiveElementA11yRule(Rule):
     id = "interactive-element-a11y"
     name = "Interactive Element Accessibility"
-    description = "Detects non-semantic clickable elements missing role/keyboard handlers"
-    category = Category.REACT_BEST_PRACTICE
+    description = "Detects non-semantic clickable elements missing role/keyboard contracts"
+    category = Category.ACCESSIBILITY
     default_severity = Severity.HIGH
-    type = "regex"
+    type = "ast"
     applicable_project_types: list[str] = []
     regex_file_extensions = [".js", ".jsx", ".ts", ".tsx"]
 
-    _TAG_START_PATTERN = re.compile(
-        r"<(?P<tag>div|span|li|p|section|article)\b",
-        re.IGNORECASE,
-    )
-    _SELF_CLOSING_PATTERN = re.compile(r"/\s*>")
+    _NON_SEMANTIC_TAGS = {"div", "span", "li", "p", "section", "article"}
     _ALLOWLIST_PATH_MARKERS = (
         "/tests/",
         "/test/",
@@ -43,6 +41,10 @@ class InteractiveElementA11yRule(Rule):
         "/build/",
     )
 
+    def __init__(self, config):
+        super().__init__(config)
+        self._jsx = JsxTreeSitterHelper()
+
     def analyze(
         self,
         facts: Facts,
@@ -50,87 +52,7 @@ class InteractiveElementA11yRule(Rule):
     ) -> list[Finding]:
         return []
 
-    def _extract_tag_content(self, content: str, start_pos: int) -> tuple[str, int] | None:
-        """Extract tag attributes by tracking brace/bracket balance to handle JSX expressions."""
-        if start_pos >= len(content):
-            return None
-        
-        # Find the opening <
-        if content[start_pos] != '<':
-            return None
-            
-        # Find where the tag name ends (space, newline, or >)
-        pos = start_pos + 1
-        while pos < len(content) and content[pos].isalnum():
-            pos += 1
-        
-        # Now parse attributes, tracking brace balance
-        # { } for JSX expressions, ( ) for function calls, [ ] for arrays
-        brace_count = 0
-        paren_count = 0
-        bracket_count = 0
-        in_string = None  # '" or "
-        
-        while pos < len(content):
-            char = content[pos]
-            
-            # Handle strings
-            if in_string:
-                if char == in_string and content[pos - 1] != '\\':
-                    in_string = None
-                pos += 1
-                continue
-            
-            if char in '"\'':
-                in_string = char
-                pos += 1
-                continue
-            
-            # Track brace balance for JSX expressions
-            if char == '{':
-                brace_count += 1
-            elif char == '}':
-                brace_count -= 1
-            elif char == '(':
-                paren_count += 1
-            elif char == ')':
-                paren_count -= 1
-            elif char == '[':
-                bracket_count += 1
-            elif char == ']':
-                bracket_count -= 1
-            
-            # If we hit > and all braces are balanced, this is the end of the tag
-            if char == '>' and brace_count == 0 and paren_count == 0 and bracket_count == 0:
-                attrs = content[start_pos + 1:pos]  # Exclude < and >
-                # Remove tag name from start
-                tag_end = 0
-                while tag_end < len(attrs) and (attrs[tag_end].isalnum() or attrs[tag_end] in '._-'):
-                    tag_end += 1
-                attrs = attrs[tag_end:]
-                return attrs, pos
-            
-            pos += 1
-        
-        return None  # No closing > found
-
-    def _has_visible_text_label(self, content: str, end_pos: int, tag: str) -> bool:
-        """Treat visible inner text as the accessible name for simple interactive wrappers."""
-        close_tag = f"</{tag}>"
-        close_pos = content.find(close_tag, end_pos + 1)
-        if close_pos == -1:
-            return False
-
-        inner = content[end_pos + 1:close_pos]
-        if not inner.strip():
-            return False
-
-        inner = re.sub(r"\{[^{}]*\}", " ", inner)
-        inner = re.sub(r"<[^>]+>", " ", inner)
-        inner = re.sub(r"\s+", " ", inner).strip()
-        return bool(re.search(r"[A-Za-z0-9]", inner))
-
-    def analyze_regex(
+    def analyze_ast(
         self,
         file_path: str,
         content: str,
@@ -139,97 +61,138 @@ class InteractiveElementA11yRule(Rule):
     ) -> list[Finding]:
         if self._is_allowlisted_path(file_path):
             return []
+        if not self._jsx.is_ready():
+            return []
+        if "onClick" not in (content or ""):
+            return []
+
+        tree = self._jsx.parse_tree(file_path, content or "")
+        if not tree or not getattr(tree, "root_node", None):
+            return []
 
         findings: list[Finding] = []
-        
-        # Find all potential tag starts and extract their content properly
-        for m in self._TAG_START_PATTERN.finditer(content):
-            start_pos = m.start()
-            result = self._extract_tag_content(content, start_pos)
-            if not result:
-                continue
-                
-            attrs, end_pos = result
-            attrs_lower = attrs.lower()
-            
-            # Skip if no onClick
-            if "onclick" not in attrs_lower:
-                continue
-                
-            # Skip aria-hidden elements
-            if "aria-hidden={true}" in attrs_lower or 'aria-hidden="true"' in attrs_lower or "aria-hidden='true'" in attrs_lower:
-                continue
-                
-            # Skip disabled elements
-            if "disabled" in attrs_lower:
+        content_bytes = (content or "").encode("utf-8")
+        max_findings = max(1, int(self.get_threshold("max_findings_per_file", 4)))
+
+        for node in self._jsx.iter_jsx_elements(tree.root_node):
+            if len(findings) >= max_findings:
+                break
+
+            opening = self._jsx.get_opening_node(node)
+            tag = self._jsx.get_tag_name(opening, content_bytes).strip()
+            if not tag or tag.lower() not in self._NON_SEMANTIC_TAGS:
                 continue
 
-            has_role = "role=" in attrs_lower
-            has_key_handler = any(k in attrs_lower for k in ["onkeydown", "onkeyup", "onkeypress"])
-            has_tabindex = "tabindex=" in attrs_lower
-            has_aria_label = "aria-label=" in attrs_lower or "aria-labelledby=" in attrs_lower
-            tag = str(m.group("tag") or "").lower()
-            has_visible_text_label = self._has_visible_text_label(content, end_pos, tag)
-            has_accessible_name = has_aria_label or has_visible_text_label
-            
-            # Check if the element already has complete accessibility support
-            # Visible text can provide the accessible name; aria-label is not always required.
-            if has_role and has_key_handler and has_tabindex and has_accessible_name:
+            attrs = self._jsx.get_attributes(opening, content_bytes)
+            attrs_by_name = {a.name: a for a in attrs}
+            if "onClick" not in attrs_by_name:
                 continue
-            
-            # If it has some accessibility, check for the full set
-            if has_role and has_key_handler and has_tabindex:
-                if "aria-" in attrs_lower or has_visible_text_label:
-                    continue
+            if self._has_true_attr(attrs_by_name, "aria-hidden") or self._has_attr(attrs_by_name, "disabled"):
+                continue
 
-            missing: list[str] = []
+            has_role = self._has_attr(attrs_by_name, "role")
+            has_tabindex = self._has_attr(attrs_by_name, "tabIndex")
+            has_keyboard = any(k in attrs_by_name for k in ("onKeyDown", "onKeyUp", "onKeyPress"))
+            has_accessible_name = (
+                self._has_attr(attrs_by_name, "aria-label")
+                or self._has_attr(attrs_by_name, "aria-labelledby")
+                or self._has_visible_text_label(node, content_bytes)
+            )
+
+            # Keep this rule focused on keyboard operability; name-only issues are handled by a dedicated rule.
+            missing_keyboard_contract = []
             if not has_role:
-                missing.append("role")
-            if not has_key_handler:
-                missing.append("keyboard handler")
+                missing_keyboard_contract.append("role")
+            if not has_keyboard:
+                missing_keyboard_contract.append("keyboard handler")
             if not has_tabindex:
-                missing.append("tabIndex")
-            if not has_accessible_name:
-                missing.append("accessible name")
+                missing_keyboard_contract.append("tabIndex")
 
-            line = content.count("\n", 0, start_pos) + 1
+            if not missing_keyboard_contract:
+                continue
+            if len(missing_keyboard_contract) == 1 and has_accessible_name:
+                continue
+
+            line = node.start_point.row + 1
+            pointer_only = not has_keyboard
+            confidence = 0.9 if len(missing_keyboard_contract) >= 2 else 0.82
+
             evidence = [
-                f"tag={tag}",
+                f"tag={tag.lower()}",
                 "onclick_present=true",
+                f"keyboard_contract_missing={','.join(missing_keyboard_contract)}",
+                f"accessible_name_source={'present' if has_accessible_name else 'missing'}",
+                f"interaction_mode={'pointer_only' if pointer_only else 'keyboard_supported'}",
             ]
-            if not has_role:
-                evidence.append("role_missing=true")
-            if not has_key_handler:
-                evidence.append("keyboard_handler_missing=true")
-            if not has_tabindex:
-                evidence.append("tabindex_missing=true")
-            if not has_accessible_name:
-                evidence.append("accessible_name_missing=true")
 
             findings.append(
                 self.create_finding(
-                    title="Clickable non-semantic element lacks accessibility support",
+                    title="Clickable non-semantic element lacks keyboard accessibility contract",
                     context=f"{file_path}:{line}:clickable-non-semantic",
                     file=file_path,
                     line_start=line,
                     description=(
-                        "Detected non-semantic element with `onClick` but missing accessibility support: "
-                        f"{', '.join(missing)}."
+                        "Detected non-semantic clickable element missing required keyboard operability "
+                        f"signals: {', '.join(missing_keyboard_contract)}."
                     ),
                     why_it_matters=(
-                        "Keyboard and assistive technology users may not be able to operate clickable non-button "
-                        "elements unless role and keyboard semantics are added."
+                        "WCAG/APG requires keyboard users to operate interactive controls, and pointer-only "
+                        "interaction patterns block assistive technology users."
                     ),
                     suggested_fix=(
-                        "Prefer semantic controls (`<button>`, `<a>`) for interactivity.\n"
-                        "If using a non-semantic element, add `role`, keyboard handler, and `tabIndex`."
+                        "Prefer semantic controls (`<button>` or `<a>`). If a non-semantic element is necessary, "
+                        "add role, keyboard handlers, and tabIndex consistently."
                     ),
-                    tags=["react", "a11y", "accessibility", "keyboard"],
-                    confidence=0.88,
+                    tags=["react", "a11y", "keyboard", "wcag", "apg"],
+                    confidence=confidence,
                     evidence_signals=evidence,
+                    metadata={
+                        "decision_profile": {
+                            "widget_type": "non_semantic_clickable",
+                            "keyboard_contract_missing": ",".join(missing_keyboard_contract),
+                            "accessible_name_source": "present" if has_accessible_name else "missing",
+                            "interaction_mode": "pointer_only" if pointer_only else "keyboard_supported",
+                        }
+                    },
                 )
             )
+
         return findings
+
+    def analyze_regex(
+        self,
+        file_path: str,
+        content: str,
+        facts: Facts,
+        metrics: dict[str, MethodMetrics] | None = None,
+    ) -> list[Finding]:
+        # Backward-compatible alias for older tests/callers that still invoke analyze_regex directly.
+        return self.analyze_ast(file_path, content, facts, metrics)
+
+    def _has_attr(self, attrs_by_name: dict[str, object], key: str) -> bool:
+        return key in attrs_by_name
+
+    def _has_true_attr(self, attrs_by_name: dict[str, object], key: str) -> bool:
+        attr = attrs_by_name.get(key)
+        if attr is None:
+            return False
+        raw = str(getattr(attr, "raw_value", "") or "").strip().lower()
+        static = getattr(attr, "static_value", None)
+        if raw in {'"true"', "'true'", "{true}"}:
+            return True
+        if isinstance(static, str) and static.lower() == "true":
+            return True
+        return False
+
+    def _has_visible_text_label(self, jsx_node, content_bytes: bytes) -> bool:
+        if jsx_node.type != "jsx_element":
+            return False
+        for child in getattr(jsx_node, "children", []) or []:
+            if child.type == "jsx_text":
+                txt = content_bytes[child.start_byte : child.end_byte].decode("utf-8", errors="replace")
+                if re.search(r"[A-Za-z0-9]", txt or ""):
+                    return True
+        return False
 
     def _is_allowlisted_path(self, file_path: str) -> bool:
         low = (file_path or "").lower().replace("\\", "/")

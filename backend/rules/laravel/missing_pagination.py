@@ -6,7 +6,9 @@ Detects API endpoints returning all records without pagination or limit.
 
 from __future__ import annotations
 
-from schemas.facts import Facts, QueryUsage, RouteInfo
+from pathlib import Path
+
+from schemas.facts import Facts
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
@@ -73,6 +75,9 @@ class MissingPaginationRule(Rule):
 
     # Methods that indicate pagination/limit is used
     _PAGINATION_METHODS = {"paginate", "simplepaginate", "cursorpaginate", "limit", "take", "skip", "offset"}
+    _API_ROUTE_FILES = {"routes/api.php"}
+    _EXPORT_METHOD_HINTS = ("export", "download", "csv", "xlsx", "report", "print")
+    _INDEX_METHOD_HINTS = {"index", "list", "search", "browse"}
 
     _ALLOWLIST_PATHS = (
         "tests/",
@@ -92,12 +97,14 @@ class MissingPaginationRule(Rule):
     ) -> list[Finding]:
         findings: list[Finding] = []
 
-        # Build route -> method mapping
-        route_methods: dict[str, list[str]] = {}
-        for route in facts.routes:
-            if route.action and "@" in route.action:
-                controller, method = route.action.split("@", 1)
-                route_methods[f"{controller}::{method}"] = route.uri or ""
+        require_api_context = bool(self.get_threshold("require_api_context", True))
+        min_api_context_signals = int(self.get_threshold("min_api_context_signals", 1) or 1)
+        min_multi_record_signals = int(self.get_threshold("min_multi_record_signals", 2) or 2)
+        large_model_only = bool(self.get_threshold("large_model_only", False))
+        suppress_export_flows = bool(self.get_threshold("suppress_export_flows", True))
+        min_confidence = float(self.get_threshold("min_confidence", 0.0) or 0.0)
+
+        api_route_actions = self._collect_api_route_actions(facts)
 
         for q in facts.queries:
             # Skip non-SELECT queries
@@ -110,12 +117,12 @@ class MissingPaginationRule(Rule):
                 continue
 
             # Check if query is in a controller (API endpoint)
-            is_controller = (
-                "controllers/" in norm_path or 
-                "/controllers/" in norm_path or
-                "controller" in norm_path.lower()
-            )
+            is_controller = self._is_controller_query(norm_path)
             if not is_controller:
+                continue
+
+            method_name = (q.method_name or "").strip().lower()
+            if suppress_export_flows and self._is_export_flow(norm_path, method_name):
                 continue
 
             # Parse method chain
@@ -143,9 +150,54 @@ class MissingPaginationRule(Rule):
             # Check if model is known to be large
             model_lower = (q.model or "").lower().replace("\\", "").replace("_", "")
             is_large_model = any(large in model_lower for large in self._LARGE_TABLE_MODELS)
+            if large_model_only and not is_large_model:
+                continue
+
+            api_context, api_evidence = self._detect_api_context(q.file_path or "", method_name, api_route_actions)
+            if require_api_context and not api_context:
+                continue
+            if require_api_context and len(api_evidence) < min_api_context_signals:
+                continue
+
+            method_hint = method_name in self._INDEX_METHOD_HINTS
+            multi_record_signals = 1  # terminal get/all on controller query
+            if api_context:
+                multi_record_signals += 1
+            if is_large_model:
+                multi_record_signals += 1
+            if method_hint:
+                multi_record_signals += 1
+            if multi_record_signals < min_multi_record_signals:
+                continue
 
             # Adjust confidence based on model
-            confidence = 0.75 if is_large_model else 0.55
+            confidence = 0.56
+            if terminal_name == "all":
+                confidence += 0.08
+            else:
+                confidence += 0.05
+            if api_context:
+                confidence += 0.16
+            if is_large_model:
+                confidence += 0.14
+            if method_hint:
+                confidence += 0.06
+            confidence = min(0.95, confidence)
+            if confidence + 1e-9 < min_confidence:
+                continue
+
+            evidence = list(api_evidence)
+            evidence.extend(
+                [
+                    f"model={q.model or 'unknown'}",
+                    f"terminal={terminal_name}",
+                    f"multi_record_signals={multi_record_signals}",
+                ]
+            )
+            if is_large_model:
+                evidence.append("large_model=true")
+            if method_hint:
+                evidence.append("index_like_method=true")
 
             findings.append(
                 self.create_finding(
@@ -204,7 +256,43 @@ class MissingPaginationRule(Rule):
                     ),
                     confidence=confidence,
                     tags=["performance", "api", "pagination", "memory", "laravel"],
+                    evidence_signals=evidence,
                 )
             )
 
         return findings
+
+    def _is_controller_query(self, norm_path: str) -> bool:
+        return "controllers/" in norm_path or "/controllers/" in norm_path or "controller" in norm_path
+
+    def _is_api_route_file(self, file_path: str) -> bool:
+        fp = (file_path or "").replace("\\", "/").lower()
+        return fp in self._API_ROUTE_FILES or fp.endswith("/routes/api.php")
+
+    def _collect_api_route_actions(self, facts: Facts) -> set[str]:
+        actions: set[str] = set()
+        for route in facts.routes or []:
+            action = (route.action or "").strip()
+            if "@" not in action:
+                continue
+            if self._is_api_route_file(route.file_path or "") or str(route.uri or "").startswith("api/"):
+                actions.add(action.lower())
+        return actions
+
+    def _detect_api_context(self, file_path: str, method_name: str, api_route_actions: set[str]) -> tuple[bool, list[str]]:
+        evidence: list[str] = []
+        norm_path = (file_path or "").replace("\\", "/").lower()
+        if "/http/controllers/api/" in norm_path:
+            evidence.append("api_context=controller_path")
+
+        class_name = Path(norm_path).stem
+        if class_name and method_name:
+            probe = f"{class_name}@{method_name}".lower()
+            if any(action.endswith(probe) for action in api_route_actions):
+                evidence.append("api_context=api_route_controller_match")
+
+        return bool(evidence), evidence
+
+    def _is_export_flow(self, norm_path: str, method_name: str) -> bool:
+        payload = f"{norm_path}::{method_name}".lower()
+        return any(token in payload for token in self._EXPORT_METHOD_HINTS)

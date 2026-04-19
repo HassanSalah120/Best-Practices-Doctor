@@ -201,7 +201,15 @@ class MissingUseCallbackForEventHandlersRule(Rule):
         if not has_component:
             return findings
 
+        require_memoized_child_context = bool(self.get_threshold("require_memoized_child_context", True))
+        require_nontrivial_handler = bool(self.get_threshold("require_nontrivial_handler", True))
+        min_handler_complexity_score = max(1, int(self.get_threshold("min_handler_complexity_score", 2)))
+        max_findings_per_file = max(1, int(self.get_threshold("max_findings_per_file", 2)))
+        findings_emitted = 0
+
         for i, line in enumerate(lines, 1):
+            if findings_emitted >= max_findings_per_file:
+                break
             # Skip comments
             stripped = line.strip()
             if stripped.startswith("//") or stripped.startswith("#") or stripped.startswith("*"):
@@ -230,8 +238,7 @@ class MissingUseCallbackForEventHandlersRule(Rule):
                     # Distinguish native elements from custom components. Native handlers are still
                     # worth reporting, but at lower confidence because the performance payoff is smaller.
                     is_native_element = any(p.search(line) for p in self._NATIVE_ELEMENT_PATTERNS)
-                    tag_match = self._JSX_TAG_PATTERN.search(line)
-                    tag_name = (tag_match.group("tag") if tag_match else "").strip()
+                    tag_name = self._tag_name_before_index(line, match.start())
                     is_custom_component = bool(tag_name and tag_name[:1].isupper())
                     has_memoized_child_context = any(p.search(context_window) for p in self._MEMOIZED_CHILD_CONTEXT)
                     if is_custom_component and tag_name:
@@ -239,23 +246,38 @@ class MissingUseCallbackForEventHandlersRule(Rule):
                             tag_name,
                             text,
                         )
+                    memoization_sensitive_context = has_memoized_child_context or is_in_list_context
 
                     # Native DOM handlers are usually fine without useCallback. Keep the rule
                     # focused on custom component props or genuinely memoization-sensitive cases.
                     if is_native_element and not is_custom_component:
                         break
 
-                    if not (is_custom_component and has_memoized_child_context):
+                    if require_memoized_child_context and not (is_custom_component and memoization_sensitive_context):
+                        break
+                    if not is_custom_component:
                         break
 
-                    if is_trivial and not (is_async or has_complex_logic):
+                    if is_trivial and not (is_async or has_complex_logic or is_in_list_context):
+                        break
+
+                    handler_complexity_score = 0
+                    if is_async or has_complex_logic:
+                        handler_complexity_score += 2
+                    if is_in_list_context:
+                        handler_complexity_score += 1
+                    if memoization_sensitive_context:
+                        handler_complexity_score += 1
+                    if (is_trivial or is_simple) and not is_in_list_context:
+                        handler_complexity_score -= 1
+                    if require_nontrivial_handler and handler_complexity_score < min_handler_complexity_score:
                         break
 
                     # Determine confidence based on complexity and element type
                     if is_async or has_complex_logic:
                         confidence = 0.92  # High priority - async/API handlers must be memoized
                         severity = Severity.HIGH
-                    elif has_memoized_child_context and is_in_list_context:
+                    elif memoization_sensitive_context and is_in_list_context:
                         confidence = 0.88
                         severity = Severity.MEDIUM
                     elif is_simple or is_trivial:
@@ -350,8 +372,34 @@ class MissingUseCallbackForEventHandlersRule(Rule):
                             ),
                             confidence=confidence,
                             tags=["react", "performance", "usecallback", "memoization", "handlers"],
+                            evidence_signals=[
+                                f"custom_component={int(is_custom_component)}",
+                                f"memoized_child={int(has_memoized_child_context)}",
+                                f"memoization_sensitive={int(memoization_sensitive_context)}",
+                                f"in_list={int(is_in_list_context)}",
+                                f"complex={int(has_complex_logic)}",
+                                f"async={int(is_async)}",
+                                f"score={handler_complexity_score}",
+                            ],
+                            metadata={
+                                "decision_profile": {
+                                    "require_memoized_child_context": require_memoized_child_context,
+                                    "require_nontrivial_handler": require_nontrivial_handler,
+                                    "min_handler_complexity_score": min_handler_complexity_score,
+                                    "is_custom_component": is_custom_component,
+                                    "has_memoized_child_context": has_memoized_child_context,
+                                    "memoization_sensitive_context": memoization_sensitive_context,
+                                    "is_in_list_context": is_in_list_context,
+                                    "is_async": is_async,
+                                    "has_complex_logic": has_complex_logic,
+                                    "is_trivial": is_trivial,
+                                    "is_simple": is_simple,
+                                    "handler_complexity_score": handler_complexity_score,
+                                }
+                            },
                         )
                     )
+                    findings_emitted += 1
                     break  # Only one finding per line
 
         return findings
@@ -368,3 +416,10 @@ class MissingUseCallbackForEventHandlersRule(Rule):
             re.compile(rf"\bexport\s+default\s+React\.memo\s*\(\s*function\s+{escaped}\b", re.IGNORECASE),
         ]
         return any(pattern.search(text) for pattern in patterns)
+
+    @staticmethod
+    def _tag_name_before_index(line: str, index: int) -> str:
+        matches = list(MissingUseCallbackForEventHandlersRule._JSX_TAG_PATTERN.finditer(line[: max(0, index)]))
+        if not matches:
+            return ""
+        return (matches[-1].group("tag") or "").strip()

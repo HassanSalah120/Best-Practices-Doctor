@@ -10,6 +10,12 @@ from schemas.facts import Facts, MethodInfo
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from core.project_recommendations import (
+    enabled_capabilities,
+    enabled_team_standards,
+    project_aware_guidance,
+    recommendation_context_tags,
+)
 
 
 class TenantScopeEnforcementRule(Rule):
@@ -140,7 +146,13 @@ class TenantScopeEnforcementRule(Rule):
         findings: list[Finding] = []
         min_signals = int(self.get_threshold("min_project_signals", 5) or 5)
         min_method_queries = int(self.get_threshold("min_method_queries", 1) or 1)
+        min_confidence = float(self.get_threshold("min_confidence", 0.65) or 0.65)
+        require_multi_tenant_capability = bool(self.get_threshold("require_multi_tenant_capability", False))
         tenant_mode = str(getattr(getattr(facts, "project_context", None), "tenant_mode", "unknown") or "unknown").lower()
+        capabilities = enabled_capabilities(facts)
+        team_standards = enabled_team_standards(facts)
+        if require_multi_tenant_capability and "multi_tenant" not in capabilities and tenant_mode != "tenant":
+            return findings
 
         if tenant_mode == "non_tenant":
             return findings
@@ -207,6 +219,9 @@ class TenantScopeEnforcementRule(Rule):
             if "/clinic/" in low_path or "/tenant/" in low_path:
                 confidence += 0.05
             confidence = min(0.92, confidence)
+            if confidence < min_confidence:
+                continue
+            guidance = project_aware_guidance(facts, focus="orchestration_boundaries")
 
             evidence = [
                 f"method={method.method_fqn}",
@@ -237,10 +252,25 @@ class TenantScopeEnforcementRule(Rule):
                         "Apply explicit tenant scoping in repository/service queries "
                         "(e.g., `where('clinic_id', $clinicId)` or a shared tenant scope helper).\n"
                         "Add integration tests to ensure users cannot access other tenants' data."
-                    ),
-                    tags=["laravel", "security", "multi-tenant", "data-isolation"],
+                    ) + (f"\n\nProject-aware guidance:\n{guidance}" if guidance else ""),
+                    tags=["laravel", "security", "multi-tenant", "data-isolation", *recommendation_context_tags(facts)],
                     confidence=confidence,
                     evidence_signals=evidence,
+                    metadata={
+                        "decision_profile": {
+                            "decision": "emit",
+                            "project_business_context": str(getattr(getattr(facts, "project_context", None), "project_business_context", "unknown") or "unknown"),
+                            "capabilities": sorted(capabilities),
+                            "team_standards": sorted(team_standards),
+                            "decision_summary": "Potential unscoped tenant read detected in tenant-sensitive method context.",
+                            "decision_reasons": [
+                                f"tenant_mode={tenant_mode}",
+                                f"project_signal_score={project_signal_score}",
+                                f"unsafe_queries={len(unsafe)}",
+                                f"min_confidence={min_confidence:.2f}",
+                            ],
+                        }
+                    },
                 )
             )
 

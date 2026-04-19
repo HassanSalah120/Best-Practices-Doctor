@@ -48,7 +48,17 @@ class DuplicateRouteDefinitionRule(Rule):
 
         findings: list[Finding] = []
         for (method, uri), routes in by_key.items():
+            routes = self._dedupe_exact(routes)
             if len(routes) < 2:
+                continue
+            # Prefer artisan route:list as source-of-truth when present.
+            artisan_routes = [r for r in routes if (r.source or "").strip().lower() == "artisan"]
+            if artisan_routes:
+                routes = self._dedupe_exact(artisan_routes)
+                if len(routes) < 2:
+                    continue
+            # Guard static parser alias artifacts for a single declaration.
+            if self._likely_single_declaration_alias(routes):
                 continue
 
             routes = sorted(routes, key=lambda x: (x.file_path or "", int(x.line_number or 0)))
@@ -83,3 +93,33 @@ class DuplicateRouteDefinitionRule(Rule):
 
         return findings
 
+    def _dedupe_exact(self, routes: list[RouteInfo]) -> list[RouteInfo]:
+        seen: set[tuple[str, ...]] = set()
+        deduped: list[RouteInfo] = []
+        for route in routes:
+            key = (
+                str(route.source or "").strip().lower(),
+                str(route.file_path or "").strip(),
+                str(int(route.line_number or 0)),
+                str(route.controller or "").strip(),
+                str(route.action or "").strip(),
+                str(route.name or "").strip(),
+                ",".join(sorted(str(m).strip() for m in (route.middleware or []))),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(route)
+        return deduped
+
+    def _likely_single_declaration_alias(self, routes: list[RouteInfo]) -> bool:
+        if len(routes) != 2:
+            return False
+        first, second = routes
+        same_file = (first.file_path or "").strip() == (second.file_path or "").strip()
+        same_line = int(first.line_number or 0) == int(second.line_number or 0)
+        if not (same_file and same_line):
+            return False
+        first_has_target = bool((first.controller or "").strip() or (first.action or "").strip())
+        second_has_target = bool((second.controller or "").strip() or (second.action or "").strip())
+        return first_has_target != second_has_target

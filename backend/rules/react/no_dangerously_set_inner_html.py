@@ -22,10 +22,10 @@ class NoDangerouslySetInnerHtmlRule(Rule):
     type = "regex"
     regex_file_extensions = [".js", ".jsx", ".ts", ".tsx"]
 
-    # Pattern to match actual JSX prop usage (not comments or strings)
+    # Pattern to match JSX prop usage (supports single-line and multi-line formatting)
     _DANGEROUS_PROP_PATTERN = re.compile(
         r"dangerouslySetInnerHTML\s*=\s*\{",
-        re.IGNORECASE
+        re.IGNORECASE | re.DOTALL,
     )
 
     # Patterns for comments to skip
@@ -57,48 +57,33 @@ class NoDangerouslySetInnerHtmlRule(Rule):
             return findings
 
         lines = content.splitlines()
+        comment_mask = self._build_comment_mask(lines)
 
-        # Track if we're inside a multi-line comment
-        in_multiline_comment = False
-
-        for i, line in enumerate(lines):
-            # Track multi-line comment state
-            if "/*" in line and "*/" not in line:
-                in_multiline_comment = True
-            if "*/" in line:
-                in_multiline_comment = False
+        seen_lines: set[int] = set()
+        for match in self._DANGEROUS_PROP_PATTERN.finditer(content):
+            line_no = content.count("\n", 0, match.start()) + 1
+            if line_no in seen_lines:
                 continue
+            seen_lines.add(line_no)
 
-            # Skip if inside multi-line comment
-            if in_multiline_comment:
-                continue
-
-            # Skip single-line comments
-            stripped = line.strip()
-            if stripped.startswith("//") or stripped.startswith("*") or stripped.startswith("/*"):
-                continue
-
-            # Check for actual JSX prop usage pattern
-            if not self._DANGEROUS_PROP_PATTERN.search(line):
-                continue
-
-            # Check if this line uses DOMPurify.sanitize() - already safe
-            if "dompurify" in line.lower() or "sanitize" in line.lower():
+            # Skip comment-only hits.
+            if 0 < line_no <= len(comment_mask) and comment_mask[line_no - 1]:
                 continue
 
             # Also check surrounding lines for DOMPurify usage
-            window_start = max(0, i - 3)
-            window_end = min(len(lines), i + 2)
+            window_start = max(0, line_no - 4)
+            window_end = min(len(lines), line_no + 2)
             context_window = "\n".join(lines[window_start:window_end])
-            if "dompurify" in context_window.lower() or "sanitize(" in context_window.lower():
+            lowered_window = context_window.lower()
+            if "dompurify" in lowered_window or "sanitize(" in lowered_window:
                 continue
 
             findings.append(
                 self.create_finding(
                     title="Usage of dangerouslySetInnerHTML detected",
-                    context=f"{file_path}:{i+1}:dangerouslySetInnerHTML",
+                    context=f"{file_path}:{line_no}:dangerouslySetInnerHTML",
                     file=file_path,
-                    line_start=i + 1,
+                    line_start=line_no,
                     description=(
                         "Detected usage of `dangerouslySetInnerHTML`. "
                         "This prop bypasses React's XSS protection and allows arbitrary HTML execution."
@@ -117,3 +102,27 @@ class NoDangerouslySetInnerHtmlRule(Rule):
             )
 
         return findings
+
+    def _build_comment_mask(self, lines: list[str]) -> list[bool]:
+        """Return a boolean mask marking lines that are comments."""
+        mask: list[bool] = []
+        in_multiline_comment = False
+
+        for line in lines:
+            stripped = line.strip()
+            is_comment = False
+
+            if in_multiline_comment:
+                is_comment = True
+
+            if stripped.startswith("//") or stripped.startswith("*") or stripped.startswith("/*"):
+                is_comment = True
+
+            mask.append(is_comment)
+
+            if "/*" in line and "*/" not in line:
+                in_multiline_comment = True
+            if "*/" in line:
+                in_multiline_comment = False
+
+        return mask

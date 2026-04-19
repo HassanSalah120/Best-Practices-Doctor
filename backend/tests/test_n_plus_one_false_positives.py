@@ -295,3 +295,117 @@ def test_n_plus_one_ignores_eager_loaded_relations_with_nested():
     rule = NPlusOneRiskRule(RuleConfig())
     findings = rule.run(facts, project_type="laravel_blade").findings
     assert findings == [], f"Expected no findings for eager-loaded relations, got: {findings}"
+
+
+def test_n_plus_one_ignores_layered_service_loop_backed_by_repository_boundary():
+    facts = Facts(project_path="x")
+    facts.project_context.backend_architecture_profile = "layered"
+    facts.project_context.backend_profile_confidence = 0.98
+    facts.project_context.backend_profile_confidence_kind = "structural"
+    facts.classes = [
+        ClassInfo(
+            name="Vote",
+            fqcn="App\\Models\\Vote",
+            file_path="app/Models/Vote.php",
+            file_hash="h4",
+        )
+    ]
+    facts.methods = [
+        MethodInfo(
+            name="voter",
+            class_name="Vote",
+            class_fqcn="App\\Models\\Vote",
+            file_path="app/Models/Vote.php",
+            file_hash="h4",
+            call_sites=["$this->belongsTo(SessionParticipant::class)"],
+        ),
+        MethodInfo(
+            name="buildVoteEvents",
+            class_name="GameReplayService",
+            class_fqcn="App\\Services\\Game\\GameReplayService",
+            file_path="app/Services/Game/GameReplayService.php",
+            file_hash="svc",
+            parameters=["\\Illuminate\\Support\\Collection $votes"],
+            call_sites=["$this->replayRepository->getVotesForRound($roundId)"],
+        ),
+    ]
+    facts.relation_accesses = [
+        RelationAccess(
+            file_path="app/Services/Game/GameReplayService.php",
+            line_number=138,
+            method_name="buildVoteEvents",
+            class_fqcn="App\\Services\\Game\\GameReplayService",
+            base_var="$vote",
+            relation="voter",
+            loop_kind="foreach",
+            access_type="property",
+        )
+    ]
+
+    rule = NPlusOneRiskRule(RuleConfig())
+    findings = rule.run(facts, project_type="laravel_blade").findings
+    assert findings == []
+
+
+def test_n_plus_one_still_flags_collection_mapper_with_local_query_context():
+    facts = Facts(project_path="x")
+    facts.project_context.backend_architecture_profile = "layered"
+    facts.classes = [
+        ClassInfo(
+            name="Vote",
+            fqcn="App\\Models\\Vote",
+            file_path="app/Models/Vote.php",
+            file_hash="h5",
+        ),
+        ClassInfo(
+            name="SessionParticipant",
+            fqcn="App\\Models\\SessionParticipant",
+            file_path="app/Models/SessionParticipant.php",
+            file_hash="h6",
+        ),
+    ]
+    facts.methods = [
+        MethodInfo(
+            name="voter",
+            class_name="Vote",
+            class_fqcn="App\\Models\\Vote",
+            file_path="app/Models/Vote.php",
+            file_hash="h5",
+            call_sites=["$this->belongsTo(SessionParticipant::class)"],
+        ),
+        MethodInfo(
+            name="buildVoteEvents",
+            class_name="ReplayService",
+            class_fqcn="App\\Services\\ReplayService",
+            file_path="app/Services/ReplayService.php",
+            file_hash="svc2",
+            parameters=["\\Illuminate\\Support\\Collection $votes"],
+        ),
+    ]
+    facts.queries = [
+        QueryUsage(
+            file_path="app/Services/ReplayService.php",
+            line_number=120,
+            method_name="buildVoteEvents",
+            model="Vote",
+            method_chain="where->get",
+            has_eager_loading=False,
+            n_plus_one_risk="high",
+        )
+    ]
+    facts.relation_accesses = [
+        RelationAccess(
+            file_path="app/Services/ReplayService.php",
+            line_number=128,
+            method_name="buildVoteEvents",
+            class_fqcn="App\\Services\\ReplayService",
+            base_var="$vote",
+            relation="voter",
+            loop_kind="foreach",
+            access_type="property",
+        )
+    ]
+
+    rule = NPlusOneRiskRule(RuleConfig())
+    findings = rule.run(facts, project_type="laravel_blade").findings
+    assert any(f.rule_id == "n-plus-one-risk" for f in findings)

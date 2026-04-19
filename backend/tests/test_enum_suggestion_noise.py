@@ -105,16 +105,42 @@ def test_enum_suggestion_counts_only_non_lang_occurrences():
     assert all(f.rule_id != "enum-suggestion" for f in findings)
 
 
-def test_enum_suggestion_pattern_group_requires_multiple_values():
+def test_enum_suggestion_pattern_group_requires_multiple_values_with_enum_like_context_hints():
     facts = Facts(project_path="x")
     facts.string_literals = [
-        StringLiteral(value="pending", occurrences=[("app/Services/A.php", 11), ("app/Services/B.php", 22)]),
-        StringLiteral(value="completed", occurrences=[("app/Services/C.php", 33), ("app/Services/D.php", 44)]),
+        StringLiteral(value="pending", occurrences=[("app/Services/A.php", 11, "status"), ("app/Services/B.php", 22, "status")]),
+        StringLiteral(value="completed", occurrences=[("app/Services/C.php", 33, "status"), ("app/Services/D.php", 44, "status")]),
+        StringLiteral(value="approved", occurrences=[("app/Services/E.php", 55, "status"), ("app/Services/F.php", 66, "status")]),
     ]
 
     rule = EnumSuggestionRule(RuleConfig())
     findings = rule.run(facts, project_type="laravel_blade").findings
     assert any(f.rule_id == "enum-suggestion" for f in findings)
+
+
+def test_enum_suggestion_pattern_group_skips_without_enum_like_context_hints():
+    facts = Facts(project_path="x")
+    facts.string_literals = [
+        StringLiteral(value="pending", occurrences=[("app/Services/A.php", 11), ("app/Services/B.php", 22)]),
+        StringLiteral(value="completed", occurrences=[("app/Services/C.php", 33), ("app/Services/D.php", 44)]),
+        StringLiteral(value="approved", occurrences=[("app/Services/E.php", 55), ("app/Services/F.php", 66)]),
+    ]
+
+    rule = EnumSuggestionRule(RuleConfig())
+    findings = rule.run(facts, project_type="laravel_blade").findings
+    assert all(f.rule_id != "enum-suggestion" for f in findings)
+
+
+def test_enum_suggestion_pattern_group_skips_two_value_pair_without_context():
+    facts = Facts(project_path="x")
+    facts.string_literals = [
+        StringLiteral(value="discussion", occurrences=[("app/DTO/ExtendTimerDTO.php", 10), ("app/Actions/Game/A.php", 12)]),
+        StringLiteral(value="voting", occurrences=[("app/DTO/ExtendTimerDTO.php", 11), ("app/Actions/Game/B.php", 13)]),
+    ]
+
+    rule = EnumSuggestionRule(RuleConfig())
+    findings = rule.run(facts, project_type="laravel_blade").findings
+    assert all(f.rule_id != "enum-suggestion" for f in findings)
 
 
 def test_enum_suggestion_skips_when_matching_enum_already_exists():
@@ -183,6 +209,28 @@ def test_enum_suggestion_skips_column_name_contexts():
         StringLiteral(value="Clinic", occurrences=[("app/Repositories/PatientRepository.php", 46, "last_name")]),
         StringLiteral(value="Owner", occurrences=[("app/Repositories/PatientRepository.php", 47, "last_name")]),
         StringLiteral(value="like", occurrences=[("app/Repositories/PatientRepository.php", 47, "last_name")]),
+    ]
+
+    rule = EnumSuggestionRule(RuleConfig())
+    findings = rule.run(facts, project_type="laravel_blade").findings
+    assert all(f.rule_id != "enum-suggestion" for f in findings)
+
+
+def test_enum_suggestion_skips_pattern_fallback_when_more_specific_enum_context_and_enum_exist():
+    facts = Facts(project_path="x")
+    facts.enums.append(
+        ClassInfo(
+            name="TimerType",
+            fqcn="App\\Enums\\TimerType",
+            file_path="app/Enums/TimerType.php",
+            file_hash="timer",
+            line_start=1,
+            line_end=20,
+        )
+    )
+    facts.string_literals = [
+        StringLiteral(value="discussion", occurrences=[("app/DTO/ExtendTimerDTO.php", 10, "timer_type"), ("app/Actions/Game/A.php", 12, "timer_type")]),
+        StringLiteral(value="voting", occurrences=[("app/DTO/ExtendTimerDTO.php", 11, "timer_type"), ("app/Actions/Game/B.php", 13, "timer_type")]),
     ]
 
     rule = EnumSuggestionRule(RuleConfig())

@@ -10,6 +10,12 @@ from schemas.facts import Facts
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from core.project_recommendations import (
+    enabled_capabilities,
+    enabled_team_standards,
+    project_aware_guidance,
+    recommendation_context_tags,
+)
 
 
 class SensitiveRoutesMissingVerifiedMiddlewareRule(Rule):
@@ -50,6 +56,8 @@ class SensitiveRoutesMissingVerifiedMiddlewareRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings: list[Finding] = []
+        capabilities = enabled_capabilities(facts)
+        team_standards = enabled_team_standards(facts)
         for route in facts.routes or []:
             if not self._is_web_route(route.file_path or ""):
                 continue
@@ -73,6 +81,7 @@ class SensitiveRoutesMissingVerifiedMiddlewareRule(Rule):
                 continue
             if "verified" in mw_text:
                 continue
+            guidance = project_aware_guidance(facts, focus="orchestration_boundaries")
 
             findings.append(
                 self.create_finding(
@@ -91,14 +100,27 @@ class SensitiveRoutesMissingVerifiedMiddlewareRule(Rule):
                     suggested_fix=(
                         "Add `verified` middleware to the enclosing route group or route definition,"
                         " or keep only explicitly public onboarding flows outside verified groups."
-                    ),
-                    tags=["laravel", "security", "routes", "email-verification"],
+                    ) + (f"\n\nProject-aware guidance:\n{guidance}" if guidance else ""),
+                    tags=["laravel", "security", "routes", "email-verification", *recommendation_context_tags(facts)],
                     confidence=0.81,
                     evidence_signals=[
                         f"uri={route.uri}",
                         f"middleware={mw_text}",
                         "verified_middleware_missing=true",
                     ],
+                    metadata={
+                        "decision_profile": {
+                            "decision": "emit",
+                            "project_business_context": str(getattr(getattr(facts, "project_context", None), "project_business_context", "unknown") or "unknown"),
+                            "capabilities": sorted(capabilities),
+                            "team_standards": sorted(team_standards),
+                            "decision_summary": "Sensitive account/billing route requires verified middleware under current project context.",
+                            "decision_reasons": [
+                                f"descriptor_sensitive={int(any(tok in descriptor for tok in self._SENSITIVE_TOKENS))}",
+                                "verified_middleware_missing=true",
+                            ],
+                        }
+                    },
                 )
             )
         return findings

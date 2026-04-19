@@ -6,6 +6,7 @@ import { RulesetScreen } from "@/screens/RulesetScreen";
 import { AdvancedProfileConfig } from "@/components/AdvancedProfileConfig";
 import { ApiClient } from "@/lib/api";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
+import type { ScanProjectContextOverrides } from "@/types/api";
 
 type ViewState = "welcome" | "progress" | "report" | "ruleset" | "advanced";
 type BackendStatus = "checking" | "ready" | "offline";
@@ -45,6 +46,9 @@ function App() {
   const [activeProfile, setActiveProfile] = useState<string>("startup");
   const [backendStatus, setBackendStatus] = useState<BackendStatus>("checking");
   const [selectedRules, setSelectedRules] = useState<Set<string>>(new Set());
+  const [projectContextOverrides, setProjectContextOverrides] = useState<ScanProjectContextOverrides | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -76,7 +80,12 @@ function App() {
     };
   }, []);
 
-  const startScan = async (path: string, selectedProfile: string, rules?: Set<string>) => {
+  const startScan = async (
+    path: string,
+    selectedProfile: string,
+    rules?: Set<string>,
+    contextOverrides?: ScanProjectContextOverrides,
+  ) => {
     try {
       // Only set active profile on backend for real YAML profiles (not 'advanced')
       if (selectedProfile && selectedProfile !== "advanced") {
@@ -84,7 +93,13 @@ function App() {
         setActiveProfile(selectedProfile);
       }
 
-      const { job_id } = await ApiClient.startScan(path, undefined, rules ? Array.from(rules) : undefined);
+      const { job_id } = await ApiClient.startScan(
+        path,
+        undefined,
+        rules ? Array.from(rules) : undefined,
+        contextOverrides,
+      );
+      setProjectContextOverrides(contextOverrides);
       setJobId(job_id);
       setView("progress");
     } catch (err) {
@@ -150,6 +165,7 @@ function App() {
         <WelcomeScreen
           onStartScan={startScan}
           initialProfile={activeProfile}
+          initialProjectContextOverrides={projectContextOverrides}
           onProfileChange={setActiveProfile}
           onOpenRuleset={() => setView("ruleset")}
           onOpenAdvancedConfig={() => setView("advanced")}
@@ -160,7 +176,12 @@ function App() {
         <ProgressScreen jobId={jobId} onComplete={() => setView("report")} onCancel={reset} />
       )}
       {view === "report" && jobId && (
-        <ReportScreen jobId={jobId} onBack={reset} onRescan={rescan} />
+        <ReportScreen
+          jobId={jobId}
+          onBack={reset}
+          onRescan={rescan}
+          projectContextOverrides={projectContextOverrides}
+        />
       )}
       {view === "ruleset" && <RulesetScreen onBack={() => setView(jobId ? "report" : "welcome")} />}
       {view === "advanced" && (

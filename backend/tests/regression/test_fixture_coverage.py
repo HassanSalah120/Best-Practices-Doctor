@@ -41,12 +41,16 @@ OPTIONAL_POSITIVE_RULES = {
     "unsafe-external-redirect",
     "no-inline-types",
     "no-inline-services",
+    "react-parent-child-spacing-overlap",
     "inertia-page-missing-head",
     "inertia-internal-link-anchor",
     "inertia-form-uses-fetch",
     "authorization-missing-on-sensitive-reads",
     "insecure-session-cookie-config",
     "unsafe-csp-policy",
+    # These queue rules now have richer Laravel fixtures, but engine-level overlap
+    # suppression can still hide them behind stronger sibling findings in the shared
+    # coverage sweep, so they remain optional here.
     "job-missing-idempotency-guard",
     "composer-dependency-below-secure-version",
     "npm-dependency-below-secure-version",
@@ -103,6 +107,17 @@ OPTIONAL_POSITIVE_RULES = {
     "status-message-announcement",
     "touch-target-size",
     "typescript-type-check",
+    "css-font-size-px",
+    "css-spacing-px",
+    "css-fixed-layout-px",
+    "tailwind-arbitrary-value-overuse",
+    "tailwind-arbitrary-text-size",
+    "tailwind-arbitrary-spacing",
+    "tailwind-arbitrary-layout-size",
+    "tailwind-arbitrary-radius-shadow",
+    "controller-index-filter-duplication",
+    "model-cross-model-query",
+    "action-class-naming-consistency",
 }
 
 
@@ -130,6 +145,10 @@ def test_each_rule_has_positive_and_negative_case_across_fixtures(fixture_path: 
         "sample-lara",
         "laravel-blade-mini",
         "laravel-inertia-react-mini",
+        "laravel-schema-governance-invalid-mini",
+        "laravel-schema-governance-valid-mini",
+        "laravel-async-communication-invalid-mini",
+        "laravel-async-communication-valid-mini",
         "php-native-mini",
         "php-mvc-mini",
     ]

@@ -107,6 +107,15 @@ class DataRetentionService
 def test_missing_pagination_on_large_model():
     """Query returning all records on large model should be flagged."""
     facts = Facts(project_path=".")
+    facts.routes.append(
+        RouteInfo(
+            method="GET",
+            uri="api/patients",
+            action="PatientController@index",
+            file_path="routes/api.php",
+            line_number=7,
+        )
+    )
     facts.queries.append(
         QueryUsage(
             model="Patient",
@@ -129,6 +138,15 @@ def test_missing_pagination_on_large_model():
 def test_missing_pagination_with_get():
     """Query using get() without pagination should be flagged."""
     facts = Facts(project_path=".")
+    facts.routes.append(
+        RouteInfo(
+            method="GET",
+            uri="api/users",
+            action="UserController@index",
+            file_path="routes/api.php",
+            line_number=11,
+        )
+    )
     facts.queries.append(
         QueryUsage(
             model="User",

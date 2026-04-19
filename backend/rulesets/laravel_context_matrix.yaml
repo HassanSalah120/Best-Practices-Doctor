@@ -1,0 +1,3611 @@
+schema_version: 2
+framework: laravel
+description: >
+  Project-aware Laravel context matrix used to resolve business context, architecture
+  profile, technical capabilities, team expectations, and rule calibration in one connected system.
+
+project_types:
+  saas_platform:
+    label: SaaS Platform
+    description: Subscription/business account platform with plans, billing, and quotas.
+    detection_signals:
+      structural:
+        - subscriptions_dir
+        - billing_services
+      heuristic:
+        - plan_quota_terms
+        - trial_lifecycle_terms
+
+  internal_admin_system:
+    label: Internal Admin System
+    description: Internal operational dashboard without broad public surface area.
+    detection_signals:
+      structural:
+        - admin_controllers
+        - admin_routes
+      heuristic:
+        - admin_only_terms
+        - low_public_route_density
+
+  clinic_erp_management:
+    label: Clinic / ERP / Management
+    description: Workflow-heavy business operations for appointments, claims, invoicing, and staff.
+    detection_signals:
+      structural:
+        - patient_models
+        - appointment_or_claim_modules
+      heuristic:
+        - clinic_erp_terms
+        - workflow_orchestration_terms
+
+  api_backend:
+    label: API Backend
+    description: Primarily API delivery and JSON contracts.
+    detection_signals:
+      structural:
+        - api_routes_weighted
+        - resources_dir
+      heuristic:
+        - json_response_dominant
+        - token_auth_usage
+
+  realtime_game_control_platform:
+    label: Realtime / Game / Control
+    description: Event-driven, websocket-heavy control loops and state synchronization.
+    detection_signals:
+      structural:
+        - websocket_server
+        - broadcast_events
+      heuristic:
+        - game_or_realtime_terms
+        - state_sync_terms
+
+  public_website_with_dashboard:
+    label: Public Website + Dashboard
+    description: Marketing/public pages plus authenticated dashboard/admin areas.
+    detection_signals:
+      structural:
+        - web_public_routes
+        - authenticated_dashboard_routes
+      heuristic:
+        - marketing_pages_and_dashboard
+
+  portal_based_business_app:
+    label: Portal-based Business App
+    description: Distinct user role portals with bounded access rules.
+    detection_signals:
+      structural:
+        - portal_routes
+        - policy_classes
+      heuristic:
+        - role_portal_terms
+        - admin_staff_customer_split
+
+profiles:
+  mvc:
+    label: Classic MVC
+    description: Controller-centric Laravel application with light service abstraction.
+    defaults:
+      controller_strictness: moderate
+      boundary_strictness: moderate
+    detection_signals:
+      structural:
+        - controllers
+        - models
+        - requests
+      heuristic:
+        - mixed_controller_queries
+        - minimal_service_layer
+
+  layered:
+    label: Layered Laravel
+    description: Controller -> service/action -> repository/model boundaries are expected.
+    defaults:
+      controller_strictness: high
+      boundary_strictness: high
+    detection_signals:
+      structural:
+        - actions
+        - services
+        - repositories
+        - providers
+      heuristic:
+        - controller_delegation
+        - orchestration_services
+
+  modular:
+    label: Modular / Domain
+    description: Feature or domain grouped boundaries with local module services.
+    defaults:
+      controller_strictness: high
+      boundary_strictness: high
+    detection_signals:
+      structural:
+        - modules_dir
+        - domains_dir
+      heuristic:
+        - feature_first_backend_layout
+        - module_local_actions
+
+  api-first:
+    label: API-First
+    description: Token-authenticated JSON APIs and resource response consistency.
+    defaults:
+      controller_strictness: high
+      boundary_strictness: high
+    detection_signals:
+      structural:
+        - api_routes_weighted
+        - resources_dir
+      heuristic:
+        - json_response_dominant
+        - token_auth_usage
+
+capabilities:
+  multi_tenant:
+    label: Multi-tenant
+    description: Tenant-scoped data boundaries and tenant-aware middleware.
+    detection_signals:
+      structural:
+        - tenant_scope_class
+        - tenant_middleware
+      heuristic:
+        - tenant_id_columns
+        - clinic_id_columns
+
+  saas:
+    label: SaaS / Subscription
+    description: Plans, quotas, subscriptions, trial/cancel/resume lifecycle.
+    detection_signals:
+      structural:
+        - subscription_models
+        - billing_services
+      heuristic:
+        - plan_quota_terms
+        - trial_terms
+
+  realtime:
+    label: Realtime / WebSockets
+    description: Broadcast events, socket auth boundaries, realtime orchestration.
+    detection_signals:
+      structural:
+        - should_broadcast
+        - broadcast_config
+      heuristic:
+        - websocket_service_names
+        - echo_event_channels
+
+  billing:
+    label: Billing / Payments
+    description: Payment provider integration and billing lifecycle logic.
+    detection_signals:
+      structural:
+        - payment_services
+        - payment_callbacks
+      heuristic:
+        - stripe_terms
+        - cashier_terms
+        - paymob_terms
+
+  multi_role_portal:
+    label: Multi-role Portal
+    description: Distinct access boundaries for admin/staff/customer portals.
+    detection_signals:
+      structural:
+        - policy_classes
+        - role_middleware
+      heuristic:
+        - role_enum_terms
+        - portal_route_groups
+
+  queue_heavy:
+    label: Queue-heavy
+    description: Significant job/event orchestration and retry discipline.
+    detection_signals:
+      structural:
+        - jobs_dir
+        - listeners_dir
+      heuristic:
+        - dispatch_usage_high
+        - queue_connection_terms
+
+  mixed_public_dashboard:
+    label: Public site + Dashboard
+    description: Public pages coexist with authenticated portal/admin surfaces.
+    detection_signals:
+      structural:
+        - web_public_routes
+        - authenticated_dashboard_routes
+      heuristic:
+        - marketing_pages_and_dashboard
+
+  public_marketing_site:
+    label: Public marketing site
+    description: Public content-heavy pages and marketing flows.
+    detection_signals:
+      structural:
+        - blade_marketing_views
+        - marketing_routes
+      heuristic:
+        - hero_pricing_contact_terms
+
+  notifications_heavy:
+    label: Notifications-heavy
+    description: Frequent notification workflow and messaging orchestration.
+    detection_signals:
+      structural:
+        - notifications_dir
+        - notification_classes
+      heuristic:
+        - notify_terms
+        - mail_sms_push_mix
+
+  external_integrations_heavy:
+    label: External integrations-heavy
+    description: Significant third-party APIs/webhooks/provider logic.
+    detection_signals:
+      structural:
+        - webhooks_routes
+        - integration_services
+      heuristic:
+        - provider_terms
+        - http_client_terms
+
+  file_upload_storage_heavy:
+    label: File upload/storage-heavy
+    description: Project contains substantial upload/archive/document storage flows.
+    detection_signals:
+      structural:
+        - upload_controllers
+        - storage_services
+      heuristic:
+        - upload_route_terms
+        - archive_processing_terms
+
+team_expectations:
+  thin_controllers:
+    label: Thin controllers enforced
+    default: false
+  form_requests_expected:
+    label: FormRequests expected
+    default: false
+  services_actions_expected:
+    label: Services/Actions expected
+    default: false
+  repositories_expected:
+    label: Repository pattern expected
+    default: false
+  resources_expected:
+    label: API resources expected
+    default: false
+  dto_data_objects_preferred:
+    label: DTO/Data objects preferred
+    default: false
+
+rule_behavior:
+  controller-business-logic:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_confidence: 0.62
+        min_cyclomatic: 10
+        min_loc: 80
+    by_profile:
+      mvc:
+        severity: medium
+        thresholds:
+          min_confidence: 0.7
+          min_cyclomatic: 11
+          min_loc: 90
+      layered:
+        severity: high
+        thresholds:
+          min_confidence: 0.58
+          min_cyclomatic: 7
+          min_loc: 55
+      modular:
+        severity: high
+        thresholds:
+          min_confidence: 0.58
+          min_cyclomatic: 7
+          min_loc: 55
+      api-first:
+        severity: high
+        thresholds:
+          min_confidence: 0.6
+          min_cyclomatic: 8
+          min_loc: 60
+    by_project_type:
+      saas_platform:
+        severity: high
+      clinic_erp_management:
+        severity: high
+      realtime_game_control_platform:
+        severity: high
+      internal_admin_system:
+        thresholds:
+          min_cyclomatic: 10
+          min_loc: 85
+      api_backend:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      multi_tenant:
+        severity: high
+      multi_role_portal:
+        severity: high
+      billing:
+        severity: high
+      realtime:
+        severity: high
+    by_team_expectation:
+      thin_controllers:
+        severity: high
+        thresholds:
+          min_cyclomatic: 6
+
+  controller-query-direct:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_queries_per_method: 1
+    by_profile:
+      mvc:
+        severity: low
+        thresholds:
+          max_queries_per_method: 2
+      layered:
+        severity: high
+        thresholds:
+          max_queries_per_method: 0
+      modular:
+        severity: high
+        thresholds:
+          max_queries_per_method: 0
+      api-first:
+        severity: high
+        thresholds:
+          max_queries_per_method: 0
+    by_team_expectation:
+      thin_controllers:
+        severity: high
+        thresholds:
+          max_queries_per_method: 0
+      repositories_expected:
+        severity: high
+        thresholds:
+          max_queries_per_method: 0
+
+  fat-controller:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_method_loc: 55
+        max_queries: 2
+        max_validations: 0
+        min_problem_count: 2
+    by_profile:
+      mvc:
+        severity: low
+        thresholds:
+          max_method_loc: 80
+          max_queries: 3
+          min_problem_count: 3
+      layered:
+        severity: high
+        thresholds:
+          max_method_loc: 45
+          max_queries: 1
+          min_problem_count: 2
+      modular:
+        severity: high
+        thresholds:
+          max_method_loc: 45
+          max_queries: 1
+          min_problem_count: 2
+      api-first:
+        severity: high
+        thresholds:
+          max_method_loc: 50
+          max_queries: 1
+          min_problem_count: 2
+    by_team_expectation:
+      thin_controllers:
+        severity: high
+        thresholds:
+          max_method_loc: 40
+          max_queries: 1
+          min_problem_count: 2
+      services_actions_expected:
+        severity: high
+        thresholds:
+          max_method_loc: 45
+          max_queries: 1
+          min_problem_count: 2
+
+  service-extraction:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_business_loc: 18
+        min_business_confidence: 0.6
+        loc_only_min_loc: 42
+        loc_only_min_call_sites: 5
+        read_payload_min_keys: 6
+        read_payload_min_array_literals: 2
+        serializer_helper_min_keys: 5
+    by_profile:
+      mvc:
+        severity: low
+        thresholds:
+          min_business_loc: 18
+          min_business_confidence: 0.72
+          loc_only_min_loc: 45
+          loc_only_min_call_sites: 6
+      layered:
+        severity: high
+        thresholds:
+          min_business_loc: 14
+          min_business_confidence: 0.55
+          read_payload_min_keys: 5
+          serializer_helper_min_keys: 4
+      modular:
+        severity: high
+        thresholds:
+          min_business_loc: 14
+          min_business_confidence: 0.55
+          read_payload_min_keys: 5
+          serializer_helper_min_keys: 4
+      api-first:
+        severity: medium
+        thresholds:
+          min_business_loc: 16
+          min_business_confidence: 0.58
+          read_payload_min_keys: 5
+          serializer_helper_min_keys: 4
+    by_project_type:
+      saas_platform:
+        severity: high
+      clinic_erp_management:
+        severity: high
+      realtime_game_control_platform:
+        severity: high
+      api_backend:
+        severity: medium
+      internal_admin_system:
+        severity: low
+        thresholds:
+          min_business_loc: 22
+          min_business_confidence: 0.7
+    by_team_expectation:
+      services_actions_expected:
+        severity: high
+        thresholds:
+          min_business_loc: 12
+          min_business_confidence: 0.52
+
+  controller-inline-validation:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_rules: 2
+        high_if_rules_ge: 6
+    by_profile:
+      mvc:
+        severity: low
+        thresholds:
+          min_rules: 3
+      layered:
+        severity: medium
+        thresholds:
+          min_rules: 2
+      modular:
+        severity: medium
+        thresholds:
+          min_rules: 2
+      api-first:
+        severity: high
+        thresholds:
+          min_rules: 1
+    by_project_type:
+      api_backend:
+        severity: high
+        thresholds:
+          min_rules: 1
+      internal_admin_system:
+        severity: low
+        thresholds:
+          min_rules: 3
+    by_team_expectation:
+      form_requests_expected:
+        severity: high
+        thresholds:
+          min_rules: 1
+
+  repository-suggestion:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        min_query_count: 2
+        min_complexity: 3
+        min_write_queries: 0
+        read_only_blocked_max_queries: 2
+    by_profile:
+      mvc:
+        enabled: false
+      layered:
+        enabled: true
+        severity: medium
+        thresholds:
+          min_query_count: 2
+          min_complexity: 2
+          min_write_queries: 1
+          read_only_blocked_max_queries: 1
+      modular:
+        enabled: true
+        severity: medium
+        thresholds:
+          min_query_count: 2
+          min_complexity: 2
+          min_write_queries: 1
+          read_only_blocked_max_queries: 1
+      api-first:
+        severity: low
+        thresholds:
+          min_query_count: 3
+          min_complexity: 3
+          min_write_queries: 1
+    by_project_type:
+      internal_admin_system:
+        severity: low
+        thresholds:
+          min_query_count: 3
+          min_complexity: 4
+          min_write_queries: 1
+      clinic_erp_management:
+        severity: medium
+      api_backend:
+        severity: low
+        thresholds:
+          min_query_count: 3
+          min_complexity: 3
+          min_write_queries: 1
+    by_team_expectation:
+      repositories_expected:
+        enabled: true
+        severity: medium
+        thresholds:
+          min_query_count: 1
+          min_complexity: 2
+          min_write_queries: 0
+
+  enum-suggestion:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        min_occurrences: 3
+    by_profile:
+      mvc:
+        severity: low
+      layered:
+        severity: low
+      modular:
+        severity: medium
+      api-first:
+        severity: low
+    by_project_type:
+      internal_admin_system:
+        severity: low
+      api_backend:
+        severity: low
+    by_team_expectation:
+      dto_data_objects_preferred:
+        severity: medium
+        thresholds:
+          min_occurrences: 2
+
+  tenant-scope-enforcement:
+    defaults:
+      enabled: false
+      severity: high
+      thresholds:
+        min_project_signals: 6
+        min_method_queries: 1
+        min_confidence: 0.65
+        require_multi_tenant_capability: true
+    by_capability:
+      multi_tenant:
+        enabled: true
+        severity: high
+        thresholds:
+          min_project_signals: 5
+          min_confidence: 0.68
+
+  missing-csrf-token-verification:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_confidence: 0.72
+    by_profile:
+      api-first:
+        severity: low
+        thresholds:
+          min_confidence: 0.78
+    by_project_type:
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+      saas_platform:
+        severity: high
+      clinic_erp_management:
+        severity: high
+      api_backend:
+        severity: low
+        thresholds:
+          min_confidence: 0.8
+    by_capability:
+      public_marketing_site:
+        severity: high
+      mixed_public_dashboard:
+        severity: high
+      multi_role_portal:
+        severity: high
+
+  signed-routes-missing-signature-middleware:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_signal_count: 2
+        min_confidence: 0.75
+    by_profile:
+      api-first:
+        severity: low
+        thresholds:
+          min_signal_count: 3
+          min_confidence: 0.82
+    by_project_type:
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+      saas_platform:
+        severity: high
+      api_backend:
+        severity: low
+        thresholds:
+          min_signal_count: 3
+    by_capability:
+      multi_role_portal:
+        severity: high
+      external_integrations_heavy:
+        severity: high
+      mixed_public_dashboard:
+        severity: high
+
+  unsafe-external-redirect:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_confidence: 0.78
+    by_profile:
+      mvc:
+        severity: medium
+      api-first:
+        severity: high
+    by_project_type:
+      saas_platform:
+        severity: high
+      api_backend:
+        severity: high
+      public_website_with_dashboard:
+        severity: high
+      internal_admin_system:
+        severity: medium
+    by_capability:
+      billing:
+        severity: high
+      external_integrations_heavy:
+        severity: high
+      multi_role_portal:
+        severity: high
+
+  unused-service-class:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        min_confidence: 0.62
+    by_profile:
+      mvc:
+        severity: low
+        thresholds:
+          min_confidence: 0.7
+      layered:
+        severity: medium
+      modular:
+        severity: medium
+      api-first:
+        severity: low
+    by_project_type:
+      internal_admin_system:
+        severity: low
+      realtime_game_control_platform:
+        severity: medium
+    by_team_expectation:
+      services_actions_expected:
+        severity: medium
+      repositories_expected:
+        severity: medium
+
+  tenant-access-middleware-missing:
+    defaults:
+      enabled: false
+      severity: high
+      thresholds:
+        min_project_signals: 6
+        min_confidence: 0.72
+        require_multi_tenant_capability: true
+    by_capability:
+      multi_tenant:
+        enabled: true
+        severity: high
+        thresholds:
+          min_project_signals: 5
+          min_confidence: 0.7
+
+  policy-coverage-on-mutations:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_write_queries: 1
+        min_mutation_signals: 2
+        strict_public_action_exemptions: true
+    by_project_type:
+      saas_platform:
+        severity: high
+        thresholds:
+          min_mutation_signals: 1
+      clinic_erp_management:
+        severity: high
+        thresholds:
+          min_mutation_signals: 1
+      internal_admin_system:
+        severity: medium
+        thresholds:
+          min_mutation_signals: 2
+    by_capability:
+      multi_role_portal:
+        severity: high
+        thresholds:
+          min_mutation_signals: 1
+      multi_tenant:
+        severity: high
+        thresholds:
+          min_mutation_signals: 1
+      billing:
+        severity: high
+        thresholds:
+          min_mutation_signals: 1
+
+  authorization-missing-on-sensitive-reads:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_read_queries: 1
+        min_sensitive_score: 3
+    by_project_type:
+      saas_platform:
+        severity: high
+        thresholds:
+          min_sensitive_score: 2
+      clinic_erp_management:
+        severity: high
+        thresholds:
+          min_sensitive_score: 2
+      portal_based_business_app:
+        severity: high
+        thresholds:
+          min_sensitive_score: 2
+      internal_admin_system:
+        severity: medium
+        thresholds:
+          min_sensitive_score: 4
+    by_capability:
+      multi_role_portal:
+        severity: high
+        thresholds:
+          min_sensitive_score: 2
+      multi_tenant:
+        severity: high
+        thresholds:
+          min_sensitive_score: 2
+      billing:
+        severity: high
+        thresholds:
+          min_sensitive_score: 2
+
+  authorization-bypass-risk:
+    defaults:
+      enabled: true
+      severity: high
+    by_project_type:
+      saas_platform:
+        severity: high
+      clinic_erp_management:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      multi_role_portal:
+        severity: high
+      multi_tenant:
+        severity: high
+      billing:
+        severity: high
+
+  missing-form-request:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_rules: 2
+        auth_flow_max_rules_without_form_request: 3
+    by_profile:
+      mvc:
+        severity: low
+        thresholds:
+          min_rules: 3
+      layered:
+        severity: medium
+      modular:
+        severity: medium
+      api-first:
+        severity: high
+        thresholds:
+          min_rules: 1
+          auth_flow_max_rules_without_form_request: 2
+    by_project_type:
+      api_backend:
+        severity: high
+        thresholds:
+          min_rules: 1
+      internal_admin_system:
+        severity: low
+        thresholds:
+          min_rules: 3
+    by_team_expectation:
+      form_requests_expected:
+        severity: high
+        thresholds:
+          min_rules: 1
+          auth_flow_max_rules_without_form_request: 1
+
+  missing-api-resource:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_confidence: 0.62
+        require_api_context: true
+        min_raw_return_signals: 1
+    by_profile:
+      api-first:
+        severity: high
+        thresholds:
+          min_confidence: 0.56
+      mvc:
+        severity: low
+        thresholds:
+          min_confidence: 0.68
+    by_project_type:
+      api_backend:
+        severity: high
+      public_website_with_dashboard:
+        severity: low
+      internal_admin_system:
+        severity: low
+    by_team_expectation:
+      resources_expected:
+        severity: high
+        thresholds:
+          min_confidence: 0.55
+
+  missing-pagination:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        min_confidence: 0.74
+        require_api_context: true
+        min_api_context_signals: 1
+        min_multi_record_signals: 2
+        large_model_only: true
+        suppress_export_flows: true
+    by_profile:
+      api-first:
+        severity: high
+        thresholds:
+          min_confidence: 0.6
+          min_multi_record_signals: 1
+          large_model_only: false
+      layered:
+        severity: medium
+        thresholds:
+          min_confidence: 0.66
+      mvc:
+        severity: low
+        thresholds:
+          min_confidence: 0.8
+          min_multi_record_signals: 4
+          large_model_only: true
+    by_project_type:
+      api_backend:
+        severity: high
+        thresholds:
+          min_confidence: 0.58
+      saas_platform:
+        severity: medium
+      public_website_with_dashboard:
+        severity: low
+      internal_admin_system:
+        severity: low
+    by_capability:
+      billing:
+        severity: medium
+      mixed_public_dashboard:
+        severity: low
+
+  error-pages-missing:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        core_4xx_codes: ["404"]
+        core_5xx_codes: ["500"]
+        recommended_4xx_codes: ["403", "419", "429"]
+        recommended_5xx_codes: ["503"]
+        flag_recommended: true
+        min_recommended_missing: 2
+    by_project_type:
+      api_backend:
+        enabled: false
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: medium
+      internal_admin_system:
+        severity: medium
+      realtime_game_control_platform:
+        severity: low
+    by_capability:
+      mixed_public_dashboard:
+        severity: high
+      public_marketing_site:
+        severity: high
+      multi_role_portal:
+        severity: medium
+
+  no-json-encode-in-controllers:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        min_confidence: 0.72
+        require_api_context: true
+        require_return_context: true
+    by_profile:
+      api-first:
+        severity: high
+        thresholds:
+          min_confidence: 0.58
+      layered:
+        severity: medium
+        thresholds:
+          min_confidence: 0.64
+      mvc:
+        severity: low
+        thresholds:
+          min_confidence: 0.84
+    by_project_type:
+      api_backend:
+        severity: high
+      internal_admin_system:
+        severity: low
+        thresholds:
+          min_confidence: 0.84
+      public_website_with_dashboard:
+        severity: low
+        thresholds:
+          min_confidence: 0.84
+    by_team_expectation:
+      resources_expected:
+        severity: high
+        thresholds:
+          min_confidence: 0.56
+
+  api-resource-usage:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        min_confidence: 0.66
+        require_api_context: true
+        flag_raw_array_returns: true
+    by_profile:
+      api-first:
+        severity: medium
+        thresholds:
+          min_confidence: 0.58
+      layered:
+        severity: medium
+        thresholds:
+          min_confidence: 0.62
+      mvc:
+        severity: low
+        thresholds:
+          min_confidence: 0.7
+    by_project_type:
+      api_backend:
+        severity: high
+        thresholds:
+          min_confidence: 0.56
+      internal_admin_system:
+        severity: low
+    by_team_expectation:
+      resources_expected:
+        severity: high
+        thresholds:
+          min_confidence: 0.54
+
+  registration-missing-registered-event:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_confidence: 0.72
+        min_self_service_signals: 1
+        require_self_service_context: true
+        suppress_admin_only_flows: true
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+      public_website_with_dashboard:
+        severity: high
+      clinic_erp_management:
+        severity: medium
+      internal_admin_system:
+        severity: low
+        thresholds:
+          min_confidence: 0.82
+          min_self_service_signals: 2
+      api_backend:
+        severity: medium
+    by_capability:
+      billing:
+        severity: high
+      multi_role_portal:
+        severity: high
+      public_marketing_site:
+        severity: medium
+
+  user-model-missing-must-verify-email:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_confidence: 0.78
+        skip_for_token_api_only: true
+    by_profile:
+      api-first:
+        severity: low
+        thresholds:
+          min_confidence: 0.84
+          skip_for_token_api_only: true
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+      public_website_with_dashboard:
+        severity: high
+      internal_admin_system:
+        severity: low
+      api_backend:
+        severity: low
+        thresholds:
+          min_confidence: 0.84
+          skip_for_token_api_only: true
+    by_capability:
+      billing:
+        severity: high
+      multi_role_portal:
+        severity: high
+      public_marketing_site:
+        severity: high
+      mixed_public_dashboard:
+        severity: medium
+
+  inertia-shared-props-sensitive-data:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_confidence: 0.78
+        min_signal_count: 2
+        require_inertia_context: true
+        require_global_share_context: true
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+      clinic_erp_management:
+        severity: high
+      public_website_with_dashboard:
+        severity: high
+      internal_admin_system:
+        severity: medium
+    by_capability:
+      multi_role_portal:
+        severity: high
+      billing:
+        severity: high
+      mixed_public_dashboard:
+        severity: high
+
+  inertia-shared-props-eager-query:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_confidence: 0.74
+        min_signal_count: 2
+        require_inertia_context: true
+        require_global_share_context: true
+        allow_lazy_or_cached: true
+    by_profile:
+      layered:
+        severity: high
+        thresholds:
+          min_confidence: 0.7
+      mvc:
+        severity: medium
+        thresholds:
+          min_confidence: 0.78
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+      public_website_with_dashboard:
+        severity: high
+      internal_admin_system:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: high
+      notifications_heavy:
+        severity: medium
+
+  missing-throttle-on-auth-api-routes:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_confidence: 0.68
+        require_sensitive_auth_intent: true
+    by_project_type:
+      api_backend:
+        severity: high
+      saas_platform:
+        severity: high
+      internal_admin_system:
+        severity: low
+    by_capability:
+      public_marketing_site:
+        severity: high
+      multi_role_portal:
+        severity: high
+      external_integrations_heavy:
+        severity: high
+
+  missing-auth-on-mutating-api-routes:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        min_confidence: 0.72
+        require_state_changing_method: true
+        respect_public_route_allowlist: true
+    by_project_type:
+      api_backend:
+        severity: high
+      saas_platform:
+        severity: high
+      internal_admin_system:
+        severity: medium
+    by_capability:
+      multi_tenant:
+        severity: high
+      multi_role_portal:
+        severity: high
+      billing:
+        severity: high
+
+  controller-returning-view-in-api:
+    defaults:
+      enabled: true
+      severity: medium
+    by_profile:
+      api-first:
+        severity: high
+
+  n-plus-one-risk:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_confidence: 0.72
+        require_model_match: false
+        require_select_query_context: true
+        min_evidence_signals: 2
+        require_local_query_context_or_strong_relation_signal: true
+    by_profile:
+      layered:
+        thresholds:
+          min_confidence: 0.68
+      modular:
+        thresholds:
+          min_confidence: 0.68
+      mvc:
+        severity: low
+        thresholds:
+          min_confidence: 0.8
+          require_model_match: true
+          require_select_query_context: true
+      api-first:
+        thresholds:
+          min_confidence: 0.74
+    by_project_type:
+      saas_platform:
+        severity: high
+        thresholds:
+          min_confidence: 0.64
+      clinic_erp_management:
+        severity: high
+        thresholds:
+          min_confidence: 0.64
+      internal_admin_system:
+        severity: low
+        thresholds:
+          min_confidence: 0.84
+      public_website_with_dashboard:
+        severity: low
+        thresholds:
+          min_confidence: 0.84
+    by_capability:
+      billing:
+        severity: high
+        thresholds:
+          min_confidence: 0.62
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          min_confidence: 0.8
+
+  transaction-required-for-multi-write:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_write_calls: 2
+        min_distinct_models: 1
+        ignore_idempotent_batches: true
+    by_profile:
+      mvc:
+        severity: medium
+        thresholds:
+          min_write_calls: 3
+          min_distinct_models: 2
+      layered:
+        severity: high
+      modular:
+        severity: high
+      api-first:
+        severity: high
+    by_project_type:
+      internal_admin_system:
+        severity: medium
+        thresholds:
+          min_write_calls: 3
+    by_capability:
+      billing:
+        severity: high
+      realtime:
+        severity: high
+      queue_heavy:
+        severity: high
+      external_integrations_heavy:
+        severity: high
+
+  missing-cache-for-reference-data:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        min_confidence: 0.8
+        require_repeated_reference_access: true
+        min_reference_query_count: 2
+        require_service_or_repository_context: true
+        require_project_cache_usage: true
+    by_profile:
+      mvc:
+        severity: low
+        thresholds:
+          min_confidence: 0.86
+          require_repeated_reference_access: true
+          min_reference_query_count: 2
+          require_service_or_repository_context: true
+      layered:
+        severity: medium
+        thresholds:
+          min_confidence: 0.74
+          require_repeated_reference_access: false
+          min_reference_query_count: 1
+          require_service_or_repository_context: false
+      modular:
+        severity: medium
+        thresholds:
+          min_confidence: 0.74
+          require_repeated_reference_access: false
+          min_reference_query_count: 1
+          require_service_or_repository_context: false
+      api-first:
+        severity: low
+        thresholds:
+          min_confidence: 0.86
+          require_repeated_reference_access: true
+          min_reference_query_count: 2
+          require_service_or_repository_context: true
+    by_project_type:
+      saas_platform:
+        severity: medium
+        thresholds:
+          min_confidence: 0.72
+          require_repeated_reference_access: false
+          min_reference_query_count: 1
+          require_service_or_repository_context: false
+      clinic_erp_management:
+        severity: medium
+        thresholds:
+          min_confidence: 0.72
+          require_repeated_reference_access: false
+          min_reference_query_count: 1
+          require_service_or_repository_context: false
+      portal_based_business_app:
+        severity: medium
+        thresholds:
+          min_confidence: 0.74
+          require_repeated_reference_access: false
+          min_reference_query_count: 1
+      internal_admin_system:
+        severity: low
+        thresholds:
+          min_confidence: 0.86
+          require_repeated_reference_access: true
+          min_reference_query_count: 2
+          require_service_or_repository_context: true
+      api_backend:
+        severity: low
+        thresholds:
+          min_confidence: 0.88
+          require_repeated_reference_access: true
+          min_reference_query_count: 2
+          require_service_or_repository_context: true
+      public_website_with_dashboard:
+        severity: low
+        thresholds:
+          min_confidence: 0.88
+          require_repeated_reference_access: true
+          min_reference_query_count: 2
+          require_service_or_repository_context: true
+    by_capability:
+      billing:
+        severity: medium
+        thresholds:
+          min_confidence: 0.72
+          require_repeated_reference_access: false
+          min_reference_query_count: 1
+          require_service_or_repository_context: false
+      notifications_heavy:
+        severity: medium
+        thresholds:
+          min_confidence: 0.74
+          require_repeated_reference_access: false
+      external_integrations_heavy:
+        severity: medium
+        thresholds:
+          min_confidence: 0.74
+          require_repeated_reference_access: false
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          min_confidence: 0.86
+          require_repeated_reference_access: true
+          min_reference_query_count: 2
+          require_service_or_repository_context: true
+
+  job-missing-idempotency-guard:
+    defaults:
+      enabled: false
+      severity: medium
+      thresholds:
+        min_confidence: 0.72
+        require_queue_capability: true
+        ignore_db_only_jobs: true
+    by_project_type:
+      saas_platform:
+        enabled: true
+        severity: high
+      realtime_game_control_platform:
+        enabled: true
+        severity: high
+    by_capability:
+      queue_heavy:
+        enabled: true
+        severity: high
+        thresholds:
+          min_confidence: 0.66
+      external_integrations_heavy:
+        enabled: true
+        severity: high
+        thresholds:
+          min_confidence: 0.64
+      billing:
+        enabled: true
+        severity: high
+        thresholds:
+          min_confidence: 0.64
+      notifications_heavy:
+        enabled: true
+        severity: medium
+        thresholds:
+          min_confidence: 0.66
+
+  job-missing-retry-policy:
+    defaults:
+      enabled: false
+      severity: medium
+      thresholds:
+        min_confidence: 0.7
+        require_queue_capability: true
+        ignore_db_only_jobs: true
+    by_project_type:
+      saas_platform:
+        enabled: true
+        severity: high
+      realtime_game_control_platform:
+        enabled: true
+        severity: high
+    by_capability:
+      queue_heavy:
+        enabled: true
+        severity: high
+        thresholds:
+          min_confidence: 0.66
+      external_integrations_heavy:
+        enabled: true
+        severity: high
+        thresholds:
+          min_confidence: 0.64
+      billing:
+        enabled: true
+        severity: high
+        thresholds:
+          min_confidence: 0.64
+      notifications_heavy:
+        enabled: true
+        severity: medium
+        thresholds:
+          min_confidence: 0.66
+
+  job-http-call-missing-timeout:
+    defaults:
+      enabled: false
+      severity: medium
+      thresholds:
+        min_confidence: 0.72
+        require_queue_capability: true
+    by_project_type:
+      api_backend:
+        enabled: true
+        severity: medium
+      realtime_game_control_platform:
+        enabled: true
+        severity: high
+    by_capability:
+      external_integrations_heavy:
+        enabled: true
+        severity: high
+        thresholds:
+          min_confidence: 0.64
+      queue_heavy:
+        enabled: true
+        severity: medium
+        thresholds:
+          min_confidence: 0.68
+      billing:
+        enabled: true
+        severity: high
+        thresholds:
+          min_confidence: 0.66
+      realtime:
+        enabled: true
+        severity: medium
+
+  sensitive-routes-missing-verified-middleware:
+    defaults:
+      enabled: true
+      severity: medium
+    by_project_type:
+      saas_platform:
+        severity: high
+      clinic_erp_management:
+        severity: high
+      portal_based_business_app:
+        severity: high
+      public_website_with_dashboard:
+        severity: high
+    by_capability:
+      billing:
+        severity: high
+      saas:
+        severity: high
+      multi_role_portal:
+        severity: high
+
+  react-project-structure-consistency:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_candidates: 5
+        min_placement_issues: 1
+        allow_context_hybrid_shared_colocation: true
+        suppress_when_context_pattern_matches: true
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          min_placement_issues: 2
+      public_website_with_dashboard:
+        severity: low
+      internal_admin_system:
+        severity: low
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          min_placement_issues: 2
+      multi_role_portal:
+        severity: medium
+
+  no-inline-services:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_service_like_helpers: 2
+        local_glue_max_helpers: 1
+        local_glue_min_local_components: 1
+        allow_page_shell_glue: true
+        allow_hybrid_feature_colocation: true
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          min_service_like_helpers: 3
+          local_glue_max_helpers: 2
+      public_website_with_dashboard:
+        severity: low
+      internal_admin_system:
+        severity: low
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          min_service_like_helpers: 3
+      realtime:
+        severity: low
+    by_team_expectation:
+      services_actions_expected:
+        severity: medium
+        thresholds:
+          min_service_like_helpers: 2
+
+  react-parent-child-spacing-overlap:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 2
+        require_same_value: true
+        allowed_responsive_scopes: [base, sm, md, lg, xl, 2xl]
+        min_confidence: 0.88
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          max_findings_per_file: 1
+          min_confidence: 0.9
+      internal_admin_system:
+        severity: low
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          max_findings_per_file: 1
+      realtime:
+        severity: low
+        thresholds:
+          min_confidence: 0.9
+      multi_role_portal:
+        severity: medium
+
+  css-font-size-px:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_px: 12
+        max_findings_per_file: 3
+        min_confidence: 0.86
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          min_px: 13
+          max_findings_per_file: 2
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          max_findings_per_file: 2
+
+  css-spacing-px:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_px: 8
+        max_findings_per_file: 4
+        min_confidence: 0.84
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          min_px: 10
+          max_findings_per_file: 2
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          max_findings_per_file: 2
+
+  css-fixed-layout-px:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        min_px: 240
+        max_findings_per_file: 3
+        min_confidence: 0.83
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          min_px: 280
+          max_findings_per_file: 2
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          max_findings_per_file: 2
+
+  tailwind-arbitrary-value-overuse:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_arbitrary_count: 3
+        max_findings_per_file: 3
+        min_confidence: 0.86
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          min_arbitrary_count: 4
+          max_findings_per_file: 2
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          min_arbitrary_count: 4
+          max_findings_per_file: 2
+
+  tailwind-arbitrary-text-size:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 3
+        min_confidence: 0.86
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          max_findings_per_file: 2
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          max_findings_per_file: 2
+
+  tailwind-arbitrary-spacing:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 3
+        min_confidence: 0.85
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          max_findings_per_file: 2
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          max_findings_per_file: 2
+
+  tailwind-arbitrary-layout-size:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        min_px: 200
+        max_findings_per_file: 3
+        min_confidence: 0.84
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          min_px: 240
+          max_findings_per_file: 2
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          max_findings_per_file: 2
+
+  tailwind-arbitrary-radius-shadow:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        max_findings_per_file: 3
+        min_confidence: 0.84
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          max_findings_per_file: 2
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          max_findings_per_file: 2
+
+  inline-api-logic:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_state_hook_count: 4
+        suppress_query_hook_usage: true
+        require_fetch_or_axios_for_api_finding: true
+    by_project_type:
+      api_backend:
+        severity: high
+        thresholds:
+          min_state_hook_count: 3
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          min_state_hook_count: 5
+      internal_admin_system:
+        severity: low
+    by_capability:
+      external_integrations_heavy:
+        severity: medium
+      mixed_public_dashboard:
+        severity: low
+    by_team_expectation:
+      services_actions_expected:
+        severity: high
+        thresholds:
+          min_state_hook_count: 3
+
+  large-react-component:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_lines: 220
+        min_loc_to_consider: 240
+        min_overflow_lines: 20
+        max_lines_component_shell: 420
+        max_lines_feature_shell: 520
+        max_lines_composed_shell: 700
+        max_lines_static_page: 420
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          max_lines_component_shell: 500
+          max_lines_feature_shell: 620
+          max_lines_composed_shell: 780
+      public_website_with_dashboard:
+        severity: low
+        thresholds:
+          max_lines_static_page: 500
+      internal_admin_system:
+        severity: low
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          max_lines_composed_shell: 760
+      realtime:
+        severity: low
+        thresholds:
+          max_lines_feature_shell: 620
+      multi_role_portal:
+        severity: medium
+
+  no-direct-useeffect:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        allowed_wrapper_names: [useMountEffect]
+        suppress_external_sync: true
+        allow_mount_only_without_wrapper: false
+    by_project_type:
+      api_backend:
+        severity: medium
+      internal_admin_system:
+        severity: low
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          suppress_external_sync: true
+    by_capability:
+      realtime:
+        severity: low
+        thresholds:
+          suppress_external_sync: true
+      external_integrations_heavy:
+        severity: low
+    by_team_expectation:
+      services_actions_expected:
+        severity: medium
+        thresholds:
+          suppress_external_sync: false
+
+  derived-state-in-effect:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_set_calls: 1
+        max_set_calls: 2
+        require_dependency_signal: true
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      internal_admin_system:
+        severity: low
+      api_backend:
+        severity: medium
+    by_capability:
+      realtime:
+        severity: low
+      mixed_public_dashboard:
+        severity: low
+
+  state-update-in-render:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        max_findings_per_file: 3
+    by_project_type:
+      api_backend:
+        severity: high
+      internal_admin_system:
+        severity: high
+      realtime_game_control_platform:
+        severity: high
+    by_capability:
+      realtime:
+        severity: high
+      mixed_public_dashboard:
+        severity: high
+
+  large-custom-hook:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_loc: 280
+        min_overflow_lines: 30
+        min_logic_signals: 4
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          max_loc: 340
+          min_logic_signals: 5
+      internal_admin_system:
+        severity: low
+    by_capability:
+      realtime:
+        severity: low
+        thresholds:
+          max_loc: 340
+      mixed_public_dashboard:
+        severity: low
+      external_integrations_heavy:
+        severity: medium
+
+  cross-feature-import-boundary:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        allow_entrypoint_import: true
+        max_findings_per_file: 3
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+      public_website_with_dashboard:
+        severity: low
+      internal_admin_system:
+        severity: low
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+      multi_role_portal:
+        severity: medium
+
+  query-key-instability:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 2
+    by_project_type:
+      api_backend:
+        severity: high
+      realtime_game_control_platform:
+        severity: medium
+      internal_admin_system:
+        severity: low
+    by_capability:
+      realtime:
+        severity: medium
+      mixed_public_dashboard:
+        severity: low
+
+  effect-event-relay-smell:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 2
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      internal_admin_system:
+        severity: low
+      api_backend:
+        severity: medium
+    by_capability:
+      realtime:
+        severity: low
+      mixed_public_dashboard:
+        severity: low
+    by_team_expectation:
+      services_actions_expected:
+        severity: medium
+
+  route-shell-missing-error-boundary:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        min_data_signals: 2
+    by_project_type:
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+      api_backend:
+        enabled: false
+      realtime_game_control_platform:
+        severity: low
+    by_capability:
+      mixed_public_dashboard:
+        severity: medium
+      multi_role_portal:
+        severity: medium
+      notifications_heavy:
+        severity: medium
+
+  unsafe-async-handler-without-guard:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 2
+    by_project_type:
+      api_backend:
+        severity: high
+      saas_platform:
+        severity: high
+      internal_admin_system:
+        severity: medium
+      realtime_game_control_platform:
+        severity: medium
+    by_capability:
+      external_integrations_heavy:
+        severity: high
+      billing:
+        severity: high
+      mixed_public_dashboard:
+        severity: medium
+
+  useeffect-cleanup-missing:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        include_fetch_effects: false
+        min_side_effect_signals: 1
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+        thresholds:
+          min_side_effect_signals: 2
+      internal_admin_system:
+        severity: low
+      public_website_with_dashboard:
+        severity: low
+    by_capability:
+      realtime:
+        severity: medium
+        thresholds:
+          min_side_effect_signals: 2
+      notifications_heavy:
+        severity: medium
+      mixed_public_dashboard:
+        severity: low
+
+  missing-usememo-for-expensive-calc:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        min_complexity_score: 3
+        min_chain_ops: 2
+        require_assignment_or_return_context: true
+        max_findings_per_file: 2
+    by_project_type:
+      api_backend:
+        severity: medium
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          min_complexity_score: 4
+      internal_admin_system:
+        severity: low
+        thresholds:
+          min_complexity_score: 4
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          min_complexity_score: 4
+      realtime:
+        severity: low
+        thresholds:
+          min_complexity_score: 4
+    by_team_expectation:
+      services_actions_expected:
+        severity: medium
+        thresholds:
+          min_complexity_score: 3
+
+  missing-usecallback-for-event-handlers:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        require_memoized_child_context: true
+        require_nontrivial_handler: true
+        min_handler_complexity_score: 2
+        max_findings_per_file: 2
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          min_handler_complexity_score: 3
+      public_website_with_dashboard:
+        severity: low
+      internal_admin_system:
+        severity: low
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+      multi_role_portal:
+        severity: medium
+      realtime:
+        severity: low
+        thresholds:
+          min_handler_complexity_score: 3
+    by_team_expectation:
+      services_actions_expected:
+        severity: medium
+        thresholds:
+          min_handler_complexity_score: 2
+
+  interactive-element-a11y:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        min_confidence: 0.86
+        max_findings_per_file: 4
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+        thresholds:
+          min_confidence: 0.9
+          max_findings_per_file: 2
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      mixed_public_dashboard:
+        severity: medium
+        thresholds:
+          min_confidence: 0.9
+      multi_role_portal:
+        severity: high
+
+  form-label-association:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        min_confidence: 0.86
+        max_findings_per_file: 3
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+        thresholds:
+          min_confidence: 0.9
+          max_findings_per_file: 2
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      mixed_public_dashboard:
+        severity: medium
+        thresholds:
+          min_confidence: 0.9
+      multi_role_portal:
+        severity: high
+
+  modal-trap-focus:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        min_confidence: 0.84
+        max_findings_per_file: 2
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+        thresholds:
+          min_confidence: 0.88
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      mixed_public_dashboard:
+        severity: medium
+        thresholds:
+          min_confidence: 0.88
+      multi_role_portal:
+        severity: high
+
+  dialog-focus-restore-missing:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        min_confidence: 0.84
+        max_findings_per_file: 2
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+        thresholds:
+          min_confidence: 0.88
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      mixed_public_dashboard:
+        severity: medium
+      multi_role_portal:
+        severity: high
+
+  skip-link-missing:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 1
+        min_confidence: 0.88
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+      multi_role_portal:
+        severity: medium
+
+  focus-indicator-missing:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        max_findings_per_file: 3
+        min_confidence: 0.92
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+        thresholds:
+          max_findings_per_file: 2
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      mixed_public_dashboard:
+        severity: medium
+        thresholds:
+          max_findings_per_file: 2
+      multi_role_portal:
+        severity: high
+
+  touch-target-size:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_touch_target_px: 44
+        max_findings_per_file: 3
+        min_confidence: 0.9
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          max_findings_per_file: 2
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+      multi_role_portal:
+        severity: medium
+
+  semantic-wrapper-breakage:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 3
+        min_confidence: 0.9
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          max_findings_per_file: 2
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+      multi_role_portal:
+        severity: medium
+
+  interactive-accessible-name-required:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        max_findings_per_file: 4
+        min_confidence: 0.88
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+        thresholds:
+          min_confidence: 0.9
+          max_findings_per_file: 2
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      mixed_public_dashboard:
+        severity: medium
+      multi_role_portal:
+        severity: high
+
+  jsx-aria-attribute-format:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 5
+        min_confidence: 0.9
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          max_findings_per_file: 3
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+      multi_role_portal:
+        severity: medium
+
+  outside-click-without-keyboard-fallback:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.86
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+        thresholds:
+          min_confidence: 0.9
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      mixed_public_dashboard:
+        severity: medium
+      multi_role_portal:
+        severity: high
+
+  apg-tabs-keyboard-contract:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.86
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      mixed_public_dashboard:
+        severity: medium
+      multi_role_portal:
+        severity: high
+
+  apg-accordion-disclosure-contract:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.84
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+      multi_role_portal:
+        severity: medium
+
+  apg-menu-button-contract:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.86
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      mixed_public_dashboard:
+        severity: medium
+      multi_role_portal:
+        severity: high
+
+  apg-combobox-contract:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.86
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      mixed_public_dashboard:
+        severity: medium
+      multi_role_portal:
+        severity: high
+
+  tailwind-motion-reduce-missing:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.88
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+      multi_role_portal:
+        severity: medium
+
+  tailwind-appearance-none-risk:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        max_findings_per_file: 3
+        min_confidence: 0.86
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+      multi_role_portal:
+        severity: medium
+
+  css-focus-outline-without-replacement:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        max_findings_per_file: 3
+        min_confidence: 0.92
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      mixed_public_dashboard:
+        severity: medium
+      multi_role_portal:
+        severity: high
+
+  css-hover-only-interaction:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.84
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+      multi_role_portal:
+        severity: medium
+
+  css-color-only-state-indicator:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.82
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+      multi_role_portal:
+        severity: medium
+
+  ssrf-risk-http-client:
+    defaults:
+      enabled: false
+      severity: high
+      thresholds:
+        require_external_integrations_capability: true
+        min_confidence: 0.84
+    by_capability:
+      external_integrations_heavy:
+        enabled: true
+        severity: high
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+      internal_admin_system:
+        severity: medium
+
+  path-traversal-file-access:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        min_confidence: 0.86
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+      internal_admin_system:
+        severity: medium
+    by_capability:
+      file_upload_storage_heavy:
+        severity: high
+      multi_tenant:
+        severity: high
+
+  insecure-file-download-response:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        require_auth_or_ownership_guard: true
+        min_confidence: 0.86
+    by_capability:
+      multi_role_portal:
+        severity: high
+      multi_tenant:
+        severity: high
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+
+  webhook-signature-missing:
+    defaults:
+      enabled: false
+      severity: high
+      thresholds:
+        require_external_integrations_capability: true
+        min_confidence: 0.86
+    by_capability:
+      external_integrations_heavy:
+        enabled: true
+        severity: high
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+
+  idor-risk-missing-ownership-check:
+    defaults:
+      enabled: false
+      severity: high
+      thresholds:
+        require_multi_role_portal_capability: true
+        min_confidence: 0.82
+    by_capability:
+      multi_role_portal:
+        enabled: true
+        severity: high
+      multi_tenant:
+        severity: high
+        thresholds:
+          min_confidence: 0.78
+    by_project_type:
+      portal_based_business_app:
+        severity: high
+      saas_platform:
+        severity: high
+      clinic_erp_management:
+        severity: high
+
+  sensitive-route-rate-limit-missing:
+    defaults:
+      enabled: false
+      severity: high
+      thresholds:
+        require_public_surface_capability: true
+        min_confidence: 0.82
+    by_capability:
+      mixed_public_dashboard:
+        enabled: true
+        severity: high
+      public_marketing_site:
+        enabled: true
+        severity: high
+    by_project_type:
+      public_website_with_dashboard:
+        severity: high
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+
+  sanctum-token-scope-missing:
+    defaults:
+      enabled: false
+      severity: medium
+      thresholds:
+        require_sanctum_signal: true
+        require_multi_role_portal_capability: true
+        min_confidence: 0.82
+    by_profile:
+      api-first:
+        enabled: true
+        severity: high
+    by_project_type:
+      api_backend:
+        enabled: true
+        severity: high
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      multi_role_portal:
+        enabled: true
+        severity: high
+      multi_tenant:
+        severity: high
+
+  session-fixation-regenerate-missing:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        min_confidence: 0.84
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+      internal_admin_system:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: high
+      public_marketing_site:
+        severity: high
+
+  weak-password-policy-validation:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_required_length: 8
+        min_confidence: 0.78
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+      clinic_erp_management:
+        severity: high
+      internal_admin_system:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: high
+      public_marketing_site:
+        severity: high
+
+  upload-mime-extension-mismatch:
+    defaults:
+      enabled: false
+      severity: high
+      thresholds:
+        require_upload_capability: true
+        min_confidence: 0.84
+    by_capability:
+      file_upload_storage_heavy:
+        enabled: true
+        severity: high
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+
+  archive-upload-zip-slip-risk:
+    defaults:
+      enabled: false
+      severity: high
+      thresholds:
+        require_upload_capability: true
+        min_confidence: 0.86
+    by_capability:
+      file_upload_storage_heavy:
+        enabled: true
+        severity: high
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+
+  upload-size-limit-missing:
+    defaults:
+      enabled: false
+      severity: medium
+      thresholds:
+        require_upload_capability: true
+        min_confidence: 0.78
+    by_capability:
+      file_upload_storage_heavy:
+        enabled: true
+        severity: medium
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+
+  insecure-postmessage-origin-wildcard:
+    defaults:
+      enabled: false
+      severity: high
+      thresholds:
+        require_public_surface_capability: true
+        min_confidence: 0.92
+    by_capability:
+      mixed_public_dashboard:
+        enabled: true
+        severity: high
+      public_marketing_site:
+        enabled: true
+        severity: high
+
+  token-storage-insecure-localstorage:
+    defaults:
+      enabled: false
+      severity: high
+      thresholds:
+        require_public_surface_capability: true
+        min_confidence: 0.88
+    by_capability:
+      mixed_public_dashboard:
+        enabled: true
+        severity: high
+      public_marketing_site:
+        enabled: true
+        severity: high
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+
+  client-open-redirect-unvalidated-navigation:
+    defaults:
+      enabled: false
+      severity: high
+      thresholds:
+        require_public_surface_capability: true
+        min_confidence: 0.84
+    by_capability:
+      mixed_public_dashboard:
+        enabled: true
+        severity: high
+      public_marketing_site:
+        enabled: true
+        severity: high
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+
+  csrf-exception-wildcard-risk:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        min_confidence: 0.86
+    by_project_type:
+      api_backend:
+        severity: medium
+
+  host-header-poisoning-risk:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        min_confidence: 0.8
+    by_capability:
+      mixed_public_dashboard:
+        severity: high
+      public_marketing_site:
+        severity: high
+    by_project_type:
+      internal_admin_system:
+        severity: medium
+
+  xml-xxe-risk:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        min_confidence: 0.8
+    by_capability:
+      external_integrations_heavy:
+        severity: high
+      notifications_heavy:
+        severity: medium
+
+  zip-bomb-risk:
+    defaults:
+      enabled: false
+      severity: high
+      thresholds:
+        require_upload_capability: true
+        min_confidence: 0.82
+    by_capability:
+      file_upload_storage_heavy:
+        enabled: true
+        severity: high
+
+  sensitive-response-cache-control-missing:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_confidence: 0.76
+    by_capability:
+      mixed_public_dashboard:
+        severity: high
+      multi_role_portal:
+        severity: high
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+
+  password-reset-token-hardening-missing:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        min_confidence: 0.82
+    by_capability:
+      mixed_public_dashboard:
+        severity: high
+      public_marketing_site:
+        severity: high
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+
+  security-headers-baseline-missing:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        min_confidence: 0.74
+    by_capability:
+      mixed_public_dashboard:
+        severity: high
+      public_marketing_site:
+        severity: high
+
+  webhook-replay-protection-missing:
+    defaults:
+      enabled: false
+      severity: high
+      thresholds:
+        require_external_integrations_capability: true
+        min_confidence: 0.82
+    by_capability:
+      external_integrations_heavy:
+        enabled: true
+        severity: high
+
+  postmessage-receiver-origin-not-verified:
+    defaults:
+      enabled: false
+      severity: high
+      thresholds:
+        require_public_surface_capability: true
+        min_confidence: 0.84
+    by_capability:
+      mixed_public_dashboard:
+        enabled: true
+        severity: high
+      public_marketing_site:
+        enabled: true
+        severity: high
+
+  dangerous-html-sink-without-sanitizer:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        min_confidence: 0.84
+    by_project_type:
+      saas_platform:
+        severity: high
+      portal_based_business_app:
+        severity: high
+
+  avoid-props-to-state-copy:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.72
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          max_findings_per_file: 1
+      internal_admin_system:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+        thresholds:
+          max_findings_per_file: 1
+      multi_role_portal:
+        severity: medium
+
+  props-state-sync-effect-smell:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.74
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+        thresholds:
+          max_findings_per_file: 1
+      internal_admin_system:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+      multi_role_portal:
+        severity: medium
+
+  controlled-uncontrolled-input-mismatch:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        max_findings_per_file: 3
+        min_confidence: 0.82
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      mixed_public_dashboard:
+        severity: medium
+      public_marketing_site:
+        severity: high
+      multi_role_portal:
+        severity: high
+
+  usememo-overuse:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.8
+    by_project_type:
+      realtime_game_control_platform:
+        enabled: false
+      internal_admin_system:
+        severity: low
+      public_website_with_dashboard:
+        severity: low
+      portal_based_business_app:
+        severity: low
+    by_capability:
+      mixed_public_dashboard:
+        enabled: false
+
+  usecallback-overuse:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.8
+    by_project_type:
+      realtime_game_control_platform:
+        enabled: false
+      internal_admin_system:
+        severity: low
+      public_website_with_dashboard:
+        severity: low
+      portal_based_business_app:
+        severity: low
+    by_capability:
+      mixed_public_dashboard:
+        enabled: false
+
+  context-oversized-provider:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 2
+        max_provider_keys_without_split: 6
+        min_confidence: 0.78
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      internal_admin_system:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+      multi_role_portal:
+        severity: medium
+
+  lazy-without-suspense:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        min_confidence: 0.84
+    by_project_type:
+      realtime_game_control_platform:
+        severity: medium
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      mixed_public_dashboard:
+        severity: medium
+
+  suspense-fallback-missing:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.82
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+
+  stale-closure-in-timer:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.82
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      internal_admin_system:
+        severity: low
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+
+  stale-closure-in-listener:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.82
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      internal_admin_system:
+        severity: low
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+
+  duplicate-key-source:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.76
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+
+  missing-loading-state:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        min_confidence: 0.7
+    by_project_type:
+      internal_admin_system:
+        severity: low
+      realtime_game_control_platform:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      public_marketing_site:
+        severity: medium
+      mixed_public_dashboard:
+        severity: low
+
+  missing-empty-state:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        min_confidence: 0.7
+    by_project_type:
+      internal_admin_system:
+        severity: low
+      realtime_game_control_platform:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      public_marketing_site:
+        severity: medium
+      mixed_public_dashboard:
+        severity: low
+
+  ref-access-during-render:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.84
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      internal_admin_system:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+
+  ref-used-as-reactive-state:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 1
+        min_confidence: 0.78
+    by_project_type:
+      realtime_game_control_platform:
+        severity: low
+      internal_admin_system:
+        severity: low
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      mixed_public_dashboard:
+        severity: low
+
+  meta-description-missing-or-generic:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        require_public_surface_signal: true
+        min_confidence: 0.8
+    by_project_type:
+      internal_admin_system:
+        enabled: false
+      realtime_game_control_platform:
+        enabled: false
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      public_marketing_site:
+        severity: medium
+      mixed_public_dashboard:
+        severity: low
+
+  canonical-missing-or-invalid:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        require_public_surface_signal: true
+        min_confidence: 0.82
+    by_project_type:
+      internal_admin_system:
+        enabled: false
+      realtime_game_control_platform:
+        enabled: false
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+    by_capability:
+      public_marketing_site:
+        severity: high
+      mixed_public_dashboard:
+        severity: medium
+
+  robots-directive-risk:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        require_public_surface_signal: true
+        min_confidence: 0.86
+    by_project_type:
+      internal_admin_system:
+        enabled: false
+      realtime_game_control_platform:
+        enabled: false
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+      saas_platform:
+        severity: high
+    by_capability:
+      public_marketing_site:
+        severity: high
+      mixed_public_dashboard:
+        severity: medium
+
+  crawlable-internal-navigation-required:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        require_public_surface_signal: true
+        min_confidence: 0.78
+    by_project_type:
+      internal_admin_system:
+        enabled: false
+      realtime_game_control_platform:
+        enabled: false
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      public_marketing_site:
+        severity: medium
+      mixed_public_dashboard:
+        severity: low
+
+  jsonld-structured-data-invalid-or-mismatched:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        max_findings_per_file: 2
+        min_confidence: 0.86
+    by_project_type:
+      internal_admin_system:
+        enabled: false
+      realtime_game_control_platform:
+        enabled: false
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      public_marketing_site:
+        severity: medium
+      mixed_public_dashboard:
+        severity: low
+
+  h1-singleton-violation:
+    defaults:
+      enabled: true
+      severity: medium
+      thresholds:
+        require_public_surface_signal: true
+        min_confidence: 0.8
+    by_project_type:
+      internal_admin_system:
+        enabled: false
+      realtime_game_control_platform:
+        enabled: false
+      public_website_with_dashboard:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+    by_capability:
+      public_marketing_site:
+        severity: medium
+      mixed_public_dashboard:
+        severity: low
+
+  page-indexability-conflict:
+    defaults:
+      enabled: true
+      severity: high
+      thresholds:
+        require_public_surface_signal: true
+        min_confidence: 0.9
+    by_project_type:
+      internal_admin_system:
+        enabled: false
+      realtime_game_control_platform:
+        enabled: false
+      public_website_with_dashboard:
+        severity: high
+      portal_based_business_app:
+        severity: high
+      saas_platform:
+        severity: high
+    by_capability:
+      public_marketing_site:
+        severity: high
+      mixed_public_dashboard:
+        severity: medium
+
+  controller-index-filter-duplication:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        max_findings_per_file: 1
+        min_confidence: 0.78
+        min_filter_keys_for_candidate: 2
+    by_profile:
+      mvc:
+        severity: low
+        thresholds:
+          max_findings_per_file: 1
+          min_confidence: 0.82
+          min_filter_keys_for_candidate: 2
+      layered:
+        severity: medium
+        thresholds:
+          max_findings_per_file: 2
+          min_confidence: 0.74
+          min_filter_keys_for_candidate: 2
+      modular:
+        severity: medium
+        thresholds:
+          max_findings_per_file: 2
+          min_confidence: 0.74
+          min_filter_keys_for_candidate: 2
+      api-first:
+        severity: medium
+        thresholds:
+          max_findings_per_file: 2
+          min_confidence: 0.76
+          min_filter_keys_for_candidate: 2
+    by_team_expectation:
+      services_actions_expected:
+        severity: medium
+        thresholds:
+          max_findings_per_file: 2
+          min_confidence: 0.72
+      thin_controllers:
+        severity: medium
+        thresholds:
+          max_findings_per_file: 2
+          min_confidence: 0.72
+
+  model-cross-model-query:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        max_findings_per_file: 3
+        min_confidence: 0.76
+    by_profile:
+      mvc:
+        severity: low
+      layered:
+        severity: medium
+      modular:
+        severity: medium
+      api-first:
+        severity: low
+    by_project_type:
+      saas_platform:
+        severity: medium
+      portal_based_business_app:
+        severity: medium
+      clinic_erp_management:
+        severity: medium
+      internal_admin_system:
+        severity: low
+    by_capability:
+      saas:
+        severity: medium
+      multi_role_portal:
+        severity: medium
+      multi_tenant:
+        severity: medium
+
+  action-class-naming-consistency:
+    defaults:
+      enabled: true
+      severity: low
+      thresholds:
+        max_findings_per_file: 20
+        min_confidence: 0.8
+    by_profile:
+      mvc:
+        severity: low
+      layered:
+        severity: low
+      modular:
+        severity: medium
+      api-first:
+        severity: low
+    by_team_expectation:
+      services_actions_expected:
+        severity: medium
+        thresholds:
+          max_findings_per_file: 25
+          min_confidence: 0.78

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts, RouteInfo, QueryUsage
+from schemas.facts import Facts
 from schemas.metrics import MethodMetrics
 from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
@@ -28,26 +28,45 @@ class MissingApiResourceRule(Rule):
     ]
     regex_file_extensions = [".php"]
 
-    # Patterns for direct model returns
-    _DIRECT_RETURN_PATTERNS = [
-        re.compile(r"return\s+[A-Z][a-zA-Z]+\s*::\s*all\s*\(\s*\)\s*;", re.IGNORECASE),
-        re.compile(r"return\s+[A-Z][a-zA-Z]+\s*::\s*get\s*\(\s*\)\s*;", re.IGNORECASE),
-        re.compile(r"return\s+\$[a-zA-Z_]+\s*->\s*get\s*\(\s*\)\s*;", re.IGNORECASE),
-        re.compile(r"return\s+\$[a-zA-Z_]+\s*;", re.IGNORECASE),  # Direct variable return
+    _CLASS_PATTERN = re.compile(r"class\s+([A-Z][a-zA-Z0-9_]*)", re.IGNORECASE)
+    _API_NAMESPACE_PATTERN = re.compile(r"namespace\s+[^;]*\\api(?:\\|;)", re.IGNORECASE)
+    _DIRECT_QUERY_RETURN_PATTERNS = [
+        re.compile(
+            r"return\s+[A-Z][A-Za-z0-9_\\]*\s*::\s*(?:query\s*\(\)\s*->\s*)?"
+            r"(?:all|get|paginate|simplePaginate|first|find|pluck)\s*\(",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"return\s+[A-Z][A-Za-z0-9_\\]*\s*::\s*(?:where|latest|oldest|orderBy|query)\b[^;]*->\s*"
+            r"(?:get|paginate|simplePaginate|first|find|pluck)\s*\(",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"return\s+\$[a-zA-Z_][a-zA-Z0-9_]*\s*->\s*"
+            r"(?:get|paginate|simplePaginate|first|find|pluck)\s*\(",
+            re.IGNORECASE,
+        ),
     ]
+    _RETURN_VARIABLE_PATTERN = re.compile(r"return\s+\$([a-zA-Z_][a-zA-Z0-9_]*)\s*;", re.IGNORECASE)
+    _RAW_ASSIGNMENT_PATTERN = re.compile(
+        r"\$([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*.*?(::\s*(?:all|get|paginate|simplePaginate|first|find|pluck)\s*\(|->\s*"
+        r"(?:get|paginate|simplePaginate|first|find|pluck)\s*\()",
+        re.IGNORECASE,
+    )
 
-    # Patterns for API Resource usage (safe)
     _RESOURCE_PATTERNS = [
         re.compile(r"Resource\s*::\s*collection\s*\(", re.IGNORECASE),
         re.compile(r"Resource\s*::\s*make\s*\(", re.IGNORECASE),
         re.compile(r"return\s+new\s+[A-Z][a-zA-Z]*Resource\s*\(", re.IGNORECASE),
         re.compile(r"JsonResource", re.IGNORECASE),
+        re.compile(r"AnonymousResourceCollection", re.IGNORECASE),
     ]
 
-    # Patterns for JSON response (also acceptable)
-    _JSON_RESPONSE_PATTERNS = [
+    _SAFE_RESPONSE_PATTERNS = [
         re.compile(r"response\s*\(\s*\)\s*->\s*json\s*\(", re.IGNORECASE),
         re.compile(r"response\s*\(\)\s*->\s*json\s*\(", re.IGNORECASE),
+        re.compile(r"->\s*toResponse\s*\(", re.IGNORECASE),
+        re.compile(r"JsonResponse", re.IGNORECASE),
     ]
 
     _ALLOWLIST_PATHS = (
@@ -75,52 +94,62 @@ class MissingApiResourceRule(Rule):
     ) -> list[Finding]:
         findings: list[Finding] = []
 
-        # Skip allowlisted paths
+        # Skip allowlisted paths.
         norm_path = (file_path or "").replace("\\", "/").lower()
         if any(allow in norm_path for allow in self._ALLOWLIST_PATHS):
             return findings
 
-        # Only check API controllers
-        is_api_controller = (
-            "api" in norm_path or
-            "/api/" in norm_path or
-            "ApiController" in file_path
-        )
-
-        if not is_api_controller:
+        text = content or ""
+        require_api_context = bool(self.get_threshold("require_api_context", True))
+        api_context, api_evidence = self._detect_api_context(file_path, text, facts)
+        if require_api_context and not api_context:
             return findings
 
-        text = content or ""
         lines = text.split("\n")
+        min_confidence = float(self.get_threshold("min_confidence", 0.0) or 0.0)
+        min_raw_return_signals = int(self.get_threshold("min_raw_return_signals", 1) or 1)
 
-        # Check if file already uses API Resources
-        has_resource = any(pattern.search(text) for pattern in self._RESOURCE_PATTERNS)
+        raw_vars = self._collect_raw_query_variables(lines)
+        candidates: list[tuple[int, str, str, float]] = []
 
         for i, line in enumerate(lines, 1):
-            # Skip comments
             stripped = line.strip()
             if stripped.startswith("//") or stripped.startswith("#") or stripped.startswith("*"):
                 continue
 
-            # Check for direct return patterns
-            has_direct_return = any(pattern.search(line) for pattern in self._DIRECT_RETURN_PATTERNS)
-            if not has_direct_return:
+            if any(pattern.search(line) for pattern in self._RESOURCE_PATTERNS):
+                continue
+            if any(pattern.search(line) for pattern in self._SAFE_RESPONSE_PATTERNS):
                 continue
 
-            # Skip if it's a simple variable return that might be a Resource
-            if re.search(r"return\s+\$[a-zA-Z_]+Resource", line, re.IGNORECASE):
+            direct_query_return = any(pattern.search(line) for pattern in self._DIRECT_QUERY_RETURN_PATTERNS)
+            return_var_match = self._RETURN_VARIABLE_PATTERN.search(line)
+            raw_var_return = bool(return_var_match and return_var_match.group(1).lower() in raw_vars)
+            if not direct_query_return and not raw_var_return:
                 continue
 
-            # Skip if JSON response is used
-            if any(pattern.search(line) for pattern in self._JSON_RESPONSE_PATTERNS):
+            if re.search(r"return\s+\$[a-zA-Z_][a-zA-Z0-9_]*Resource", line, re.IGNORECASE):
                 continue
 
+            return_kind = "direct_query_return" if direct_query_return else "raw_query_variable_return"
+            confidence = 0.78 if direct_query_return else 0.67
+            if confidence + 1e-9 < min_confidence:
+                continue
+            candidates.append((i, stripped[:200], return_kind, confidence))
+
+        if len(candidates) < min_raw_return_signals:
+            return findings
+
+        for line_no, context_line, return_kind, confidence in candidates:
+            evidence = list(api_evidence)
+            evidence.append(f"return_kind={return_kind}")
+            evidence.append("api_contract_boundary=resource_expected")
             findings.append(
                 self.create_finding(
                     title="API endpoint returning raw model data",
-                    context=line.strip()[:60],
+                    context=context_line[:80],
                     file=file_path,
-                    line_start=i,
+                    line_start=line_no,
                     description=(
                         "Detected direct model/array return in API controller. "
                         "Consider using API Resources for consistent response formatting."
@@ -170,9 +199,55 @@ class MissingApiResourceRule(Rule):
                         "    return UserResource::collection(User::paginate(15));\n"
                         "}"
                     ),
-                    confidence=0.65,
+                    confidence=confidence,
                     tags=["architecture", "api", "resource", "laravel", "rest"],
+                    evidence_signals=evidence,
+                    metadata={
+                        "overlap_group": "api-resource-contract",
+                        "overlap_scope": f"{file_path}:{line_no}",
+                        "overlap_rank": 95,
+                    },
                 )
             )
 
         return findings
+
+    def _detect_api_context(self, file_path: str, text: str, facts: Facts) -> tuple[bool, list[str]]:
+        evidence: list[str] = []
+        norm_path = (file_path or "").replace("\\", "/").lower()
+
+        if "/http/controllers/api/" in norm_path:
+            evidence.append("api_context=controller_path")
+            return True, evidence
+        if norm_path.endswith("apicontroller.php"):
+            evidence.append("api_context=controller_name")
+            return True, evidence
+        if self._API_NAMESPACE_PATTERN.search(text or ""):
+            evidence.append("api_context=namespace")
+            return True, evidence
+
+        class_match = self._CLASS_PATTERN.search(text or "")
+        if not class_match:
+            return False, evidence
+        class_name = class_match.group(1)
+        for route in facts.routes or []:
+            route_file = (route.file_path or "").replace("\\", "/").lower()
+            if not (route_file == "routes/api.php" or route_file.endswith("/routes/api.php")):
+                continue
+            controller_ref = str(route.controller or "")
+            if class_name and class_name.lower() in controller_ref.lower():
+                evidence.append("api_context=api_route_controller_match")
+                return True, evidence
+        return False, evidence
+
+    def _collect_raw_query_variables(self, lines: list[str]) -> set[str]:
+        raw_vars: set[str] = set()
+        for line in lines:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("//") or stripped.startswith("#"):
+                continue
+            match = self._RAW_ASSIGNMENT_PATTERN.search(line)
+            if not match:
+                continue
+            raw_vars.add(match.group(1).lower())
+        return raw_vars

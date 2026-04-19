@@ -186,6 +186,9 @@ export interface RuleDecisionProfile {
   profile_confidence?: number;
   profile_confidence_kind?: string;
   profile_signals?: string[];
+  project_business_context?: string;
+  capabilities?: string[];
+  team_standards?: string[];
   decision?: string;
   decision_summary?: string;
   suppression_reason?: string | null;
@@ -200,15 +203,37 @@ export interface FindingMetadata {
   [key: string]: unknown;
 }
 
+export interface ContextSignalDebug {
+  enabled?: boolean;
+  confidence?: number;
+  source?: string;
+  evidence?: string[];
+}
+
 export interface ProjectContextDebug {
+  project_type?: string;
+  architecture_style?: string;
+  capabilities?: Record<string, ContextSignalDebug>;
+  team_expectations?: Record<string, ContextSignalDebug>;
+  auto_detected_context?: Record<string, unknown>;
+  project_business_context?: string;
+  project_business_signals?: string[];
+  project_business_confidence?: number;
+  project_business_confidence_kind?: string;
+  project_business_source?: string;
   backend_framework?: string;
   backend_architecture_profile?: string;
   backend_profile_signals?: string[];
   backend_profile_confidence?: number;
   backend_profile_confidence_kind?: string;
+  backend_profile_source?: string;
   backend_profile_debug?: Record<string, unknown>;
   backend_structure_mode?: string;
   backend_layers?: string[];
+  backend_capabilities?: Record<string, ContextSignalDebug>;
+  backend_team_expectations?: Record<string, ContextSignalDebug>;
+  context_resolution_signals?: string[];
+  context_matrix_version?: number;
   react_structure_mode?: string;
   react_shared_roots?: string[];
   has_i18n?: boolean;
@@ -218,7 +243,23 @@ export interface ProjectContextDebug {
   [key: string]: unknown;
 }
 
+export interface ScanProjectContextOverrides {
+  project_type?: string;
+  architecture_profile?: string;
+  capabilities?: Record<string, boolean>;
+  team_expectations?: Record<string, boolean>;
+  context_lock_mode?: "suggested_detected_context" | "pinned_detected_snapshot" | "manual";
+}
+
+export interface ProjectContextSuggestionResponse {
+  framework: string;
+  project_context: ProjectContextDebug;
+  suggested_context?: ScanProjectContextOverrides;
+  pinned_context?: ScanProjectContextOverrides;
+}
+
 export interface AnalysisDebug {
   project_context?: ProjectContextDebug;
+  requested_project_context?: ScanProjectContextOverrides;
   [key: string]: unknown;
 }

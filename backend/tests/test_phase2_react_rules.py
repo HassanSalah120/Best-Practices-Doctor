@@ -8,7 +8,10 @@ from rules.react.form_label_association import FormLabelAssociationRule
 from rules.react.page_title_missing import PageTitleMissingRule
 from rules.react.img_alt_missing import ImageAltMissingRule
 from rules.react.redundant_entry import RedundantEntryRule
+from rules.react.no_direct_useeffect import NoDirectUseEffectRule
 from schemas.facts import Facts
+from core.ruleset import Ruleset
+from pathlib import Path
 
 
 def test_hooks_in_conditional_or_loop_positive_and_negative():
@@ -248,3 +251,105 @@ export const DAY_ABBREV = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     findings = rule.analyze_regex("resources/js/utilities/schedule/index.ts", content, facts)
     assert findings == []
+
+
+def test_no_direct_useeffect_flags_direct_component_effect_usage():
+    rule = NoDirectUseEffectRule(RuleConfig())
+    facts = Facts(project_path="x")
+    content = """
+import { useEffect, useState } from "react";
+
+export function ProductPage({ productId }) {
+  const [product, setProduct] = useState(null);
+
+  useEffect(() => {
+    fetch(`/api/products/${productId}`).then((response) => response.json()).then(setProduct);
+  }, [productId]);
+
+  return null;
+}
+"""
+    findings = rule.analyze_ast("resources/js/Pages/ProductPage.tsx", content, facts)
+    assert len(findings) == 1
+    assert findings[0].rule_id == "no-direct-useeffect"
+    assert findings[0].metadata["decision_profile"]["replacement_reason"] == "fetch-in-effect"
+    assert findings[0].metadata["decision_profile"]["parser"] == "tree-sitter"
+
+
+def test_no_direct_useeffect_allows_usemounteffect_wrapper_implementation():
+    rule = NoDirectUseEffectRule(RuleConfig(thresholds={"allowed_wrapper_names": ["useMountEffect"]}))
+    facts = Facts(project_path="x")
+    content = """
+import { useEffect } from "react";
+
+export function useMountEffect(effect) {
+  useEffect(effect, []);
+}
+"""
+    findings = rule.analyze_ast("resources/js/hooks/useMountEffect.ts", content, facts)
+    assert findings == []
+
+
+def test_no_direct_useeffect_flags_react_namespace_variant():
+    rule = NoDirectUseEffectRule(RuleConfig())
+    facts = Facts(project_path="x")
+    content = """
+import * as React from "react";
+
+export function Dashboard() {
+  React.useEffect(() => {
+    console.log("mounted");
+  }, []);
+  return null;
+}
+"""
+    findings = rule.analyze_ast("resources/js/Pages/Dashboard.tsx", content, facts)
+    assert len(findings) == 1
+    assert findings[0].line_start == 5
+
+
+def test_no_direct_useeffect_uses_external_sync_reason_for_websocket_and_timer_effects():
+    rule = NoDirectUseEffectRule(RuleConfig())
+    facts = Facts(project_path="x")
+    content = """
+import { useEffect } from "react";
+
+export function useGameSocket() {
+  useEffect(() => {
+    const socket = new WebSocket("wss://example.test");
+    const timer = setInterval(() => socket.send("ping"), 1000);
+    return () => {
+      clearInterval(timer);
+      socket.close();
+    };
+  }, []);
+}
+"""
+    findings = rule.analyze_ast("resources/js/hooks/useGameSocket.ts", content, facts)
+    assert len(findings) == 1
+    assert findings[0].metadata["decision_profile"]["replacement_reason"] == "external-sync"
+
+
+def test_no_direct_useeffect_allows_arrow_wrapper_implementation():
+    rule = NoDirectUseEffectRule(RuleConfig(thresholds={"allowed_wrapper_names": ["useMountEffect"]}))
+    facts = Facts(project_path="x")
+    content = """
+import { useEffect } from "react";
+
+export const useMountEffect = (effect) => {
+  useEffect(effect, []);
+};
+"""
+    findings = rule.analyze_ast("resources/js/hooks/useMountEffect.ts", content, facts)
+    assert findings == []
+
+
+def test_no_direct_useeffect_is_strict_only_in_shipped_rulesets():
+    backend_root = Path(__file__).resolve().parents[1]
+    startup = Ruleset.load(backend_root / "rulesets" / "startup.yaml")
+    balanced = Ruleset.load(backend_root / "rulesets" / "balanced.yaml")
+    strict = Ruleset.load(backend_root / "rulesets" / "strict.yaml")
+
+    assert startup.get_rule_config("no-direct-useeffect").enabled is False
+    assert balanced.get_rule_config("no-direct-useeffect").enabled is False
+    assert strict.get_rule_config("no-direct-useeffect").enabled is True

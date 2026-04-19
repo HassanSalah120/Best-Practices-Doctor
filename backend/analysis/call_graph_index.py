@@ -17,8 +17,8 @@ import re
 from schemas.facts import Facts, ClassInfo, MethodInfo
 
 
-_INTERNAL_MEMBER_CALL = re.compile(r"^\s*\$this->\s*(?P<name>[A-Za-z_]\w*)\s*\(")
-_INTERNAL_SCOPED_CALL = re.compile(r"^\s*(?:self|static|parent)::\s*(?P<name>[A-Za-z_]\w*)\s*\(")
+_INTERNAL_MEMBER_CALL = re.compile(r"\$this->\s*(?P<name>[A-Za-z_]\w*)\s*\(")
+_INTERNAL_SCOPED_CALL = re.compile(r"(?:self|static|parent)::\s*(?P<name>[A-Za-z_]\w*)\s*\(")
 _SCOPED_CALL = re.compile(r"^\s*\\?(?P<class>[A-Za-z_][A-Za-z0-9_\\\\]*)::\s*(?P<name>[A-Za-z_]\w*)\s*\(")
 _SCOPED_CLASS_REF = re.compile(r"\\?(?P<class>[A-Za-z_][A-Za-z0-9_\\\\]*)::")
 
@@ -143,14 +143,11 @@ def build_call_graph_index(facts: Facts) -> CallGraphIndex:
             call = str(cs)
 
             if cls:
-                mm = _INTERNAL_MEMBER_CALL.match(call)
-                if mm:
-                    idx.internal_called_method_names_by_class.setdefault(cls, set()).add(mm.group("name"))
-                    continue
-                sm = _INTERNAL_SCOPED_CALL.match(call)
-                if sm:
-                    idx.internal_called_method_names_by_class.setdefault(cls, set()).add(sm.group("name"))
-                    continue
+                internal_names = idx.internal_called_method_names_by_class.setdefault(cls, set())
+                for mm in _INTERNAL_MEMBER_CALL.finditer(call):
+                    internal_names.add(mm.group("name"))
+                for sm in _INTERNAL_SCOPED_CALL.finditer(call):
+                    internal_names.add(sm.group("name"))
 
             cm = _SCOPED_CALL.match(call)
             if cm:

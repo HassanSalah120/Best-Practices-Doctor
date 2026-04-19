@@ -112,6 +112,25 @@ def test_dry_violation_accepts_min_token_count_alias():
     assert any(f.rule_id == "dry-violation" for f in res.findings)
 
 
+def test_dry_violation_skips_low_signal_transaction_wrapper_duplication_in_actions():
+    facts = Facts(project_path=".")
+    facts.duplicates.append(
+        DuplicateBlock(
+            hash="tx",
+            token_count=72,
+            occurrences=[
+                ("app/Actions/Game/ExtendTimerAction.php", 20, 35),
+                ("app/Actions/Game/ShortenTimerAction.php", 18, 33),
+            ],
+            code_snippet="return DB::transaction(function () use ($dto) { $session = $this->sessionRepo->findById($dto->sessionId); });",
+        )
+    )
+
+    rule = DryViolationRule(RuleConfig(thresholds={"min_token_count": 50, "min_occurrences": 2}))
+    res = rule.run(facts, project_type="")
+    assert res.findings == []
+
+
 def test_missing_form_request_accepts_max_validator_rules_alias():
     facts = Facts(project_path=".")
     facts.controllers.append(

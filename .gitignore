@@ -19,7 +19,8 @@ ehthumbs.db
 *.sublime-*
 .atom/
 *.code-workspace
-
+.vscode/
+.docs/
 # Python
 __pycache__/
 *.py[cod]

@@ -6,11 +6,20 @@ The analyzer separates Laravel framework detection from Laravel architecture pro
 
 Project-level debug now includes:
 
+- `project_business_context`
+- `project_business_signals`
+- `project_business_confidence`
+- `project_business_confidence_kind`
+- `project_business_source`
 - `backend_framework`
 - `backend_architecture_profile`
 - `backend_profile_signals`
 - `backend_profile_confidence`
 - `backend_profile_confidence_kind`
+- `backend_profile_source`
+- `backend_capabilities`
+- `backend_team_expectations`
+- `context_resolution_signals`
 - `backend_profile_debug`
 
 These are exposed through the scan report at:
@@ -48,6 +57,17 @@ Profile-aware Laravel findings include a `decision_profile` payload with:
 - suppression reason or emission reason
 - rule-local evidence signals
 
+The Laravel coverage expansion also uses the same explainability surface for:
+
+- migration and schema-safety findings
+- model serialization / sensitive attribute findings
+- queue / notification / listener findings
+- broadcast authorization findings
+- public API governance findings
+
+That means new Laravel findings still report through the same `decision_profile`
+metadata rather than inventing a separate rule-specific context layer.
+
 ## Known Limitations
 
 These cases are still heuristic and may need future tuning:
@@ -57,6 +77,9 @@ These cases are still heuristic and may need future tuning:
 - custom folder naming that hides actions/services/modules from structural detection
 - dynamic container bindings or runtime resolution patterns that do not appear in static structure
 - large service classes that are operational coordinators but do not look like standard orchestrators by name or collaborator shape
+- unconventional migration helper wrappers or macro-driven schema definitions
+- custom notification/listener abstractions that hide queue semantics behind local base classes
+- broadcast channel authorization helpers that do not leave obvious guard signals in the callback body
 
 ## Ambiguous Cases
 

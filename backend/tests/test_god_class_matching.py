@@ -115,3 +115,154 @@ def test_god_class_skips_service_coordinator_facade():
     rule = GodClassRule(RuleConfig(thresholds={"max_methods": 20, "max_loc": 300}))
     res = rule.run(facts, project_type="")
     assert not any(f.rule_id == "god-class" for f in res.findings)
+
+
+def test_god_class_skips_interface_backed_service_facade_with_many_thin_methods():
+    facts = Facts(project_path=".")
+    facts.classes.append(
+        ClassInfo(
+            name="LmsAdminService",
+            fqcn="App\\Services\\Lms\\LmsAdminService",
+            file_path="app/Services/Lms/LmsAdminService.php",
+            file_hash="svc",
+            line_start=1,
+            line_end=420,
+            implements=["App\\Services\\Lms\\Contracts\\LmsAdminServiceInterface"],
+        )
+    )
+    facts.methods.append(
+        MethodInfo(
+            name="__construct",
+            class_name="LmsAdminService",
+            class_fqcn="App\\Services\\Lms\\LmsAdminService",
+            file_path="app/Services/Lms/LmsAdminService.php",
+            file_hash="svc",
+            line_start=10,
+            line_end=16,
+            loc=7,
+            parameters=[
+                "AdminServiceCoordinator $coordinator",
+                "SettingsServiceInterface $settings",
+            ],
+        )
+    )
+    for idx in range(24):
+        facts.methods.append(
+            MethodInfo(
+                name=f"method{idx}",
+                class_name="LmsAdminService",
+                class_fqcn="App\\Services\\Lms\\LmsAdminService",
+                file_path="app/Services/Lms/LmsAdminService.php",
+                file_hash="svc",
+                line_start=30 + (idx * 8),
+                line_end=33 + (idx * 8),
+                loc=4,
+                visibility="public",
+                call_sites=["$this->coordinator->users()->createUser($data)"],
+            )
+        )
+
+    rule = GodClassRule(RuleConfig(thresholds={"max_methods": 20, "max_loc": 300}))
+    res = rule.run(facts, project_type="")
+    assert not any(f.rule_id == "god-class" for f in res.findings)
+
+
+def test_god_class_skips_command_dispatch_service_facade():
+    facts = Facts(project_path=".")
+    facts.classes.append(
+        ClassInfo(
+            name="LmsGameService",
+            fqcn="App\\Services\\Lms\\LmsGameService",
+            file_path="app/Services/Lms/LmsGameService.php",
+            file_hash="svc2",
+            line_start=1,
+            line_end=538,
+            implements=["App\\Services\\Lms\\Contracts\\LmsGameServiceInterface"],
+        )
+    )
+    facts.methods.append(
+        MethodInfo(
+            name="__construct",
+            class_name="LmsGameService",
+            class_fqcn="App\\Services\\Lms\\LmsGameService",
+            file_path="app/Services/Lms/LmsGameService.php",
+            file_hash="svc2",
+            line_start=10,
+            line_end=18,
+            loc=9,
+            parameters=[
+                "SessionLifecycleServiceInterface $lifecycle",
+                "TurnManagementServiceInterface $turnService",
+                "TeamManagementServiceInterface $teamService",
+                "BoardManagementServiceInterface $boardService",
+                "GameCommandCoordinator $coordinator",
+                "GameOperationsServiceInterface $operations",
+            ],
+        )
+    )
+    facts.methods.extend(
+        [
+            MethodInfo(
+                name="dispatch",
+                class_name="LmsGameService",
+                class_fqcn="App\\Services\\Lms\\LmsGameService",
+                file_path="app/Services/Lms/LmsGameService.php",
+                file_hash="svc2",
+                line_start=30,
+                line_end=75,
+                loc=46,
+                visibility="public",
+                call_sites=[
+                    "$this->assertAdmin($actor);",
+                    "$this->startCategory($actor, $payload);",
+                    "$this->advanceTurn($payload, $type === 'admin:skip_turn');",
+                    "$this->processWrong($payload);",
+                ],
+            ),
+            MethodInfo(
+                name="claimGameEnd",
+                class_name="LmsGameService",
+                class_fqcn="App\\Services\\Lms\\LmsGameService",
+                file_path="app/Services/Lms/LmsGameService.php",
+                file_hash="svc2",
+                line_start=80,
+                line_end=92,
+                loc=13,
+                visibility="public",
+                call_sites=["$this->operations->claimGameEnd($sessionId);"],
+            ),
+            MethodInfo(
+                name="applySeriesPointsIfNeeded",
+                class_name="LmsGameService",
+                class_fqcn="App\\Services\\Lms\\LmsGameService",
+                file_path="app/Services/Lms/LmsGameService.php",
+                file_hash="svc2",
+                line_start=95,
+                line_end=102,
+                loc=8,
+                visibility="public",
+                call_sites=["$this->operations->applySeriesPointsIfNeeded($sessionId);"],
+            ),
+        ]
+    )
+    for idx, name in enumerate(
+        ["startCategory", "advanceTurn", "processWrong", "revealTile", "undoAction", "gameStatus"]
+    ):
+        facts.methods.append(
+            MethodInfo(
+                name=name,
+                class_name="LmsGameService",
+                class_fqcn="App\\Services\\Lms\\LmsGameService",
+                file_path="app/Services/Lms/LmsGameService.php",
+                file_hash="svc2",
+                line_start=120 + idx * 20,
+                line_end=130 + idx * 20,
+                loc=11,
+                visibility="private",
+                call_sites=["$this->coordinator->execute($payload);"],
+            )
+        )
+
+    rule = GodClassRule(RuleConfig(thresholds={"max_methods": 20, "max_loc": 300}))
+    res = rule.run(facts, project_type="")
+    assert not any(f.rule_id == "god-class" for f in res.findings)

@@ -5,7 +5,6 @@ Extracts raw facts from source files using Tree-sitter AST parsing.
 This module builds the Facts object that represents the codebase.
 """
 import logging
-import hashlib
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -19,10 +18,13 @@ from schemas.facts import (
     StringLiteral, StringOccurrence, BladeQuery, BladeRawEcho, EnvUsage, ReactComponentInfo,
     RelationAccess, AssocArrayLiteral, ConfigUsage,
     UseImport, FqcnReference, ClassConstAccess,
+    MigrationTableChange, MigrationIndexDefinition, MigrationForeignKeyDefinition,
+    ModelAttributeConfig, BroadcastChannelDefinition,
 )
 from schemas.project_type import ProjectInfo
 from core.path_utils import normalize_rel_path
 from core.test_detection import count_test_files
+from core.hashing import fast_hash_hex
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,7 @@ class FactsBuilder:
         cancellation_check: callable = None,
         max_file_size_kb: int | None = None,
         max_files: int | None = None,
+        context_overrides: dict | None = None,
     ):
         self.project_info = project_info
         self.project_path = Path(project_info.root_path).resolve()
@@ -83,6 +86,7 @@ class FactsBuilder:
         default_ignores = [
             *mandatory_ignores,
             "tests/**",
+            "**/tests/**",
         ]
 
         raw = list(ignore_patterns) if ignore_patterns else default_ignores
@@ -100,6 +104,7 @@ class FactsBuilder:
         self.cancellation_check = cancellation_check
         self.max_file_size_kb = int(max_file_size_kb) if max_file_size_kb is not None else 500
         self.max_files = int(max_files) if max_files is not None else 5000
+        self._context_overrides = dict(context_overrides or {})
 
         # Compile ignore patterns
         import pathspec
@@ -218,6 +223,10 @@ class FactsBuilder:
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             executor.map(_process_single_file, all_files)
+
+        # Laravel migration facts are extracted as a side pass so migrations can stay
+        # out of the generic scan surface used by unrelated regex rules.
+        self._process_laravel_sidecar_files()
         
         # Detect duplicates from collected tokens
         self._detect_duplicates()
@@ -296,7 +305,7 @@ class FactsBuilder:
     
     def _get_file_hash(self, content: str) -> str:
         """Compute hash for file content."""
-        return hashlib.sha256(content.encode()).hexdigest()[:16]
+        return fast_hash_hex(content, 16)
 
     def _is_auxiliary_scan_file(self, file_path: Path) -> bool:
         """Files that are scanned for regex/security rules but not parsed structurally."""
@@ -465,6 +474,9 @@ class FactsBuilder:
             # These run in both Tree-sitter and fallback mode.
             if "routes/" in rel_path or "routes\\" in rel_path:
                 self._extract_routes(rel_path, content)
+                if normalize_rel_path(rel_path).lower() == "routes/channels.php":
+                    self._extract_broadcast_channels(rel_path, content)
+            self._extract_model_attribute_configs(rel_path, content)
             self._collect_string_literals(rel_path, content, content.split("\n"))
             
         except Exception as e:
@@ -735,9 +747,7 @@ class FactsBuilder:
                     line_end=cls_line_end,
                 )
                 
-                self._facts.classes.append(class_info)
-                if is_controller: self._facts.controllers.append(class_info)
-                elif is_model: self._facts.models.append(class_info)
+                self._register_class_info(class_info)
                 
                 # Simplify: Iterate children of class body
                 class_body = next((c for c in node.children if c.type == "declaration_list"), None)
@@ -1150,15 +1160,7 @@ class FactsBuilder:
                 line_end=cls_line_end,
             )
             
-            if not dedupe_existing or not self._has_existing_class_fact(file_path, fqcn):
-                self._facts.classes.append(class_info)
-            
-            if is_controller:
-                if not dedupe_existing or not self._has_existing_class_fact(file_path, fqcn, bucket="controllers"):
-                    self._facts.controllers.append(class_info)
-            elif is_model:
-                if not dedupe_existing or not self._has_existing_class_fact(file_path, fqcn, bucket="models"):
-                    self._facts.models.append(class_info)
+            self._register_class_info(class_info, dedupe_existing=dedupe_existing)
             
             # Find methods
             method_pattern = re.compile(
@@ -1264,6 +1266,554 @@ class FactsBuilder:
             
             # Collect string literals
             self._collect_string_literals(file_path, content, lines)
+
+    def _register_class_info(self, class_info: ClassInfo, *, dedupe_existing: bool = False) -> None:
+        """Append a class fact and populate specialized Laravel buckets."""
+        if not dedupe_existing or not self._has_existing_class_fact(class_info.file_path, class_info.fqcn):
+            self._facts.classes.append(class_info)
+
+        for bucket in self._class_fact_buckets(class_info):
+            if dedupe_existing and self._has_existing_class_fact(class_info.file_path, class_info.fqcn, bucket=bucket):
+                continue
+            getattr(self._facts, bucket).append(class_info)
+
+    def _class_fact_buckets(self, class_info: ClassInfo) -> list[str]:
+        low_path = normalize_rel_path(str(getattr(class_info, "file_path", "") or "")).lower()
+        name = str(getattr(class_info, "name", "") or "").lower()
+        parent = str(getattr(class_info, "extends", "") or "").lower()
+        implements = {str(item or "").lower() for item in (getattr(class_info, "implements", []) or [])}
+
+        buckets: list[str] = []
+
+        def _add(bucket: str) -> None:
+            if bucket not in buckets and hasattr(self._facts, bucket):
+                buckets.append(bucket)
+
+        if "controller" in name or "controller" in parent or "/http/controllers/" in low_path:
+            _add("controllers")
+        if parent in {"model", "eloquent"} or "/models/" in low_path or low_path.startswith("app/models/"):
+            _add("models")
+        if "/services/" in low_path or name.endswith("service"):
+            _add("services")
+        if "/http/requests/" in low_path or low_path.startswith("app/requests/") or name.endswith("request"):
+            _add("form_requests")
+        if "/repositories/" in low_path or "/repository/" in low_path or name.endswith("repository"):
+            _add("repositories")
+        if "/exceptions/" in low_path or name.endswith("exception"):
+            _add("exceptions")
+        if "/middleware/" in low_path or name.endswith("middleware"):
+            _add("middleware")
+        if "/jobs/" in low_path or ("shouldqueue" in implements and "/listeners/" not in low_path and "/notifications/" not in low_path):
+            _add("jobs")
+        if "/events/" in low_path or name.endswith("event") or "shouldbroadcast" in implements or "shouldbroadcastnow" in implements:
+            _add("events")
+        if "/listeners/" in low_path or name.endswith("listener"):
+            _add("listeners")
+        if "/notifications/" in low_path or parent.endswith("notification") or name.endswith("notification"):
+            _add("notifications")
+        if "/mail/" in low_path or "/mailables/" in low_path or parent.endswith("mailable") or name.endswith("mailable"):
+            _add("mailables")
+        if "/observers/" in low_path or name.endswith("observer"):
+            _add("observers")
+        if "/policies/" in low_path or name.endswith("policy"):
+            _add("policies")
+        if "/console/commands/" in low_path or "/commands/" in low_path or name.endswith("command"):
+            _add("commands")
+
+        return buckets
+
+    def _process_laravel_sidecar_files(self) -> None:
+        migrations_dir = self.project_path / "database" / "migrations"
+        if not migrations_dir.exists():
+            return
+
+        for migration_file in sorted(migrations_dir.glob("*.php")):
+            if self._is_cancelled():
+                return
+            try:
+                rel_path = normalize_rel_path(str(migration_file.relative_to(self.project_path)))
+                content = migration_file.read_text(encoding="utf-8", errors="replace")
+                self._extract_migration_facts(rel_path, content)
+            except Exception as exc:
+                logger.warning(f"Error processing migration sidecar {migration_file}: {exc}")
+
+    def _extract_migration_facts(self, file_path: str, content: str) -> None:
+        import re
+
+        scope_content, scope_offset = self._migration_up_scope(content)
+        low = scope_content.lower()
+        guard_signals: list[str] = []
+        if "schema::hascolumn" in low:
+            guard_signals.append("schema_has_column")
+        if "schema::hascolumns" in low:
+            guard_signals.append("schema_has_columns")
+        if "schema::hastable" in low:
+            guard_signals.append("schema_has_table")
+        if "db::transaction" in low:
+            guard_signals.append("wrapped_in_transaction")
+
+        body_call_re = re.compile(
+            r"Schema::(?P<op>create|table)\s*\(\s*['\"](?P<table>[^'\"]+)['\"]\s*,\s*function\s*\([^)]*\)\s*\{",
+            re.IGNORECASE,
+        )
+        drop_table_re = re.compile(r"Schema::dropIfExists\s*\(\s*['\"](?P<table>[^'\"]+)['\"]\s*\)", re.IGNORECASE)
+        rename_table_re = re.compile(
+            r"Schema::rename\s*\(\s*['\"](?P<from>[^'\"]+)['\"]\s*,\s*['\"](?P<to>[^'\"]+)['\"]\s*\)",
+            re.IGNORECASE,
+        )
+
+        for match in drop_table_re.finditer(scope_content):
+            self._facts.migration_table_changes.append(
+                MigrationTableChange(
+                    file_path=file_path,
+                    line_number=content.count("\n", 0, scope_offset + match.start()) + 1,
+                    table_name=str(match.group("table") or "").strip(),
+                    operation="drop_table",
+                    snippet=" ".join(match.group(0).split())[:240],
+                    guard_signals=list(guard_signals),
+                )
+            )
+
+        for match in rename_table_re.finditer(scope_content):
+            self._facts.migration_table_changes.append(
+                MigrationTableChange(
+                    file_path=file_path,
+                    line_number=content.count("\n", 0, scope_offset + match.start()) + 1,
+                    table_name=str(match.group("from") or "").strip(),
+                    operation="rename_table",
+                    target_name=str(match.group("to") or "").strip(),
+                    snippet=" ".join(match.group(0).split())[:240],
+                    guard_signals=list(guard_signals),
+                )
+            )
+
+        for match in body_call_re.finditer(scope_content):
+            op = str(match.group("op") or "").lower()
+            table_name = str(match.group("table") or "").strip()
+            open_brace = match.end() - 1
+            close_brace = self._find_matching_brace(scope_content, open_brace)
+            if close_brace < 0:
+                continue
+            body = scope_content[open_brace + 1 : close_brace]
+            line_number = content.count("\n", 0, scope_offset + match.start()) + 1
+            self._facts.migration_table_changes.append(
+                MigrationTableChange(
+                    file_path=file_path,
+                    line_number=line_number,
+                    table_name=table_name,
+                    operation="create_table" if op == "create" else "alter_table",
+                    snippet=f"Schema::{op}('{table_name}', ...)",
+                    guard_signals=list(guard_signals),
+                )
+            )
+            self._extract_migration_body_facts(
+                file_path=file_path,
+                table_name=table_name,
+                body=body,
+                body_line_offset=content.count("\n", 0, scope_offset + open_brace + 1),
+                guard_signals=guard_signals,
+            )
+
+    def _migration_up_scope(self, content: str) -> tuple[str, int]:
+        import re
+
+        up_match = re.search(r"function\s+up\s*\([^)]*\)\s*(?::\s*[^{]+)?\{", content, re.IGNORECASE)
+        if not up_match:
+            return content, 0
+        open_brace = up_match.end() - 1
+        close_brace = self._find_matching_brace(content, open_brace)
+        if close_brace < 0:
+            return content[open_brace + 1 :], open_brace + 1
+        return content[open_brace + 1 : close_brace], open_brace + 1
+
+    def _extract_migration_body_facts(
+        self,
+        *,
+        file_path: str,
+        table_name: str,
+        body: str,
+        body_line_offset: int,
+        guard_signals: list[str],
+    ) -> None:
+        import re
+
+        def _line_for(start: int) -> int:
+            return body_line_offset + body[:start].count("\n") + 1
+
+        column_re = re.compile(
+            r"\$table->(?P<method>foreignId|foreignUuid|foreignUlid|unsignedBigInteger|unsignedInteger|unsignedSmallInteger|unsignedTinyInteger|uuid|ulid|string)\s*\(\s*(?P<args>[^)]*)\)\s*(?P<chain>[^;]*);",
+            re.IGNORECASE | re.DOTALL,
+        )
+        foreign_for_re = re.compile(
+            r"\$table->foreignIdFor\(\s*(?P<model>[A-Za-z0-9_:\\]+)\s*(?:,\s*['\"](?P<column>[^'\"]+)['\"])?\s*\)\s*(?P<chain>[^;]*);",
+            re.IGNORECASE | re.DOTALL,
+        )
+        index_re = re.compile(
+            r"\$table->(?P<kind>index|unique|fullText|spatialIndex)\s*\(\s*(?P<args>[^)]*)\)",
+            re.IGNORECASE | re.DOTALL,
+        )
+        foreign_re = re.compile(
+            r"\$table->foreign\s*\(\s*(?P<args>[^)]*)\)\s*(?P<chain>[^;]*);",
+            re.IGNORECASE | re.DOTALL,
+        )
+        rename_column_re = re.compile(
+            r"\$table->renameColumn\(\s*['\"](?P<from>[^'\"]+)['\"]\s*,\s*['\"](?P<to>[^'\"]+)['\"]\s*\)",
+            re.IGNORECASE,
+        )
+        drop_column_re = re.compile(
+            r"\$table->dropColumn\(\s*(?P<args>[^)]*)\)",
+            re.IGNORECASE | re.DOTALL,
+        )
+
+        for match in column_re.finditer(body):
+            method = str(match.group("method") or "").strip()
+            args = str(match.group("args") or "")
+            chain = str(match.group("chain") or "")
+            columns = self._parse_php_string_arguments(args)
+            if not columns:
+                continue
+            line_number = _line_for(match.start())
+            snippet = " ".join(match.group(0).split())[:240]
+            for column_name in columns[:1]:
+                self._facts.migration_table_changes.append(
+                    MigrationTableChange(
+                        file_path=file_path,
+                        line_number=line_number,
+                        table_name=table_name,
+                        operation="add_column",
+                        column_name=column_name,
+                        column_type=method,
+                        snippet=snippet,
+                        guard_signals=list(guard_signals),
+                    )
+                )
+                if "->index(" in chain.lower() or "->unique(" in chain.lower():
+                    self._facts.migration_indexes.append(
+                        MigrationIndexDefinition(
+                            file_path=file_path,
+                            line_number=line_number,
+                            table_name=table_name,
+                            columns=[column_name],
+                            kind="unique" if "->unique(" in chain.lower() else "index",
+                            snippet=snippet,
+                        )
+                    )
+                if "->constrained(" in chain.lower() or "->references(" in chain.lower():
+                    self._facts.migration_foreign_keys.append(
+                        MigrationForeignKeyDefinition(
+                            file_path=file_path,
+                            line_number=line_number,
+                            table_name=table_name,
+                            columns=[column_name],
+                            referenced_table=self._referenced_table_for_column(column_name, chain),
+                            referenced_columns=["id"],
+                            via_constrained="->constrained(" in chain.lower(),
+                            snippet=snippet,
+                        )
+                    )
+
+        for match in foreign_for_re.finditer(body):
+            model_ref = str(match.group("model") or "")
+            explicit_column = str(match.group("column") or "").strip()
+            model_name = model_ref.split("\\")[-1].split("::")[0]
+            derived_column = explicit_column or f"{self._to_snake_case(model_name)}_id"
+            line_number = _line_for(match.start())
+            snippet = " ".join(match.group(0).split())[:240]
+            self._facts.migration_table_changes.append(
+                MigrationTableChange(
+                    file_path=file_path,
+                    line_number=line_number,
+                    table_name=table_name,
+                    operation="add_column",
+                    column_name=derived_column,
+                    column_type="foreignIdFor",
+                    snippet=snippet,
+                    guard_signals=list(guard_signals),
+                )
+            )
+            self._facts.migration_foreign_keys.append(
+                MigrationForeignKeyDefinition(
+                    file_path=file_path,
+                    line_number=line_number,
+                    table_name=table_name,
+                    columns=[derived_column],
+                    referenced_table=self._pluralize_table_name(self._to_snake_case(model_name)),
+                    referenced_columns=["id"],
+                    via_constrained=True,
+                    snippet=snippet,
+                )
+            )
+
+        for match in index_re.finditer(body):
+            line_number = _line_for(match.start())
+            columns = self._parse_php_column_argument(str(match.group("args") or ""))
+            if not columns:
+                continue
+            self._facts.migration_indexes.append(
+                MigrationIndexDefinition(
+                    file_path=file_path,
+                    line_number=line_number,
+                    table_name=table_name,
+                    columns=columns,
+                    kind=str(match.group("kind") or "index").lower(),
+                    snippet=" ".join(match.group(0).split())[:240],
+                )
+            )
+
+        for match in foreign_re.finditer(body):
+            line_number = _line_for(match.start())
+            args = str(match.group("args") or "")
+            chain = str(match.group("chain") or "")
+            columns = self._parse_php_column_argument(args)
+            if not columns:
+                continue
+            self._facts.migration_foreign_keys.append(
+                MigrationForeignKeyDefinition(
+                    file_path=file_path,
+                    line_number=line_number,
+                    table_name=table_name,
+                    columns=columns,
+                    referenced_table=self._referenced_table_for_column(columns[0], chain),
+                    referenced_columns=self._parse_referenced_columns(chain),
+                    via_constrained="->constrained(" in chain.lower(),
+                    snippet=" ".join(match.group(0).split())[:240],
+                )
+            )
+
+        for match in rename_column_re.finditer(body):
+            self._facts.migration_table_changes.append(
+                MigrationTableChange(
+                    file_path=file_path,
+                    line_number=_line_for(match.start()),
+                    table_name=table_name,
+                    operation="rename_column",
+                    column_name=str(match.group("from") or "").strip(),
+                    target_name=str(match.group("to") or "").strip(),
+                    snippet=" ".join(match.group(0).split())[:240],
+                    guard_signals=list(guard_signals),
+                )
+            )
+
+        for match in drop_column_re.finditer(body):
+            columns = self._parse_php_column_argument(str(match.group("args") or ""))
+            line_number = _line_for(match.start())
+            for column_name in columns or [None]:
+                self._facts.migration_table_changes.append(
+                    MigrationTableChange(
+                        file_path=file_path,
+                        line_number=line_number,
+                        table_name=table_name,
+                        operation="drop_column",
+                        column_name=column_name,
+                        snippet=" ".join(match.group(0).split())[:240],
+                        guard_signals=list(guard_signals),
+                    )
+                )
+
+    def _extract_model_attribute_configs(self, file_path: str, content: str) -> None:
+        import re
+
+        norm = normalize_rel_path(file_path).lower()
+        if "/models/" not in f"/{norm}" and "extends model" not in content.lower():
+            return
+
+        model_classes = [
+            cls
+            for cls in (getattr(self._facts, "models", []) or [])
+            if normalize_rel_path(str(getattr(cls, "file_path", "") or "")) == normalize_rel_path(file_path)
+        ]
+        model_name = str(model_classes[0].name) if model_classes else Path(file_path).stem
+        model_fqcn = str(model_classes[0].fqcn) if model_classes else None
+
+        prop_re = re.compile(
+            r"(?:public|protected|private)\s+\$(hidden|visible|appends|casts)\s*=\s*(\[[\s\S]*?\]);",
+            re.IGNORECASE,
+        )
+        for match in prop_re.finditer(content):
+            property_name = str(match.group(1) or "").lower()
+            raw_array = str(match.group(2) or "")
+            line_number = content.count("\n", 0, match.start()) + 1
+            values = self._parse_php_string_arguments(raw_array)
+            mapping = self._parse_php_assoc_mapping(raw_array) if property_name == "casts" else {}
+
+            record = ModelAttributeConfig(
+                file_path=file_path,
+                line_number=line_number,
+                model_name=model_name,
+                model_fqcn=model_fqcn,
+                property_name=property_name,
+                values=list(mapping.keys()) if property_name == "casts" else values,
+                mapping=mapping,
+                snippet=" ".join(match.group(0).split())[:240],
+            )
+            existing = [
+                item
+                for item in (self._facts.model_attribute_configs or [])
+                if item.file_path == record.file_path
+                and item.property_name == record.property_name
+                and item.line_number == record.line_number
+            ]
+            if not existing:
+                self._facts.model_attribute_configs.append(record)
+
+    def _extract_broadcast_channels(self, file_path: str, content: str) -> None:
+        import re
+
+        if normalize_rel_path(file_path).lower() != "routes/channels.php":
+            return
+
+        block_re = re.compile(
+            r"Broadcast::channel\s*\(\s*['\"](?P<name>[^'\"]+)['\"]\s*,\s*function\s*\((?P<params>[^)]*)\)\s*\{",
+            re.IGNORECASE,
+        )
+        arrow_re = re.compile(
+            r"Broadcast::channel\s*\(\s*['\"](?P<name>[^'\"]+)['\"]\s*,\s*fn\s*\((?P<params>[^)]*)\)\s*=>\s*(?P<body>[^;]+);",
+            re.IGNORECASE,
+        )
+
+        for match in block_re.finditer(content):
+            open_brace = match.end() - 1
+            close_brace = self._find_matching_brace(content, open_brace)
+            if close_brace < 0:
+                continue
+            body = content[open_brace + 1 : close_brace]
+            self._facts.broadcast_channels.append(
+                self._build_broadcast_channel_fact(
+                    file_path=file_path,
+                    channel_name=str(match.group("name") or "").strip(),
+                    params=str(match.group("params") or ""),
+                    body=body,
+                    line_number=content.count("\n", 0, match.start()) + 1,
+                    snippet=" ".join(match.group(0).split())[:240],
+                )
+            )
+
+        for match in arrow_re.finditer(content):
+            self._facts.broadcast_channels.append(
+                self._build_broadcast_channel_fact(
+                    file_path=file_path,
+                    channel_name=str(match.group("name") or "").strip(),
+                    params=str(match.group("params") or ""),
+                    body=str(match.group("body") or ""),
+                    line_number=content.count("\n", 0, match.start()) + 1,
+                    snippet=" ".join(match.group(0).split())[:240],
+                )
+            )
+
+    def _build_broadcast_channel_fact(
+        self,
+        *,
+        file_path: str,
+        channel_name: str,
+        params: str,
+        body: str,
+        line_number: int,
+        snippet: str,
+    ) -> BroadcastChannelDefinition:
+        parameters = [item.strip() for item in str(params or "").split(",") if item.strip()]
+        body_low = str(body or "").lower()
+        has_user_parameter = any("$user" in param.lower() or "authuser" in param.lower() for param in parameters)
+        has_authorization_logic = any(
+            token in body_low
+            for token in (
+                "$user->",
+                "auth::",
+                "gate::",
+                "can(",
+                "===",
+                "==",
+                "!==",
+                "!=",
+                "abort_unless",
+                "findornew",
+                "findorfail",
+                "where(",
+            )
+        )
+        authorization_kind = "unknown"
+        if "=> true" in snippet.lower() or "return true" in body_low:
+            authorization_kind = "allow_all"
+        elif "=> false" in snippet.lower() or "return false" in body_low:
+            authorization_kind = "deny_all"
+        elif has_user_parameter and has_authorization_logic:
+            authorization_kind = "guarded"
+
+        return BroadcastChannelDefinition(
+            file_path=file_path,
+            line_number=line_number,
+            channel_name=channel_name,
+            parameters=parameters,
+            authorization_kind=authorization_kind,
+            has_user_parameter=has_user_parameter,
+            has_authorization_logic=has_authorization_logic,
+            snippet=snippet,
+        )
+
+    def _parse_php_string_arguments(self, text: str) -> list[str]:
+        import re
+
+        values = [str(item) for item in re.findall(r"['\"]([A-Za-z0-9_\.:-]+)['\"]", str(text or ""))]
+        seen: list[str] = []
+        for value in values:
+            if value not in seen:
+                seen.append(value)
+        return seen
+
+    def _parse_php_assoc_mapping(self, text: str) -> dict[str, str]:
+        import re
+
+        mapping: dict[str, str] = {}
+        pattern = re.compile(r"['\"]([A-Za-z0-9_\.:-]+)['\"]\s*=>\s*([^,\]]+)", re.IGNORECASE)
+        for key, raw_value in pattern.findall(str(text or "")):
+            value = " ".join(str(raw_value or "").strip().split())
+            mapping[str(key)] = value.strip("'\"")
+        return mapping
+
+    def _parse_php_column_argument(self, text: str) -> list[str]:
+        value = str(text or "").strip()
+        if not value:
+            return []
+        if value.startswith("["):
+            return self._parse_php_string_arguments(value)
+        return self._parse_php_string_arguments(value)[:1]
+
+    def _referenced_table_for_column(self, column_name: str, chain: str) -> str | None:
+        import re
+
+        text = str(chain or "")
+        match = re.search(r"->(?:on|constrained)\(\s*['\"]([^'\"]+)['\"]", text, re.IGNORECASE)
+        if match:
+            return str(match.group(1) or "").strip()
+        if column_name.endswith("_id"):
+            return self._pluralize_table_name(column_name[:-3])
+        return None
+
+    def _parse_referenced_columns(self, chain: str) -> list[str]:
+        import re
+
+        cols = re.findall(r"->references\(\s*['\"]([^'\"]+)['\"]", str(chain or ""), re.IGNORECASE)
+        return [str(col) for col in cols] or ["id"]
+
+    def _to_snake_case(self, name: str) -> str:
+        import re
+
+        text = str(name or "").strip()
+        if not text:
+            return ""
+        text = text.split("\\")[-1]
+        text = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", text)
+        text = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", text)
+        return text.replace("-", "_").lower()
+
+    def _pluralize_table_name(self, name: str) -> str:
+        text = str(name or "").strip().lower()
+        if not text:
+            return ""
+        if text.endswith("y") and len(text) > 1 and text[-2] not in "aeiou":
+            return f"{text[:-1]}ies"
+        if text.endswith(("s", "x", "z", "ch", "sh")):
+            return f"{text}es"
+        return f"{text}s"
 
     def _has_existing_class_fact(self, file_path: str, fqcn: str, bucket: str = "classes") -> bool:
         items = getattr(self._facts, bucket, []) or []
@@ -2078,8 +2628,6 @@ class FactsBuilder:
         and then merge consecutive matches into larger duplicated segments. This is closer to Sonar-style
         duplication detection and enables per-file duplication percentage.
         """
-        import hashlib as _hashlib
-
         b = content.encode("utf-8", errors="ignore")
 
         tokens: list[str] = []
@@ -2128,7 +2676,7 @@ class FactsBuilder:
 
         for i in range(0, token_count - chunk_size + 1, step):
             window = tokens[i : i + chunk_size]
-            h = _hashlib.sha1((" ".join(window)).encode("utf-8", errors="ignore")).hexdigest()[:16]
+            h = fast_hash_hex(" ".join(window), 16)
             ln0 = lines[i] if i < len(lines) else start_line
             ln1 = lines[i + chunk_size - 1] if (i + chunk_size - 1) < len(lines) else end_line
             self._token_hashes.setdefault(h, []).append((file_path, ln0, ln1, snippet, chunk_size, method_key, i))
@@ -2598,7 +3146,6 @@ class FactsBuilder:
     def _collect_duplicate_candidate(self, file_path: str, start_line: int, end_line: int, code: str) -> None:
         """Collect token windows for duplication (fallback when Tree-sitter isn't available)."""
         import re
-        import hashlib as _hashlib
 
         if not code:
             return
@@ -2637,7 +3184,7 @@ class FactsBuilder:
 
         for i in range(0, token_count - chunk_size + 1, step):
             window = tokens[i : i + chunk_size]
-            h = _hashlib.sha1((" ".join(window)).encode("utf-8", errors="ignore")).hexdigest()[:16]
+            h = fast_hash_hex(" ".join(window), 16)
             with self._lock:
                 self._token_hashes.setdefault(h, []).append((file_path, start_line, end_line, snippet, chunk_size, method_key, i))
     
@@ -3036,8 +3583,6 @@ class FactsBuilder:
         same two method bodies into a longer duplicated segment. This avoids emitting one finding
         per window (noise) and enables stable per-file duplication percentage.
         """
-        import hashlib as _hashlib
-
         chunk_size = int(getattr(self, "_dup_chunk_size", 50))
         step = int(getattr(self, "_dup_step", 25))
         if chunk_size <= 0 or step <= 0:
@@ -3133,7 +3678,7 @@ class FactsBuilder:
                     aN = seq[-1][2]
                     bN = seq[-1][3]
 
-                    seg_hash = _hashlib.sha1(("|".join([x[4] for x in seq])).encode("utf-8")).hexdigest()[:16]
+                    seg_hash = fast_hash_hex("|".join([x[4] for x in seq]), 16)
 
                     candidate_duplicates.append(
                         DuplicateBlock(
@@ -3167,7 +3712,7 @@ class FactsBuilder:
                 aN = seq[-1][2]
                 bN = seq[-1][3]
 
-                seg_hash = _hashlib.sha1(("|".join([x[4] for x in seq])).encode("utf-8")).hexdigest()[:16]
+                seg_hash = fast_hash_hex("|".join([x[4] for x in seq]), 16)
                 candidate_duplicates.append(
                     DuplicateBlock(
                         hash=seg_hash,
@@ -3324,18 +3869,167 @@ class FactsBuilder:
             return
 
         tenant_mode, tenant_signals = self._detect_tenant_context()
+        backend_context = self._detect_backend_structure_context()
+        business_context = self._detect_project_business_context(backend_context)
+        detected_capabilities = self._detect_backend_capabilities(
+            tenant_mode=tenant_mode,
+            tenant_signals=tenant_signals,
+            backend_context=backend_context,
+            business_context=business_context,
+        )
+        detected_expectations = self._detect_team_expectations(
+            backend_context=backend_context,
+            detected_capabilities=detected_capabilities,
+        )
+
+        explicit_profile = self._normalize_context_key(
+            self._context_overrides.get("architecture_profile")
+            or self._context_overrides.get("backend_architecture_profile")
+            or self._context_overrides.get("architecture_style")
+        )
+        explicit_project_type = self._normalize_context_key(
+            self._context_overrides.get("project_type")
+            or self._context_overrides.get("project_business_context")
+            or self._context_overrides.get("business_context")
+        )
+        explicit_capabilities = self._normalize_bool_map(
+            self._context_overrides.get("capabilities")
+            or self._context_overrides.get("technical_capabilities")
+            or {}
+        )
+        explicit_expectations = self._normalize_bool_map(
+            self._context_overrides.get("team_expectations")
+            or self._context_overrides.get("team_standards")
+            or {}
+        )
+
+        matrix = None
+        resolved_context = None
+        try:
+            from core.context_profiles import ContextProfileMatrix
+
+            matrix = ContextProfileMatrix.load_default()
+            resolved_context = matrix.resolve_context(
+                explicit_project_type=explicit_project_type,
+                detected_project_type=str(business_context.get("project_type", "unknown")),
+                detected_project_type_confidence=float(business_context.get("confidence", 0.0) or 0.0),
+                detected_project_type_confidence_kind=str(business_context.get("confidence_kind", "unknown") or "unknown"),
+                explicit_profile=explicit_profile,
+                detected_profile=str(backend_context.get("profile", "unknown")),
+                detected_profile_confidence=float(backend_context.get("confidence", 0.0) or 0.0),
+                detected_profile_confidence_kind=str(backend_context.get("confidence_kind", "unknown") or "unknown"),
+                explicit_capabilities=explicit_capabilities,
+                detected_capabilities=detected_capabilities,
+                explicit_expectations=explicit_expectations,
+                detected_expectations=detected_expectations,
+            )
+        except Exception:
+            resolved_context = None
+
         context.tenant_mode = tenant_mode
         context.tenant_signals = tenant_signals[:12]
 
-        backend_context = self._detect_backend_structure_context()
         context.backend_framework = str(backend_context.get("framework", "unknown"))
-        context.backend_architecture_profile = str(backend_context.get("profile", "unknown"))
+        auto_detected_capabilities_payload: dict[str, dict[str, object]] = {
+            key: {
+                "enabled": bool(enabled),
+                "confidence": float(confidence or 0.0),
+                "source": "detected",
+                "evidence": list(evidence or [])[:8],
+            }
+            for key, (enabled, confidence, evidence) in (detected_capabilities or {}).items()
+        }
+        auto_detected_expectations_payload: dict[str, dict[str, object]] = {
+            key: {
+                "enabled": bool(enabled),
+                "confidence": float(confidence or 0.0),
+                "source": "detected",
+                "evidence": list(evidence or [])[:8],
+            }
+            for key, (enabled, confidence, evidence) in (detected_expectations or {}).items()
+        }
+        if resolved_context is not None:
+            context.project_business_context = str(resolved_context.project_type or "unknown")
+            context.project_business_confidence = float(resolved_context.project_type_confidence or 0.0)
+            context.project_business_confidence_kind = str(resolved_context.project_type_confidence_kind or "unknown")
+            context.project_business_source = str(resolved_context.project_type_source or "default")
+
+            context.backend_architecture_profile = str(resolved_context.architecture_profile or "unknown")
+            context.backend_profile_confidence = float(resolved_context.architecture_profile_confidence or 0.0)
+            context.backend_profile_confidence_kind = str(
+                getattr(resolved_context, "architecture_profile_confidence_kind", "unknown") or "unknown"
+            )
+            context.backend_profile_source = str(resolved_context.architecture_profile_source or "default")
+
+            capabilities_payload: dict[str, dict[str, object]] = {}
+            for key, state in (resolved_context.capabilities or {}).items():
+                capabilities_payload[key] = {
+                    "enabled": bool(getattr(state, "enabled", False)),
+                    "confidence": float(getattr(state, "confidence", 0.0) or 0.0),
+                    "source": str(getattr(state, "source", "default") or "default"),
+                    "evidence": list(getattr(state, "evidence", []) or [])[:8],
+                }
+            context.backend_capabilities = capabilities_payload
+
+            expectations_payload: dict[str, dict[str, object]] = {}
+            for key, state in (resolved_context.team_expectations or {}).items():
+                expectations_payload[key] = {
+                    "enabled": bool(getattr(state, "enabled", False)),
+                    "confidence": float(getattr(state, "confidence", 0.0) or 0.0),
+                    "source": str(getattr(state, "source", "default") or "default"),
+                    "evidence": list(getattr(state, "evidence", []) or [])[:8],
+                }
+            context.backend_team_expectations = expectations_payload
+        else:
+            context.project_business_context = str(business_context.get("project_type", "unknown") or "unknown")
+            context.project_business_confidence = float(business_context.get("confidence", 0.0) or 0.0)
+            context.project_business_confidence_kind = str(business_context.get("confidence_kind", "unknown") or "unknown")
+            context.project_business_source = "detected"
+
+            context.backend_architecture_profile = str(backend_context.get("profile", "unknown"))
+            context.backend_profile_confidence = float(backend_context.get("confidence", 0.0) or 0.0)
+            context.backend_profile_confidence_kind = str(backend_context.get("confidence_kind", "unknown") or "unknown")
+            context.backend_profile_source = "detected"
+            context.backend_capabilities = auto_detected_capabilities_payload
+            context.backend_team_expectations = auto_detected_expectations_payload
+
+        context.project_business_signals = list(business_context.get("signals", []) or [])[:16]
         context.backend_profile_signals = list(backend_context.get("signals", []) or [])[:16]
-        context.backend_profile_confidence = float(backend_context.get("confidence", 0.0) or 0.0)
-        context.backend_profile_confidence_kind = str(backend_context.get("confidence_kind", "unknown") or "unknown")
         context.backend_profile_debug = dict(backend_context.get("debug", {}) or {})
         context.backend_structure_mode = str(backend_context.get("broad_mode", "unknown") or "unknown")
         context.backend_layers = list(backend_context.get("layers", []) or [])[:12]
+
+        # Canonical context schema aliases.
+        context.project_type = str(context.project_business_context or "unknown")
+        context.architecture_style = str(context.backend_architecture_profile or "unknown")
+        context.capabilities = dict(context.backend_capabilities or {})
+        context.team_expectations = dict(context.backend_team_expectations or {})
+        context.auto_detected_context = {
+            "project_type": str(business_context.get("project_type", "unknown") or "unknown"),
+            "project_type_confidence": float(business_context.get("confidence", 0.0) or 0.0),
+            "project_type_confidence_kind": str(business_context.get("confidence_kind", "unknown") or "unknown"),
+            "architecture_style": str(backend_context.get("profile", "unknown") or "unknown"),
+            "architecture_confidence": float(backend_context.get("confidence", 0.0) or 0.0),
+            "architecture_confidence_kind": str(backend_context.get("confidence_kind", "unknown") or "unknown"),
+            "capabilities": auto_detected_capabilities_payload,
+            "team_expectations": auto_detected_expectations_payload,
+            "evidence": {
+                "project_business_signals": list(business_context.get("signals", []) or [])[:16],
+                "architecture_signals": list(backend_context.get("signals", []) or [])[:16],
+            },
+        }
+
+        if matrix is not None:
+            context.context_matrix_version = int(getattr(matrix, "schema_version", 0) or 0)
+        context.context_resolution_signals = self._context_resolution_signals(context)
+
+        # Keep tenant_mode aligned with resolved capability when explicitly provided.
+        multi_tenant_state = (context.backend_capabilities or {}).get("multi_tenant", {})
+        if isinstance(multi_tenant_state, dict):
+            mt_enabled = bool(multi_tenant_state.get("enabled", False))
+            mt_source = str(multi_tenant_state.get("source", "default") or "default")
+            if mt_source == "explicit":
+                context.tenant_mode = "tenant" if mt_enabled else "non_tenant"
 
         react_mode, shared_roots = self._detect_react_structure_context()
         context.react_structure_mode = react_mode
@@ -3640,6 +4334,573 @@ class FactsBuilder:
             "confidence_kind": confidence_kind,
             "debug": debug,
         }
+
+    def _detect_project_business_context(self, backend_context: dict[str, object]) -> dict[str, object]:
+        project_type = str(
+            getattr(getattr(self.project_info, "project_type", None), "value", "")
+            or getattr(self.project_info, "project_type", "")
+            or ""
+        ).lower()
+        framework = str(backend_context.get("framework", "unknown") or "unknown").lower()
+        if framework != "laravel":
+            return {
+                "project_type": "unknown",
+                "confidence": 0.0,
+                "confidence_kind": "unknown",
+                "signals": ["framework!=laravel"],
+                "debug": {},
+            }
+
+        score: dict[str, int] = {
+            "saas_platform": 0,
+            "internal_admin_system": 0,
+            "clinic_erp_management": 0,
+            "api_backend": 0,
+            "realtime_game_control_platform": 0,
+            "public_website_with_dashboard": 0,
+            "portal_based_business_app": 0,
+        }
+        structural_hits = {key: 0 for key in score.keys()}
+        heuristic_hits = {key: 0 for key in score.keys()}
+        signals: list[str] = []
+
+        features = {str(item or "").lower() for item in (getattr(self.project_info, "features", []) or [])}
+        packages = {str(key or "").lower() for key in (getattr(self.project_info, "packages", {}) or {}).keys()}
+        file_paths = [str(path or "").lower().replace("\\", "/") for path in (getattr(self._facts, "files", []) or [])]
+        route_tokens = [
+            " ".join(
+                [
+                    str(getattr(route, "uri", "") or ""),
+                    str(getattr(route, "controller", "") or ""),
+                    str(getattr(route, "action", "") or ""),
+                ]
+            ).lower()
+            for route in (getattr(self._facts, "routes", []) or [])
+        ]
+
+        def _bump(kind: str, points: int, signal: str, *, structural: bool = False) -> None:
+            if kind not in score:
+                return
+            score[kind] += int(points)
+            signals.append(signal)
+            if structural:
+                structural_hits[kind] += 1
+            else:
+                heuristic_hits[kind] += 1
+
+        def _paths_with_any(markers: tuple[str, ...]) -> int:
+            return sum(1 for path in file_paths if any(marker in path for marker in markers))
+
+        def _routes_with_any(markers: tuple[str, ...]) -> int:
+            return sum(1 for route in route_tokens if any(marker in route for marker in markers))
+
+        # API backend.
+        if project_type == "laravel_api":
+            _bump("api_backend", 2, "project_type=laravel_api", structural=True)
+        if bool(getattr(self.project_info, "has_api_routes", False)):
+            _bump("api_backend", 2, "has_api_routes", structural=True)
+        if not bool(getattr(self.project_info, "has_blade_views", False)):
+            _bump("api_backend", 1, "no_blade_views", structural=True)
+
+        # SaaS / billing.
+        if any(pkg in packages for pkg in ("laravel/cashier", "stripe/stripe-php")) or "cashier" in features:
+            _bump("saas_platform", 2, "cashier_or_billing_package", structural=True)
+        subscription_hits = _paths_with_any(("/subscription", "/subscriptions", "/plan", "/plans", "/quota", "/billing"))
+        if subscription_hits >= 2:
+            _bump("saas_platform", 2, f"subscription_paths={subscription_hits}", structural=True)
+        elif subscription_hits == 1:
+            _bump("saas_platform", 1, "subscription_path=1")
+        if _routes_with_any(("trial", "subscribe", "billing", "invoice", "checkout", "cancel-subscription")) >= 2:
+            _bump("saas_platform", 1, "subscription_route_terms")
+
+        # Realtime / game / control.
+        websocket_hits = _paths_with_any(("/websocket", "/socket", "/realtime", "/broadcast", "/game", "/gameserver"))
+        if websocket_hits >= 2:
+            _bump("realtime_game_control_platform", 2, f"websocket_paths={websocket_hits}", structural=True)
+        elif websocket_hits == 1:
+            _bump("realtime_game_control_platform", 1, "websocket_path=1")
+        should_broadcast_hits = 0
+        for cls in getattr(self._facts, "classes", []) or []:
+            impls = [str(item or "").lower() for item in (getattr(cls, "implements", []) or [])]
+            fqcn = str(getattr(cls, "fqcn", "") or "").lower()
+            if any("shouldbroadcast" in item for item in impls) or "shouldbroadcast" in fqcn:
+                should_broadcast_hits += 1
+        if should_broadcast_hits >= 1:
+            _bump("realtime_game_control_platform", 2, f"should_broadcast={should_broadcast_hits}", structural=True)
+        if _routes_with_any(("socket", "realtime", "game", "round", "presence", "channel")) >= 2:
+            _bump("realtime_game_control_platform", 1, "realtime_route_terms")
+
+        # Clinic / ERP / management.
+        clinic_hits = _paths_with_any(("/patient", "/clinic", "/appointment", "/claims", "/inventory", "/invoice", "/lab-order", "/lab-orders"))
+        if clinic_hits >= 3:
+            _bump("clinic_erp_management", 2, f"clinic_workflow_paths={clinic_hits}", structural=True)
+        elif clinic_hits >= 1:
+            _bump("clinic_erp_management", 1, f"clinic_workflow_paths={clinic_hits}")
+        if _routes_with_any(("patients", "appointments", "claims", "insurance", "inventory", "lab-orders")) >= 2:
+            _bump("clinic_erp_management", 1, "clinic_route_terms")
+
+        # Portal app.
+        portal_hits = _paths_with_any(("/portal/", "/portals/", "/admin/", "/staff/", "/owner/"))
+        if portal_hits >= 2:
+            _bump("portal_based_business_app", 2, f"portal_paths={portal_hits}", structural=True)
+        elif portal_hits == 1:
+            _bump("portal_based_business_app", 1, "portal_path=1")
+        if len(getattr(self._facts, "policies", []) or []) >= 2:
+            _bump("portal_based_business_app", 1, "policy_count>=2", structural=True)
+        if _routes_with_any(("portal", "admin", "staff", "owner", "customer")) >= 2:
+            _bump("portal_based_business_app", 1, "portal_route_terms")
+
+        # Public website + dashboard.
+        if bool(getattr(self.project_info, "has_web_routes", False)) and bool(getattr(self.project_info, "has_blade_views", False)):
+            _bump("public_website_with_dashboard", 1, "web_routes_and_blade", structural=True)
+        public_route_hits = _routes_with_any(("home", "welcome", "pricing", "about", "contact"))
+        dashboard_route_hits = _routes_with_any(("dashboard", "admin", "portal", "account"))
+        if public_route_hits >= 2 and dashboard_route_hits >= 1:
+            _bump("public_website_with_dashboard", 2, "public_and_dashboard_routes", structural=True)
+
+        # Internal admin system (admin-heavy with low public marketing signal).
+        admin_hits = _paths_with_any(("/admin/", "/management/", "/dashboard/")) + _routes_with_any(("admin", "management", "dashboard"))
+        public_marketing_hits = _routes_with_any(("pricing", "about", "contact", "landing", "welcome"))
+        if admin_hits >= 4 and public_marketing_hits <= 1:
+            _bump("internal_admin_system", 2, "admin_dominant_low_public", structural=True)
+        elif admin_hits >= 2 and public_marketing_hits == 0:
+            _bump("internal_admin_system", 1, "admin_routes_without_public")
+
+        selected = "unknown"
+        selected_score = 0
+        runner_up_score = 0
+        for kind, value in sorted(score.items(), key=lambda item: item[1], reverse=True):
+            if selected == "unknown":
+                selected = kind
+                selected_score = int(value)
+            else:
+                runner_up_score = int(value)
+                break
+
+        if selected_score < 2:
+            selected = "unknown"
+
+        confidence = 0.0
+        confidence_kind = "unknown"
+        if selected != "unknown":
+            confidence_kind = "structural" if structural_hits.get(selected, 0) >= 2 else "heuristic"
+            base = 0.58 + (0.07 * min(selected_score, 5)) + (0.03 * max(0, selected_score - runner_up_score))
+            confidence = min(0.98, base)
+            if confidence_kind == "structural":
+                confidence = max(confidence, 0.84)
+            else:
+                confidence = min(confidence, 0.79)
+
+        signals.extend(
+            [
+                f"project_type={selected}",
+                f"project_type_confidence={confidence:.2f}",
+                f"project_type_confidence_kind={confidence_kind}",
+            ]
+        )
+        return {
+            "project_type": selected,
+            "confidence": round(confidence, 2),
+            "confidence_kind": confidence_kind,
+            "signals": signals[:24],
+            "debug": {
+                "scores": score,
+                "structural_hits": structural_hits,
+                "heuristic_hits": heuristic_hits,
+                "selected_score": selected_score,
+                "runner_up_score": runner_up_score,
+                "project_type_input": project_type,
+            },
+        }
+
+    def _detect_backend_capabilities(
+        self,
+        *,
+        tenant_mode: str,
+        tenant_signals: list[str],
+        backend_context: dict[str, object],
+        business_context: dict[str, object],
+    ) -> dict[str, tuple[bool, float, list[str]]]:
+        capabilities: dict[str, tuple[bool, float, list[str]]] = {}
+        file_paths = [str(path or "").lower().replace("\\", "/") for path in (getattr(self._facts, "files", []) or [])]
+        route_tokens = [
+            " ".join(
+                [
+                    str(getattr(route, "uri", "") or ""),
+                    " ".join(str(item or "") for item in (getattr(route, "middleware", []) or [])),
+                ]
+            ).lower()
+            for route in (getattr(self._facts, "routes", []) or [])
+        ]
+        features = {str(item or "").lower() for item in (getattr(self.project_info, "features", []) or [])}
+        packages = {str(key or "").lower() for key in (getattr(self.project_info, "packages", {}) or {}).keys()}
+
+        def _mark(key: str, enabled: bool, confidence: float, evidence: list[str]) -> None:
+            capabilities[key] = (
+                bool(enabled),
+                max(0.0, min(1.0, float(confidence or 0.0))),
+                [str(item) for item in evidence if str(item or "").strip()],
+            )
+
+        def _paths_with_any(markers: tuple[str, ...]) -> int:
+            return sum(1 for path in file_paths if any(marker in path for marker in markers))
+
+        def _routes_with_any(markers: tuple[str, ...]) -> int:
+            return sum(1 for token in route_tokens if any(marker in token for marker in markers))
+
+        # Multi-tenant.
+        multi_tenant_enabled = tenant_mode == "tenant"
+        multi_tenant_conf = 0.92 if multi_tenant_enabled else (0.88 if tenant_mode == "non_tenant" else 0.45)
+        _mark("multi_tenant", multi_tenant_enabled, multi_tenant_conf, tenant_signals[:8])
+
+        # SaaS.
+        saas_hits = 0
+        saas_evidence: list[str] = []
+        if any(pkg in packages for pkg in ("laravel/cashier", "stripe/stripe-php")) or "cashier" in features:
+            saas_hits += 2
+            saas_evidence.append("cashier_or_billing_package")
+        term_hits = _paths_with_any(("/subscription", "/plan", "/quota", "/billing"))
+        if term_hits >= 2:
+            saas_hits += 2
+            saas_evidence.append(f"subscription_paths={term_hits}")
+        elif term_hits == 1:
+            saas_hits += 1
+            saas_evidence.append("subscription_path=1")
+        _mark("saas", saas_hits >= 2, 0.5 + (0.12 * min(saas_hits, 3)), saas_evidence)
+
+        # Realtime.
+        realtime_hits = 0
+        realtime_evidence: list[str] = []
+        websocket_paths = _paths_with_any(("/websocket", "/socket", "/realtime", "/broadcast", "/game"))
+        if websocket_paths >= 2:
+            realtime_hits += 2
+            realtime_evidence.append(f"websocket_paths={websocket_paths}")
+        elif websocket_paths == 1:
+            realtime_hits += 1
+            realtime_evidence.append("websocket_path=1")
+        broadcast_count = 0
+        for cls in getattr(self._facts, "classes", []) or []:
+            impls = [str(item or "").lower() for item in (getattr(cls, "implements", []) or [])]
+            fqcn = str(getattr(cls, "fqcn", "") or "").lower()
+            if any("shouldbroadcast" in item for item in impls) or "shouldbroadcast" in fqcn:
+                broadcast_count += 1
+        if broadcast_count > 0:
+            realtime_hits += 2
+            realtime_evidence.append(f"should_broadcast={broadcast_count}")
+        _mark("realtime", realtime_hits >= 2, 0.5 + (0.12 * min(realtime_hits, 3)), realtime_evidence)
+
+        # Billing.
+        billing_hits = 0
+        billing_evidence: list[str] = []
+        payment_paths = _paths_with_any(("/billing", "/payment", "/payments", "/invoice", "/invoices", "/checkout"))
+        if payment_paths >= 2:
+            billing_hits += 2
+            billing_evidence.append(f"payment_paths={payment_paths}")
+        elif payment_paths == 1:
+            billing_hits += 1
+            billing_evidence.append("payment_path=1")
+        if any(pkg in packages for pkg in ("laravel/cashier", "stripe/stripe-php", "paypal/paypal-checkout-sdk")):
+            billing_hits += 2
+            billing_evidence.append("billing_package")
+        if _routes_with_any(("webhook", "payment", "invoice", "checkout")) >= 2:
+            billing_hits += 1
+            billing_evidence.append("payment_route_terms")
+        _mark("billing", billing_hits >= 2, 0.5 + (0.12 * min(billing_hits, 3)), billing_evidence)
+
+        # Multi-role portal.
+        portal_hits = 0
+        portal_evidence: list[str] = []
+        if len(getattr(self._facts, "policies", []) or []) >= 1:
+            portal_hits += 1
+            portal_evidence.append("policy_classes_present")
+        portal_path_hits = _paths_with_any(("/portal/", "/admin/", "/staff/", "/owner/", "/customer/"))
+        if portal_path_hits >= 2:
+            portal_hits += 2
+            portal_evidence.append(f"portal_paths={portal_path_hits}")
+        elif portal_path_hits == 1:
+            portal_hits += 1
+            portal_evidence.append("portal_path=1")
+        if _routes_with_any(("role", "permission", "admin", "staff", "owner", "portal")) >= 2:
+            portal_hits += 1
+            portal_evidence.append("role_route_terms")
+        _mark("multi_role_portal", portal_hits >= 2, 0.5 + (0.1 * min(portal_hits, 4)), portal_evidence)
+
+        # Queue-heavy.
+        queue_hits = 0
+        queue_evidence: list[str] = []
+        jobs_count = len(getattr(self._facts, "jobs", []) or [])
+        listeners_count = len(getattr(self._facts, "listeners", []) or [])
+        if jobs_count >= 3:
+            queue_hits += 2
+            queue_evidence.append(f"jobs_count={jobs_count}")
+        elif jobs_count >= 1:
+            queue_hits += 1
+            queue_evidence.append(f"jobs_count={jobs_count}")
+        if listeners_count >= 2:
+            queue_hits += 1
+            queue_evidence.append(f"listeners_count={listeners_count}")
+        if any(feature in features for feature in ("horizon", "octane")):
+            queue_hits += 1
+            queue_evidence.append("queue_feature_package")
+        _mark("queue_heavy", queue_hits >= 2, 0.5 + (0.1 * min(queue_hits, 4)), queue_evidence)
+
+        # Public site + dashboard mixed.
+        mixed_enabled = bool(getattr(self.project_info, "has_web_routes", False)) and bool(
+            getattr(self.project_info, "has_blade_views", False)
+        )
+        mixed_evidence: list[str] = []
+        if mixed_enabled:
+            mixed_evidence.append("web_routes_and_blade")
+        if _routes_with_any(("dashboard", "admin", "portal")) >= 1 and _routes_with_any(("welcome", "home", "pricing", "about", "contact")) >= 1:
+            mixed_evidence.append("dashboard_and_public_routes")
+        _mark("mixed_public_dashboard", mixed_enabled, 0.78 if mixed_enabled else 0.3, mixed_evidence)
+
+        # Public marketing site.
+        marketing_hits = 0
+        marketing_evidence: list[str] = []
+        if _routes_with_any(("pricing", "contact", "about", "landing", "welcome")) >= 2:
+            marketing_hits += 2
+            marketing_evidence.append("marketing_routes")
+        marketing_paths = _paths_with_any(("/welcome", "/landing", "/marketing", "/pricing", "/about", "/contact"))
+        if marketing_paths >= 2:
+            marketing_hits += 1
+            marketing_evidence.append(f"marketing_paths={marketing_paths}")
+        _mark("public_marketing_site", marketing_hits >= 2, 0.5 + (0.1 * min(marketing_hits, 3)), marketing_evidence)
+
+        # Notifications-heavy.
+        notifications_hits = 0
+        notifications_evidence: list[str] = []
+        notifications_paths = _paths_with_any(("/notifications", "/messaging", "/communication", "/mail", "/sms"))
+        if notifications_paths >= 2:
+            notifications_hits += 2
+            notifications_evidence.append(f"notifications_paths={notifications_paths}")
+        elif notifications_paths == 1:
+            notifications_hits += 1
+            notifications_evidence.append("notifications_path=1")
+        notification_classes = len(
+            [c for c in (getattr(self._facts, "classes", []) or []) if "notification" in str(getattr(c, "name", "")).lower()]
+        )
+        if notification_classes >= 1:
+            notifications_hits += 1
+            notifications_evidence.append(f"notification_classes={notification_classes}")
+        _mark("notifications_heavy", notifications_hits >= 2, 0.5 + (0.1 * min(notifications_hits, 3)), notifications_evidence)
+
+        # External integrations-heavy.
+        integration_hits = 0
+        integration_evidence: list[str] = []
+        integration_paths = _paths_with_any(("/integrations", "/integration", "/providers", "/provider", "/webhooks", "/callbacks"))
+        if integration_paths >= 2:
+            integration_hits += 2
+            integration_evidence.append(f"integration_paths={integration_paths}")
+        elif integration_paths == 1:
+            integration_hits += 1
+            integration_evidence.append("integration_path=1")
+        if _routes_with_any(("webhook", "callback", "stripe", "twilio", "paymob", "slack")) >= 2:
+            integration_hits += 1
+            integration_evidence.append("provider_route_terms")
+        _mark("external_integrations_heavy", integration_hits >= 2, 0.5 + (0.1 * min(integration_hits, 3)), integration_evidence)
+
+        # File upload/storage-heavy.
+        upload_hits = 0
+        upload_evidence: list[str] = []
+        upload_paths = _paths_with_any(
+            (
+                "/upload",
+                "/uploads",
+                "/media",
+                "/attachment",
+                "/attachments",
+                "/document",
+                "/documents",
+                "/archive",
+                "/archives",
+                "/storage",
+                "/files",
+            )
+        )
+        if upload_paths >= 3:
+            upload_hits += 2
+            upload_evidence.append(f"upload_paths={upload_paths}")
+        elif upload_paths >= 1:
+            upload_hits += 1
+            upload_evidence.append(f"upload_paths={upload_paths}")
+        if _routes_with_any(("upload", "download", "attachment", "media", "avatar", "document", "archive")) >= 2:
+            upload_hits += 1
+            upload_evidence.append("upload_route_terms")
+        if any(feature in features for feature in ("s3", "media-library", "flysystem", "spatie/laravel-medialibrary")):
+            upload_hits += 1
+            upload_evidence.append("storage_feature_package")
+        _mark("file_upload_storage_heavy", upload_hits >= 2, 0.5 + (0.1 * min(upload_hits, 4)), upload_evidence)
+
+        # Keep project-type and architecture signals in capability evidence for explainability.
+        project_kind = str(business_context.get("project_type", "unknown") or "unknown")
+        arch_kind = str(backend_context.get("profile", "unknown") or "unknown")
+        for key, (enabled, confidence, evidence) in list(capabilities.items()):
+            enrich = list(evidence or [])
+            enrich.append(f"business_context={project_kind}")
+            enrich.append(f"architecture_profile={arch_kind}")
+            capabilities[key] = (enabled, confidence, enrich[:10])
+
+        return capabilities
+
+    def _detect_team_expectations(
+        self,
+        *,
+        backend_context: dict[str, object],
+        detected_capabilities: dict[str, tuple[bool, float, list[str]]],
+    ) -> dict[str, tuple[bool, float, list[str]]]:
+        expectations: dict[str, tuple[bool, float, list[str]]] = {}
+        architecture_profile = str(backend_context.get("profile", "unknown") or "unknown")
+        layers = {str(layer or "").lower() for layer in (backend_context.get("layers", []) or [])}
+
+        controller_fqcns = {str(c.fqcn or "") for c in (getattr(self._facts, "controllers", []) or [])}
+        controller_methods = [
+            m
+            for m in (getattr(self._facts, "methods", []) or [])
+            if (str(getattr(m, "class_fqcn", "") or "") in controller_fqcns) and not str(getattr(m, "name", "")).startswith("__")
+        ]
+        delegation_markers = ("->execute(", "->handle(", "->run(", "service->", "action->", "coordinator->")
+        delegated_methods = 0
+        for method in controller_methods:
+            calls = [str(call or "").lower() for call in (getattr(method, "call_sites", []) or [])]
+            if any(any(marker in call for marker in delegation_markers) for call in calls):
+                delegated_methods += 1
+        controller_delegation_ratio = (
+            (delegated_methods / len(controller_methods))
+            if controller_methods
+            else 0.0
+        )
+
+        validations = getattr(self._facts, "validations", []) or []
+        form_request_count = sum(
+            1 for validation in validations if str(getattr(validation, "validation_type", "")).lower() == "form_request"
+        )
+        inline_validation_count = sum(
+            1 for validation in validations if str(getattr(validation, "validation_type", "")).lower() == "inline"
+        )
+
+        has_resource_files = any(
+            "/http/resources/" in str(path or "").lower().replace("\\", "/")
+            for path in (getattr(self._facts, "files", []) or [])
+        )
+
+        def _mark(key: str, enabled: bool, confidence: float, evidence: list[str]) -> None:
+            expectations[key] = (
+                bool(enabled),
+                max(0.0, min(1.0, float(confidence or 0.0))),
+                [str(item) for item in evidence if str(item or "").strip()][:8],
+            )
+
+        thin_controllers_enabled = (
+            architecture_profile in {"layered", "modular", "api-first"}
+            and controller_delegation_ratio >= 0.45
+            and len(controller_methods) >= 2
+        )
+        _mark(
+            "thin_controllers",
+            thin_controllers_enabled,
+            0.6 + (0.3 * min(1.0, controller_delegation_ratio)),
+            [f"controller_delegation_ratio={controller_delegation_ratio:.2f}", f"architecture_profile={architecture_profile}"],
+        )
+
+        form_requests_expected = form_request_count >= max(2, inline_validation_count)
+        _mark(
+            "form_requests_expected",
+            form_requests_expected,
+            0.7 if form_requests_expected else 0.35,
+            [f"form_request_validations={form_request_count}", f"inline_validations={inline_validation_count}"],
+        )
+
+        services_actions_expected = "services" in layers or "actions" in layers
+        _mark(
+            "services_actions_expected",
+            services_actions_expected,
+            0.82 if services_actions_expected else 0.3,
+            [f"layers={','.join(sorted(layers)) or 'none'}"],
+        )
+
+        repositories_expected = "repositories" in layers or bool(getattr(self._facts, "repositories", []))
+        _mark(
+            "repositories_expected",
+            repositories_expected,
+            0.8 if repositories_expected else 0.28,
+            [f"repository_count={len(getattr(self._facts, 'repositories', []) or [])}"],
+        )
+
+        resources_expected = architecture_profile == "api-first" or has_resource_files
+        _mark(
+            "resources_expected",
+            resources_expected,
+            0.78 if resources_expected else 0.3,
+            [f"has_resource_files={int(has_resource_files)}", f"architecture_profile={architecture_profile}"],
+        )
+
+        dto_expected = "dto" in layers or any(
+            str(path or "").lower().replace("\\", "/").find("/dto/") >= 0
+            for path in (getattr(self._facts, "files", []) or [])
+        )
+        _mark(
+            "dto_data_objects_preferred",
+            dto_expected,
+            0.74 if dto_expected else 0.3,
+            [f"has_dto_layer={int('dto' in layers)}"],
+        )
+
+        # Reinforce standards for heavy portal/business apps.
+        portal_enabled = bool((detected_capabilities.get("multi_role_portal") or (False, 0.0, []))[0])
+        if portal_enabled and "thin_controllers" in expectations:
+            enabled, confidence, evidence = expectations["thin_controllers"]
+            expectations["thin_controllers"] = (
+                bool(enabled),
+                min(0.95, max(confidence, 0.72)),
+                [*evidence, "multi_role_portal=true"][:8],
+            )
+
+        return expectations
+
+    def _normalize_context_key(self, value: object) -> str | None:
+        text = str(value or "").strip().lower()
+        return text or None
+
+    def _normalize_bool_map(self, value: object) -> dict[str, bool]:
+        if not isinstance(value, dict):
+            return {}
+        out: dict[str, bool] = {}
+        for key, raw in value.items():
+            name = str(key or "").strip().lower()
+            if not name:
+                continue
+            if isinstance(raw, bool):
+                out[name] = raw
+                continue
+            if isinstance(raw, (int, float)):
+                out[name] = bool(raw)
+                continue
+            raw_str = str(raw or "").strip().lower()
+            if raw_str in {"true", "1", "yes", "on"}:
+                out[name] = True
+            elif raw_str in {"false", "0", "no", "off"}:
+                out[name] = False
+        return out
+
+    def _context_resolution_signals(self, context) -> list[str]:
+        caps = []
+        for key, payload in (getattr(context, "backend_capabilities", {}) or {}).items():
+            if isinstance(payload, dict) and bool(payload.get("enabled", False)):
+                caps.append(str(key))
+        standards = []
+        for key, payload in (getattr(context, "backend_team_expectations", {}) or {}).items():
+            if isinstance(payload, dict) and bool(payload.get("enabled", False)):
+                standards.append(str(key))
+        return [
+            f"framework={getattr(context, 'backend_framework', 'unknown')}",
+            f"project_type={getattr(context, 'project_business_context', 'unknown')}",
+            f"project_type_source={getattr(context, 'project_business_source', 'default')}",
+            f"profile={getattr(context, 'backend_architecture_profile', 'unknown')}",
+            f"profile_source={getattr(context, 'backend_profile_source', 'default')}",
+            f"capabilities={','.join(sorted(caps)) or 'none'}",
+            f"team_expectations={','.join(sorted(standards)) or 'none'}",
+        ]
 
     def _detect_react_structure_context(self) -> tuple[str, list[str]]:
         import re

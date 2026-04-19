@@ -91,6 +91,13 @@ class MissingCacheForReferenceDataRule(Rule):
         "config::get(",
         "config(",
     )
+    _SIMPLE_CONTEXT_PROJECT_TYPES = {
+        "internal_admin_system",
+        "public_website_with_dashboard",
+        "api_backend",
+        "unknown",
+    }
+    _HEAVY_CAPABILITIES = {"billing", "notifications_heavy", "external_integrations_heavy", "saas", "multi_role_portal"}
 
     def analyze(
         self,
@@ -99,48 +106,93 @@ class MissingCacheForReferenceDataRule(Rule):
     ) -> list[Finding]:
         findings: list[Finding] = []
 
-        # Check if project uses Cache at all
+        min_confidence = float(self.get_threshold("min_confidence", 0.0) or 0.0)
+        require_repeated_reference_access = bool(self.get_threshold("require_repeated_reference_access", False))
+        min_reference_query_count = int(self.get_threshold("min_reference_query_count", 1) or 1)
+        require_project_cache_usage = bool(self.get_threshold("require_project_cache_usage", True))
+        require_service_or_repository_context = bool(self.get_threshold("require_service_or_repository_context", False))
+
         has_cache_usage = self._check_cache_usage(facts)
-        if not has_cache_usage:
-            # Don't suggest caching if project doesn't use it
+        if require_project_cache_usage and not has_cache_usage:
             return findings
 
+        reference_queries: list[QueryUsage] = []
+        model_occurrences: dict[str, int] = {}
+        model_files: dict[str, set[str]] = {}
         for q in facts.queries:
-            # Skip non-SELECT queries
             if q.query_type != "select":
                 continue
-
-            # Skip allowlisted paths
             norm_path = (q.file_path or "").replace("\\", "/").lower()
             if any(allow in norm_path for allow in self._ALLOWLIST_PATHS):
                 continue
 
-            # Check if model is reference data
-            model_lower = (q.model or "").lower().replace("\\", "").replace("_", "")
+            model_lower = self._model_key(q.model or "")
+            if not model_lower:
+                continue
             is_reference_data = any(ref in model_lower for ref in self._REFERENCE_DATA_MODELS)
-
             if not is_reference_data:
                 continue
             if self._is_config_lookup(facts, q, model_lower):
                 continue
 
-            # Check if method name suggests getter pattern
-            method_lower = (q.method_name or "").lower()
-            is_getter = any(pattern in method_lower for pattern in self._GETTER_METHOD_PATTERNS)
+            reference_queries.append(q)
+            model_occurrences[model_lower] = model_occurrences.get(model_lower, 0) + 1
+            model_files.setdefault(model_lower, set()).add(norm_path)
 
-            # Check if query is in a service (more likely to benefit from caching)
-            is_service = "/services/" in norm_path
+        if not reference_queries:
+            return findings
 
-            # Skip if the source already wraps this query in a cache helper.
+        simple_context = self._is_simple_context(facts)
+        for q in reference_queries:
+            model_lower = self._model_key(q.model or "")
+            norm_path = (q.file_path or "").replace("\\", "/").lower()
+            repeated_count = model_occurrences.get(model_lower, 0)
+            spread_files = len(model_files.get(model_lower, set()))
+
+            if require_repeated_reference_access and repeated_count < min_reference_query_count:
+                continue
+
+            is_service_or_repository = self._is_service_or_repository_context(norm_path)
+            if require_service_or_repository_context and not is_service_or_repository:
+                continue
+
             if self._is_query_already_cached(facts, q):
                 continue
 
-            # Adjust confidence
-            confidence = 0.70
+            method_lower = (q.method_name or "").lower()
+            is_getter = any(pattern in method_lower for pattern in self._GETTER_METHOD_PATTERNS)
+
+            # Extra conservatism for simple/non-SaaS contexts: prefer underfiring over noisy hints.
+            if simple_context and repeated_count < max(2, min_reference_query_count):
+                continue
+            if simple_context and not (is_service_or_repository or is_getter):
+                continue
+
+            confidence = 0.52
+            if repeated_count >= min_reference_query_count:
+                confidence += 0.2
+            if spread_files >= 2:
+                confidence += 0.08
+            if is_service_or_repository:
+                confidence += 0.12
             if is_getter:
-                confidence += 0.10
-            if is_service:
-                confidence += 0.10
+                confidence += 0.08
+            if any(token in model_lower for token in ("setting", "role", "permission", "country", "locale", "status")):
+                confidence += 0.06
+            confidence = min(0.95, confidence)
+            if confidence + 1e-9 < min_confidence:
+                continue
+
+            evidence = [
+                f"model={q.model or 'unknown'}",
+                f"reference_query_count={repeated_count}",
+                f"spread_files={spread_files}",
+                f"service_or_repository_context={'true' if is_service_or_repository else 'false'}",
+                f"getter_like_method={'true' if is_getter else 'false'}",
+                f"simple_context={'true' if simple_context else 'false'}",
+            ]
+            if require_project_cache_usage:
+                evidence.append(f"project_cache_usage={'true' if has_cache_usage else 'false'}")
 
             findings.append(
                 self.create_finding(
@@ -189,6 +241,7 @@ class MissingCacheForReferenceDataRule(Rule):
                     ),
                     confidence=confidence,
                     tags=["performance", "caching", "reference-data", "optimization"],
+                    evidence_signals=evidence,
                 )
             )
 
@@ -244,3 +297,21 @@ class MissingCacheForReferenceDataRule(Rule):
         start = max(0, line_index - before)
         end = min(len(lines), line_index + after)
         return "\n".join(lines[start:end])
+
+    def _model_key(self, raw_model: str) -> str:
+        return (raw_model or "").lower().replace("\\", "").replace("_", "")
+
+    def _is_service_or_repository_context(self, norm_path: str) -> bool:
+        return "/services/" in norm_path or "/repositories/" in norm_path
+
+    def _is_simple_context(self, facts: Facts) -> bool:
+        project_type = str(getattr(facts.project_context, "project_business_context", "") or "unknown").lower()
+        if project_type not in self._SIMPLE_CONTEXT_PROJECT_TYPES:
+            return False
+
+        capabilities = getattr(facts.project_context, "backend_capabilities", {}) or {}
+        for capability in self._HEAVY_CAPABILITIES:
+            payload = capabilities.get(capability)
+            if isinstance(payload, dict) and bool(payload.get("enabled", False)):
+                return False
+        return True
