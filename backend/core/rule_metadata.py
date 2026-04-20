@@ -418,15 +418,6 @@ RULE_METADATA: list[RuleInfo] = [
         tags=["security", "routing"],
     ),
     RuleInfo(
-        id="unsafe-external-redirect",
-        name="Unsafe External Redirect",
-        description="Redirects without validation",
-        category="security",
-        severity="high",
-        layer="backend",
-        tags=["security", "redirects"],
-    ),
-    RuleInfo(
         id="authorization-missing-on-sensitive-reads",
         name="Missing Authorization on Reads",
         description="Sensitive read endpoints without authorization",
@@ -488,15 +479,6 @@ RULE_METADATA: list[RuleInfo] = [
         severity="medium",
         layer="backend",
         tags=["reliability", "http"],
-    ),
-    RuleInfo(
-        id="missing-throttle-on-auth-api-routes",
-        name="Missing Rate Limiting",
-        description="Auth routes without throttle middleware",
-        category="security",
-        severity="medium",
-        layer="backend",
-        tags=["security", "rate-limiting"],
     ),
     RuleInfo(
         id="missing-auth-on-mutating-api-routes",
