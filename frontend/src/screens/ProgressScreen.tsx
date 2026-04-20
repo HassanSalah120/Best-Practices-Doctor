@@ -83,6 +83,41 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ jobId, onComplet
     };
   }, [jobId, onComplete]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncJob = async () => {
+      try {
+        const latest = await ApiClient.getJob(jobId);
+        if (cancelled) {
+          return;
+        }
+        setJob(latest);
+        setError(null);
+        if (
+          latest.status === ScanStatus.COMPLETED &&
+          completionTimeoutRef.current === null
+        ) {
+          completionTimeoutRef.current = window.setTimeout(() => {
+            onComplete();
+          }, 900);
+        }
+      } catch {
+        // Keep SSE-driven state if polling fails transiently.
+      }
+    };
+
+    void syncJob();
+    const interval = window.setInterval(() => {
+      void syncJob();
+    }, 2500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [jobId, onComplete]);
+
   const handleCancel = async () => {
     setIsCancelling(true);
     setError(null);

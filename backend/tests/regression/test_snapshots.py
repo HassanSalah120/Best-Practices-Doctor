@@ -121,6 +121,12 @@ def _normalize_report(report_dict: dict) -> dict:
     report_dict.pop("scores", None)
     report_dict.pop("category_breakdown", None)
 
+    # Rule execution order can vary if registry/profile insertion order changes
+    # across environments. Keep membership deterministic for snapshot stability.
+    rules_executed = report_dict.get("rules_executed")
+    if isinstance(rules_executed, list):
+        report_dict["rules_executed"] = sorted({str(rule_id) for rule_id in rules_executed})
+
     return report_dict
 
 
@@ -174,5 +180,5 @@ def test_golden_snapshots(fixture_path, fixture_name: str, snapshot_name: str):
     if not snapshot_path.exists():
         raise AssertionError(f"Missing snapshot: {snapshot_path}")
 
-    expected = json.loads(snapshot_path.read_text())
+    expected = _normalize_report(json.loads(snapshot_path.read_text()))
     assert report_dict == expected

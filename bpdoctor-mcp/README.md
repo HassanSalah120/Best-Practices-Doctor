@@ -1,8 +1,8 @@
 # bpdoctor-mcp
 
-READ-ONLY MCP server for **Best Practices Doctor**.
+MCP server for **Best Practices Doctor** scan workflows.
 
-This server lets an AI agent fetch scan findings directly from the existing local FastAPI backend (no copy/paste).
+This server lets an AI agent drive scan/fix loops against the local FastAPI backend (no copy/paste).
 
 ## Requirements
 
@@ -44,13 +44,17 @@ This starts the MCP server over stdio (for Cursor/Windsurf/Codex MCP).
 
 ## Tools
 
+Current tool count: `21`
+
 Scan tools:
 
 - `bpdoctor.health()`
 - `bpdoctor.start_scan(path)`
 - `bpdoctor.get_scan(job_id)`
+- `bpdoctor.wait_scan(job_id?, timeout_s?, poll_ms?)`
 - `bpdoctor.set_active_scan(job_id)`
 - `bpdoctor.get_active_scan()`
+- `bpdoctor.rescan_last_path()`
 - `bpdoctor.compare_baseline(profile?)`
 - `bpdoctor.save_baseline(profile?)`
 - `bpdoctor.pr_gate(preset?, profile?, include_sarif?)`
@@ -60,14 +64,12 @@ Findings queue:
 - `bpdoctor.list_files(filter?)`
 - `bpdoctor.next_finding(filters?)`
 - `bpdoctor.get_finding(fingerprint)`
+- `bpdoctor.explain_finding(fingerprint)`
+- `bpdoctor.suggest_fix(fingerprint)`
+- `bpdoctor.group_fixes(mode?, limit?)`
 - `bpdoctor.set_status(fingerprint, status, note?)`
 - `bpdoctor.set_baseline_from_active_scan()`
 - `bpdoctor.clear_baseline()`
-
-Scan loop helpers:
-
-- `bpdoctor.wait_scan(job_id?, timeout_s?, poll_ms?)`
-- `bpdoctor.rescan_last_path()`
 
 Context helpers (read-only):
 
@@ -89,11 +91,11 @@ Context helpers (read-only):
   "tool": "bpdoctor.next_finding",
   "args": { "filters": { "severity": ["critical", "high"], "limit": 1 } }
 }
+```
 
 Notes:
-- `bpdoctor.next_finding` now returns `{ items, total_filtered, returned, ... }`.
-- Use `filters.include_text=true` when you need full description/why/suggested_fix text.
-```
+- `bpdoctor.next_finding` returns `{ items, total_filtered, returned, ... }`.
+- Use `filters.include_text=true` when you need full `description`/`why_it_matters`/`suggested_fix`.
 
 3. Read code context:
 

@@ -166,10 +166,10 @@ Execution pipeline (rule engine level):
 
 Rule corpus snapshot:
 
-- Total rules in registry: `235`
-- Laravel rules: `100`
-- React rules: `117`
-- PHP rules: `18`
+- Total rules in registry: `245`
+- Laravel rules: `106`
+- React rules: `119`
+- PHP rules: `20`
 
 ## 7) Ruleset Profiles
 
@@ -181,15 +181,15 @@ Ruleset files:
 
 Profile counts (current snapshot):
 
-- `startup`: 195 total, 142 enabled
-- `balanced`: 196 total, 194 enabled
-- `strict`: 235 total, 235 enabled
+- `startup`: 194 total, 141 enabled
+- `balanced`: 207 total, 205 enabled
+- `strict`: 246 total, 246 enabled
 
 Profile helpers:
 
 - `backend/core/ruleset_profiles.py`
 
-## 8) Context-Aware Calibration (Laravel/PHP)
+## 8) Context-Aware Calibration (Laravel/React/PHP)
 
 Context matrix docs:
 
@@ -197,6 +197,7 @@ Context matrix docs:
 - `docs/laravel-context-matrix.md`
 - machine-readable matrix:
   - `backend/rulesets/laravel_context_matrix.yaml`
+  - `backend/rulesets/react_context_matrix.yaml`
 
 Core calibration engine:
 
@@ -232,7 +233,7 @@ Primary route file:
 
 - `backend/api/routes.py`
 
-Current endpoint count (decorated routes): `40`
+Current endpoint count (decorated routes): `46`
 
 Main groups:
 
@@ -317,14 +318,24 @@ Core files:
 
 Key tools:
 
+- `bpdoctor.health`
 - `bpdoctor.start_scan`
+- `bpdoctor.get_scan`
 - `bpdoctor.wait_scan`
+- `bpdoctor.set_active_scan`
+- `bpdoctor.get_active_scan`
+- `bpdoctor.rescan_last_path`
+- `bpdoctor.list_files`
 - `bpdoctor.next_finding`
+- `bpdoctor.get_finding`
 - `bpdoctor.set_status`
 - `bpdoctor.explain_finding`
 - `bpdoctor.suggest_fix`
 - `bpdoctor.group_fixes`
+- `bpdoctor.set_baseline_from_active_scan`
+- `bpdoctor.clear_baseline`
 - `bpdoctor.compare_baseline`
+- `bpdoctor.save_baseline`
 - `bpdoctor.pr_gate`
 - `repo.snippet`
 - `repo.search`
@@ -440,10 +451,10 @@ Canonical inventory source:
 
 Current registry snapshot:
 
-- total rules: `235`
-- laravel rules: `100`
-- react rules: `117`
-- php rules: `18`
+- total rules: `245`
+- laravel rules: `106`
+- react rules: `119`
+- php rules: `20`
 
 What these families represent:
 
@@ -479,7 +490,7 @@ for k in ['laravel', 'react', 'php', 'other']:
 '@ | python -
 ```
 
-### Laravel Rule IDs (100)
+### Laravel Rule IDs (106)
 
 ```text
 action-class-naming-consistency
@@ -500,10 +511,11 @@ controller-index-filter-duplication
 controller-inline-validation
 controller-query-direct
 controller-returning-view-in-api
+cookie-samesite-missing
 cors-misconfiguration
 csrf-exception-wildcard-risk
 custom-exception-suggestion
-debug-mode-exposure
+debug-exposure-risk
 destructive-migration-without-safety-guard
 dto-suggestion
 duplicate-route-definition
@@ -528,18 +540,21 @@ job-http-call-missing-timeout
 job-missing-idempotency-guard
 job-missing-retry-policy
 listener-shouldqueue-missing-for-io-bound-handler
+livewire-public-prop-mass-assignment
 mass-assignment-risk
 massive-model
 missing-api-resource
 missing-auth-on-mutating-api-routes
 missing-cache-for-reference-data
+missing-content-security-policy
 missing-csrf-token-verification
 missing-foreign-key-in-migration
 missing-form-request
+missing-hsts-header
 missing-https-enforcement
 missing-index-on-lookup-columns
 missing-pagination
-missing-throttle-on-auth-api-routes
+missing-rate-limiting
 model-cross-model-query
 model-hidden-sensitive-attributes-missing
 n-plus-one-risk
@@ -550,8 +565,10 @@ notification-shouldqueue-missing
 npm-dependency-below-secure-version
 null-filtering-suggestion
 observer-heavy-logic
+password-hash-weak-algorithm
 password-reset-token-hardening-missing
 path-traversal-file-access
+plain-text-sensitive-config
 policy-coverage-on-mutations
 public-api-versioning-missing
 registration-missing-registered-event
@@ -561,7 +578,6 @@ security-headers-baseline-missing
 sensitive-data-logging
 sensitive-model-appends-risk
 sensitive-response-cache-control-missing
-sensitive-route-rate-limit-missing
 sensitive-routes-missing-verified-middleware
 service-extraction
 session-fixation-regenerate-missing
@@ -569,10 +585,11 @@ signed-routes-missing-signature-middleware
 ssrf-risk-http-client
 tenant-access-middleware-missing
 tenant-scope-enforcement
+timing-attack-token-comparison
 transaction-required-for-multi-write
 unsafe-csp-policy
-unsafe-external-redirect
 unsafe-file-upload
+unsafe-redirect
 unused-service-class
 upload-mime-extension-mismatch
 upload-size-limit-missing
@@ -584,7 +601,7 @@ xml-xxe-risk
 zip-bomb-risk
 ```
 
-### React Rule IDs (117)
+### React Rule IDs (119)
 
 ```text
 accessible-authentication
@@ -593,12 +610,14 @@ apg-accordion-disclosure-contract
 apg-combobox-contract
 apg-menu-button-contract
 apg-tabs-keyboard-contract
+api-key-in-client-bundle
 autocomplete-missing
 autoplay-media
 avoid-props-to-state-copy
 button-text-vague
 canonical-missing-or-invalid
 client-open-redirect-unvalidated-navigation
+client-side-auth-only
 color-contrast-ratio
 context-oversized-provider
 context-provider-inline-value
@@ -706,7 +725,7 @@ usememo-ast
 usememo-overuse
 ```
 
-### PHP Rule IDs (18)
+### PHP Rule IDs (20)
 
 ```text
 circular-dependency
@@ -718,6 +737,7 @@ high-complexity
 high-coupling-class
 long-method
 low-coverage-files
+pcre-redos-risk
 prefer-imports
 raw-sql
 sql-injection-risk
@@ -725,6 +745,7 @@ static-helper-abuse
 tests-missing
 too-many-dependencies
 unsafe-eval
+unsafe-file-include-variable
 unsafe-unserialize
 unused-private-method
 ```

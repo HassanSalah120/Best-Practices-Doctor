@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { WelcomeScreen } from "@/screens/WelcomeScreen";
 import { ProgressScreen } from "@/screens/ProgressScreen";
 import { ReportScreen } from "@/screens/ReportScreen";
@@ -49,6 +49,7 @@ function App() {
   const [projectContextOverrides, setProjectContextOverrides] = useState<ScanProjectContextOverrides | undefined>(
     undefined,
   );
+  const startScanInFlightRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,6 +87,10 @@ function App() {
     rules?: Set<string>,
     contextOverrides?: ScanProjectContextOverrides,
   ) => {
+    if (startScanInFlightRef.current) {
+      return;
+    }
+    startScanInFlightRef.current = true;
     try {
       // Only set active profile on backend for real YAML profiles (not 'advanced')
       if (selectedProfile && selectedProfile !== "advanced") {
@@ -104,6 +109,8 @@ function App() {
       setView("progress");
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to start scan");
+    } finally {
+      startScanInFlightRef.current = false;
     }
   };
 

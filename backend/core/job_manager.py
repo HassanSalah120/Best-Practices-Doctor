@@ -175,9 +175,17 @@ class JobManager:
             return
         
         subscribers = self._subscribers.get(job_id, [])
+        payload = job.model_dump_json()
         for queue in subscribers:
             try:
-                await queue.put(job.model_dump_json())
+                # Keep only the freshest state per subscriber to avoid long
+                # backlogs when progress updates are very frequent.
+                if queue.full():
+                    try:
+                        queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        pass
+                queue.put_nowait(payload)
             except Exception:
                 pass  # Ignore failed subscribers
     
@@ -188,7 +196,8 @@ class JobManager:
             yield f"data: {{\"error\": \"Job not found\"}}\n\n"
             return
         
-        queue: asyncio.Queue[str] = asyncio.Queue()
+        # Latest-only queue prevents stale progress lag on large scans.
+        queue: asyncio.Queue[str] = asyncio.Queue(maxsize=1)
         self._subscribers.setdefault(job_id, []).append(queue)
         
         try:
