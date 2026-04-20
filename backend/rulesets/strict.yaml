@@ -1704,6 +1704,97 @@ rules:
     category: security
     version: 1
     thresholds: {}
+  # S1 Security Rules
+  sensitive-route-rate-limit-missing:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  ssrf-risk-http-client:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  path-traversal-file-access:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  insecure-file-download-response:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  webhook-signature-missing:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  idor-risk-missing-ownership-check:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  sanctum-token-scope-missing:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  session-fixation-regenerate-missing:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  weak-password-policy-validation:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  upload-mime-extension-mismatch:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  archive-upload-zip-slip-risk:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  upload-size-limit-missing:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  insecure-postmessage-origin-wildcard:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  token-storage-insecure-localstorage:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  client-open-redirect-unvalidated-navigation:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
 scan:
   ignore:
     - vendor/**

@@ -56,7 +56,7 @@ def test_large_component_accepts_max_loc_alias():
         )
     )
 
-    rule = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200}))
+    rule = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200, "min_loc_to_consider": 200}))
     res = rule.run(facts, project_type="laravel_inertia_react")
     assert any(f.rule_id == "large-react-component" for f in res.findings)
 
