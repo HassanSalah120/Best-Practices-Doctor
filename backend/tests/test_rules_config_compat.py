@@ -52,11 +52,11 @@ def test_large_component_accepts_max_loc_alias():
             file_hash="deadbeef",
             line_start=1,
             line_end=400,
-            loc=210,
+            loc=250,  # Must exceed threshold (200) + min_overflow_lines (20) = 220
         )
     )
 
-    rule = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200, "min_loc_to_consider": 200}))
+    rule = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200, "min_loc_to_consider": 200, "min_overflow_lines": 20}))
     res = rule.run(facts, project_type="laravel_inertia_react")
     assert any(f.rule_id == "large-react-component" for f in res.findings)
 
