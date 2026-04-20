@@ -44,6 +44,14 @@ def _normalize_report(report_dict: dict) -> dict:
     report_dict.pop("top_5_first", None)
     report_dict.pop("triage_plan", None)
     report_dict.pop("action_plan", None)
+    
+    # analysis_debug contains project_memory with timestamps - normalize it
+    analysis_debug = report_dict.pop("analysis_debug", None)
+    if isinstance(analysis_debug, dict):
+        # Keep the structure but remove timestamps
+        analysis_debug.pop("project_memory", None)
+        if "project_context" in analysis_debug:
+            analysis_debug["project_context"] = "normalized"
 
     # Normalize nested project root for portability
     if "project_info" in report_dict and isinstance(report_dict["project_info"], dict):
