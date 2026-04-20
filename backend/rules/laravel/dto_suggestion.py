@@ -51,7 +51,7 @@ class DtoSuggestionRule(Rule):
             if a.key_count < min_keys:
                 continue
             # Global File Path Exclusions
-            if any(p in fp for p in [
+            if any(p in a.file_path for p in [
                 "app/DTOs/", 
                 "app/Http/Requests/", 
                 "app/Services/Mappers/",
