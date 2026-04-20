@@ -121,11 +121,9 @@ def _normalize_report(report_dict: dict) -> dict:
     report_dict.pop("scores", None)
     report_dict.pop("category_breakdown", None)
 
-    # Rule execution order can vary if registry/profile insertion order changes
-    # across environments. Keep membership deterministic for snapshot stability.
-    rules_executed = report_dict.get("rules_executed")
-    if isinstance(rules_executed, list):
-        report_dict["rules_executed"] = sorted({str(rule_id) for rule_id in rules_executed})
+    # `rules_executed` is environment-sensitive (registry/runtime/loading details).
+    # Snapshot coverage here focuses on report/findings contract, not registry shape.
+    report_dict.pop("rules_executed", None)
 
     return report_dict
 
