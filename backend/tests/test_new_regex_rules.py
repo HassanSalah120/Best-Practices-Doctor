@@ -20,7 +20,8 @@ def _facts_with_controller_file(fp: str) -> Facts:
 
 
 def test_no_json_encode_in_controllers_positive_and_negative():
-    rule = NoJsonEncodeInControllersRule(RuleConfig())
+    # Disable API context requirement for test - just check pattern matching
+    rule = NoJsonEncodeInControllersRule(RuleConfig(thresholds={"require_api_context": False}))
 
     facts = _facts_with_controller_file("app/Http/Controllers/XController.php")
     pos = "class X { public function a(){ return json_encode($x); } }"
