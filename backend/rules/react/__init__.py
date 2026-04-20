@@ -43,6 +43,8 @@ from .inertia_reload_without_only import InertiaReloadWithoutOnlyRule
 from .insecure_postmessage_origin_wildcard import InsecurePostMessageOriginWildcardRule
 from .token_storage_insecure_localstorage import TokenStorageInsecureLocalStorageRule
 from .client_open_redirect_unvalidated_navigation import ClientOpenRedirectUnvalidatedNavigationRule
+from .api_key_in_client_bundle import ApiKeyInClientBundleRule
+from .client_side_auth_only import ClientSideAuthOnlyRule
 from .postmessage_receiver_origin_not_verified import PostMessageReceiverOriginNotVerifiedRule
 from .dangerous_html_sink_without_sanitizer import DangerousHtmlSinkWithoutSanitizerRule
 # Phase 1 React rules
@@ -74,64 +76,54 @@ from .redundant_entry import RedundantEntryRule
 from .accessible_authentication import AccessibleAuthenticationRule
 from .focus_not_obscured import FocusNotObscuredRule
 # CSS/Tailwind discipline rules
-from .css_tailwind_best_practice_rules import (
-    CssFontSizePxRule,
-    CssSpacingPxRule,
-    CssFixedLayoutPxRule,
-    TailwindArbitraryValueOveruseRule,
-    TailwindArbitraryTextSizeRule,
-    TailwindArbitrarySpacingRule,
-    TailwindArbitraryLayoutSizeRule,
-    TailwindArbitraryRadiusShadowRule,
-)
+from .css_font_size_px import CssFontSizePxRule
+from .css_spacing_px import CssSpacingPxRule
+from .css_fixed_layout_px import CssFixedLayoutPxRule
+from .tailwind_arbitrary_value_overuse import TailwindArbitraryValueOveruseRule
+from .tailwind_arbitrary_text_size import TailwindArbitraryTextSizeRule
+from .tailwind_arbitrary_spacing import TailwindArbitrarySpacingRule
+from .tailwind_arbitrary_layout_size import TailwindArbitraryLayoutSizeRule
+from .tailwind_arbitrary_radius_shadow import TailwindArbitraryRadiusShadowRule
 # CSS/Tailwind accessibility rules
-from .css_tailwind_accessibility_rules import (
-    TailwindMotionReduceMissingRule,
-    TailwindAppearanceNoneRiskRule,
-    CssFocusOutlineWithoutReplacementRule,
-    CssHoverOnlyInteractionRule,
-    CssColorOnlyStateIndicatorRule,
-)
+from .tailwind_motion_reduce_missing import TailwindMotionReduceMissingRule
+from .tailwind_appearance_none_risk import TailwindAppearanceNoneRiskRule
+from .css_focus_outline_without_replacement import CssFocusOutlineWithoutReplacementRule
+from .css_hover_only_interaction import CssHoverOnlyInteractionRule
+from .css_color_only_state_indicator import CssColorOnlyStateIndicatorRule
 # WCAG/APG AST accessibility rules
-from .wcag_apg_ast_rules import (
-    SemanticWrapperBreakageRule,
-    InteractiveAccessibleNameRequiredRule,
-    JsxAriaAttributeFormatRule,
-    OutsideClickWithoutKeyboardFallbackRule,
-    APGTabsKeyboardContractRule,
-    APGAccordionDisclosureContractRule,
-    APGMenuButtonContractRule,
-    APGComboboxContractRule,
-    DialogFocusRestoreMissingRule,
-)
+from .semantic_wrapper_breakage import SemanticWrapperBreakageRule
+from .interactive_accessible_name_required import InteractiveAccessibleNameRequiredRule
+from .jsx_aria_attribute_format import JsxAriaAttributeFormatRule
+from .outside_click_without_keyboard_fallback import OutsideClickWithoutKeyboardFallbackRule
+from .apgtabs_keyboard_contract import APGTabsKeyboardContractRule
+from .apgaccordion_disclosure_contract import APGAccordionDisclosureContractRule
+from .apgmenu_button_contract import APGMenuButtonContractRule
+from .apgcombobox_contract import APGComboboxContractRule
+from .dialog_focus_restore_missing import DialogFocusRestoreMissingRule
 # React gap expansion rules
-from .react_gap_expansion_rules import (
-    AvoidPropsToStateCopyRule,
-    PropsStateSyncEffectSmellRule,
-    ControlledUncontrolledInputMismatchRule,
-    UseMemoOveruseRule,
-    UseCallbackOveruseRule,
-    ContextOversizedProviderRule,
-    LazyWithoutSuspenseRule,
-    SuspenseFallbackMissingRule,
-    StaleClosureInTimerRule,
-    StaleClosureInListenerRule,
-    DuplicateKeySourceRule,
-    MissingLoadingStateRule,
-    MissingEmptyStateRule,
-    RefAccessDuringRenderRule,
-    RefUsedAsReactiveStateRule,
-)
+from .avoid_props_to_state_copy import AvoidPropsToStateCopyRule
+from .props_state_sync_effect_smell import PropsStateSyncEffectSmellRule
+from .controlled_uncontrolled_input_mismatch import ControlledUncontrolledInputMismatchRule
+from .use_memo_overuse import UseMemoOveruseRule
+from .use_callback_overuse import UseCallbackOveruseRule
+from .context_oversized_provider import ContextOversizedProviderRule
+from .lazy_without_suspense import LazyWithoutSuspenseRule
+from .suspense_fallback_missing import SuspenseFallbackMissingRule
+from .stale_closure_in_timer import StaleClosureInTimerRule
+from .stale_closure_in_listener import StaleClosureInListenerRule
+from .duplicate_key_source import DuplicateKeySourceRule
+from .missing_loading_state import MissingLoadingStateRule
+from .missing_empty_state import MissingEmptyStateRule
+from .ref_access_during_render import RefAccessDuringRenderRule
+from .ref_used_as_reactive_state import RefUsedAsReactiveStateRule
 # React SEO expansion rules
-from .react_seo_expansion_rules import (
-    MetaDescriptionMissingOrGenericRule,
-    CanonicalMissingOrInvalidRule,
-    RobotsDirectiveRiskRule,
-    CrawlableInternalNavigationRequiredRule,
-    JsonLdStructuredDataInvalidOrMismatchedRule,
-    H1SingletonViolationRule,
-    PageIndexabilityConflictRule,
-)
+from .meta_description_missing_or_generic import MetaDescriptionMissingOrGenericRule
+from .canonical_missing_or_invalid import CanonicalMissingOrInvalidRule
+from .robots_directive_risk import RobotsDirectiveRiskRule
+from .crawlable_internal_navigation_required import CrawlableInternalNavigationRequiredRule
+from .json_ld_structured_data_invalid_or_mismatched import JsonLdStructuredDataInvalidOrMismatchedRule
+from .h1_singleton_violation import H1SingletonViolationRule
+from .page_indexability_conflict import PageIndexabilityConflictRule
 # AST-based rules (higher accuracy)
 from .usecallback_ast import UseCallbackASTRule
 from .usememo_ast import UseMemoASTRule
@@ -184,6 +176,8 @@ __all__ = [
     "InsecurePostMessageOriginWildcardRule",
     "TokenStorageInsecureLocalStorageRule",
     "ClientOpenRedirectUnvalidatedNavigationRule",
+    "ApiKeyInClientBundleRule",
+    "ClientSideAuthOnlyRule",
     "PostMessageReceiverOriginNotVerifiedRule",
     "DangerousHtmlSinkWithoutSanitizerRule",
     # Phase 1 React rules

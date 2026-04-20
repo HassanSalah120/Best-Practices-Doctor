@@ -910,7 +910,7 @@ rules:
     category: security
     version: 1
     thresholds: {}
-  unsafe-external-redirect:
+  unsafe-redirect:
     enabled: true
     severity: high
     category: security
@@ -955,7 +955,7 @@ rules:
     thresholds:
       require_multi_role_portal_capability: true
       min_confidence: 0.8
-  sensitive-route-rate-limit-missing:
+  missing-rate-limiting:
     enabled: false
     severity: high
     category: security
@@ -1226,12 +1226,6 @@ rules:
     enabled: true
     severity: high
     category: architecture
-    version: 1
-    thresholds: {}
-  missing-throttle-on-auth-api-routes:
-    enabled: true
-    severity: medium
-    category: security
     version: 1
     thresholds: {}
   missing-auth-on-mutating-api-routes:

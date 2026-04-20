@@ -887,7 +887,7 @@ rules:
     category: security
     version: 1
     thresholds: {}
-  unsafe-external-redirect:
+  unsafe-redirect:
     enabled: true
     severity: high
     category: security
@@ -932,7 +932,7 @@ rules:
     thresholds:
       require_multi_role_portal_capability: true
       min_confidence: 0.8
-  sensitive-route-rate-limit-missing:
+  missing-rate-limiting:
     enabled: true
     severity: high
     category: security
@@ -1203,12 +1203,6 @@ rules:
     enabled: true
     severity: high
     category: architecture
-    version: 1
-    thresholds: {}
-  missing-throttle-on-auth-api-routes:
-    enabled: true
-    severity: medium
-    category: security
     version: 1
     thresholds: {}
   missing-auth-on-mutating-api-routes:
@@ -1559,7 +1553,7 @@ rules:
     version: 1
     thresholds:
       min_confidence: 0.85
-  debug-mode-exposure:
+  debug-exposure-risk:
     enabled: true
     severity: high
     category: security
@@ -1642,6 +1636,72 @@ rules:
     enabled: true
     severity: low
     category: performance
+    version: 1
+    thresholds: {}
+  missing-hsts-header:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  cookie-samesite-missing:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  timing-attack-token-comparison:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  password-hash-weak-algorithm:
+    enabled: true
+    severity: critical
+    category: security
+    version: 1
+    thresholds: {}
+  plain-text-sensitive-config:
+    enabled: true
+    severity: critical
+    category: security
+    version: 1
+    thresholds: {}
+  livewire-public-prop-mass-assignment:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  missing-content-security-policy:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  pcre-redos-risk:
+    enabled: true
+    severity: high
+    category: security
+    version: 1
+    thresholds: {}
+  unsafe-file-include-variable:
+    enabled: true
+    severity: critical
+    category: security
+    version: 1
+    thresholds: {}
+  api-key-in-client-bundle:
+    enabled: true
+    severity: critical
+    category: security
+    version: 1
+    thresholds: {}
+  client-side-auth-only:
+    enabled: true
+    severity: high
+    category: security
     version: 1
     thresholds: {}
 scan:

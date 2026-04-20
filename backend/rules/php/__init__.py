@@ -17,6 +17,8 @@ from .sql_injection_risk import SqlInjectionRiskRule
 from .tests_missing import TestsMissingRule
 from .low_coverage_files import LowCoverageFilesRule
 from .prefer_imports import PreferImportsRule
+from .pcre_redos_risk import PcreRedosRiskRule
+from .unsafe_file_include_variable import UnsafeFileIncludeVariableRule
 
 __all__ = [
     "DryViolationRule",
@@ -37,4 +39,6 @@ __all__ = [
     "TestsMissingRule",
     "LowCoverageFilesRule",
     "PreferImportsRule",
+    "PcreRedosRiskRule",
+    "UnsafeFileIncludeVariableRule",
 ]

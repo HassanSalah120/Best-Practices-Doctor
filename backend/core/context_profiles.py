@@ -217,3 +217,14 @@ class ContextProfileMatrix(BaseModel):
             _merge_patch(patch, f"team:{expectation_key}")
 
         return resolved
+
+
+def load_laravel_context_matrix() -> ContextProfileMatrix:
+    """Load the default Laravel context matrix."""
+    return ContextProfileMatrix.load_default()
+
+
+def load_react_context_matrix() -> ContextProfileMatrix:
+    """Load the React context matrix."""
+    backend_root = Path(__file__).resolve().parents[1]
+    return ContextProfileMatrix.load(backend_root / "rulesets" / "react_context_matrix.yaml")

@@ -59,6 +59,7 @@ class FactsBuilder:
         max_file_size_kb: int | None = None,
         max_files: int | None = None,
         context_overrides: dict | None = None,
+        context_matrix = None,
     ):
         self.project_info = project_info
         self.project_path = Path(project_info.root_path).resolve()
@@ -105,6 +106,7 @@ class FactsBuilder:
         self.max_file_size_kb = int(max_file_size_kb) if max_file_size_kb is not None else 500
         self.max_files = int(max_files) if max_files is not None else 5000
         self._context_overrides = dict(context_overrides or {})
+        self._context_matrix = context_matrix
 
         # Compile ignore patterns
         import pathspec
@@ -3908,20 +3910,42 @@ class FactsBuilder:
         try:
             from core.context_profiles import ContextProfileMatrix
 
-            matrix = ContextProfileMatrix.load_default()
+            matrix = self._context_matrix or ContextProfileMatrix.load_default()
+            detected_project_type = str(business_context.get("project_type", "unknown"))
+            detected_project_type_confidence = float(business_context.get("confidence", 0.0) or 0.0)
+            detected_project_type_confidence_kind = str(business_context.get("confidence_kind", "unknown") or "unknown")
+            detected_profile = str(backend_context.get("profile", "unknown"))
+            detected_profile_confidence = float(backend_context.get("confidence", 0.0) or 0.0)
+            detected_profile_confidence_kind = str(backend_context.get("confidence_kind", "unknown") or "unknown")
+            matrix_detected_capabilities = detected_capabilities
+            matrix_detected_expectations = detected_expectations
+            if str(getattr(matrix, "framework", "") or "").strip().lower() == "react":
+                react_context = self._detect_react_matrix_context()
+                detected_project_type = str(react_context.get("project_type", "standalone") or "standalone")
+                detected_project_type_confidence = float(react_context.get("project_type_confidence", 0.0) or 0.0)
+                detected_project_type_confidence_kind = str(
+                    react_context.get("project_type_confidence_kind", "heuristic") or "heuristic"
+                )
+                detected_profile = str(react_context.get("profile", "component-driven") or "component-driven")
+                detected_profile_confidence = float(react_context.get("profile_confidence", 0.0) or 0.0)
+                detected_profile_confidence_kind = str(
+                    react_context.get("profile_confidence_kind", "heuristic") or "heuristic"
+                )
+                matrix_detected_capabilities = dict(react_context.get("capabilities", {}) or {})
+                matrix_detected_expectations = {}
             resolved_context = matrix.resolve_context(
                 explicit_project_type=explicit_project_type,
-                detected_project_type=str(business_context.get("project_type", "unknown")),
-                detected_project_type_confidence=float(business_context.get("confidence", 0.0) or 0.0),
-                detected_project_type_confidence_kind=str(business_context.get("confidence_kind", "unknown") or "unknown"),
+                detected_project_type=detected_project_type,
+                detected_project_type_confidence=detected_project_type_confidence,
+                detected_project_type_confidence_kind=detected_project_type_confidence_kind,
                 explicit_profile=explicit_profile,
-                detected_profile=str(backend_context.get("profile", "unknown")),
-                detected_profile_confidence=float(backend_context.get("confidence", 0.0) or 0.0),
-                detected_profile_confidence_kind=str(backend_context.get("confidence_kind", "unknown") or "unknown"),
+                detected_profile=detected_profile,
+                detected_profile_confidence=detected_profile_confidence,
+                detected_profile_confidence_kind=detected_profile_confidence_kind,
                 explicit_capabilities=explicit_capabilities,
-                detected_capabilities=detected_capabilities,
+                detected_capabilities=matrix_detected_capabilities,
                 explicit_expectations=explicit_expectations,
-                detected_expectations=detected_expectations,
+                detected_expectations=matrix_detected_expectations,
             )
         except Exception:
             resolved_context = None
@@ -3929,7 +3953,7 @@ class FactsBuilder:
         context.tenant_mode = tenant_mode
         context.tenant_signals = tenant_signals[:12]
 
-        context.backend_framework = str(backend_context.get("framework", "unknown"))
+        context.backend_framework = str(getattr(matrix, "framework", None) or backend_context.get("framework", "unknown"))
         auto_detected_capabilities_payload: dict[str, dict[str, object]] = {
             key: {
                 "enabled": bool(enabled),
@@ -4901,6 +4925,123 @@ class FactsBuilder:
             f"capabilities={','.join(sorted(caps)) or 'none'}",
             f"team_expectations={','.join(sorted(standards)) or 'none'}",
         ]
+
+    def _detect_react_matrix_context(self) -> dict[str, object]:
+        """Derive static React context signals for react_context_matrix calibration."""
+        inertia_detected = False
+        next_detected = False
+        context_provider_count = 0
+        for comp in getattr(self._facts, "react_components", []) or []:
+            imports = [str(item or "").lower() for item in (getattr(comp, "imports", []) or [])]
+            if any("@inertiajs" in item for item in imports):
+                inertia_detected = True
+            if any("next/router" in item or "next/navigation" in item for item in imports):
+                next_detected = True
+
+        if not inertia_detected and not next_detected:
+            for rel_path in getattr(self._facts, "files", []) or []:
+                low = str(rel_path or "").lower()
+                if not low.endswith((".tsx", ".ts", ".jsx", ".js")):
+                    continue
+                content = self._read_project_file(str(rel_path))
+                if "@inertiajs" in content:
+                    inertia_detected = True
+                if "next/router" in content or "next/navigation" in content:
+                    next_detected = True
+                if "createContext(" in content or ".Provider" in content:
+                    context_provider_count += 1
+
+        if inertia_detected:
+            project_type = "inertia_spa"
+            project_type_conf = 0.9
+            project_type_kind = "structural"
+        elif next_detected:
+            project_type = "next_js"
+            project_type_conf = 0.88
+            project_type_kind = "structural"
+        else:
+            project_type = "standalone"
+            project_type_conf = 0.72
+            project_type_kind = "heuristic"
+
+        npm_packages = {str(k).lower() for k in (getattr(self.project_info, "npm_packages", {}) or {}).keys()}
+        design_system_markers = (
+            "shadcn",
+            "@radix-ui",
+            "@chakra-ui",
+            "@mui",
+            "material-ui",
+        )
+        has_design_system = any(any(marker in pkg for marker in design_system_markers) for pkg in npm_packages)
+
+        public_route_count = 0
+        private_route_count = 0
+        for route in getattr(self._facts, "routes", []) or []:
+            middleware_text = " ".join(str(item or "").lower() for item in (getattr(route, "middleware", []) or []))
+            if "auth" in middleware_text:
+                private_route_count += 1
+            else:
+                public_route_count += 1
+        is_public_facing = public_route_count > 0 and public_route_count >= private_route_count
+
+        tsconfig_strict = False
+        tsconfig = self.project_path / "tsconfig.json"
+        if tsconfig.exists():
+            try:
+                import json
+
+                payload = json.loads(tsconfig.read_text(encoding="utf-8", errors="replace"))
+                compiler_options = payload.get("compilerOptions", {}) if isinstance(payload, dict) else {}
+                tsconfig_strict = bool(isinstance(compiler_options, dict) and compiler_options.get("strict") is True)
+            except Exception:
+                tsconfig_strict = False
+
+        route_count = len(getattr(self._facts, "routes", []) or [])
+        if route_count == 0:
+            route_like_files = 0
+            for rel_path in getattr(self._facts, "files", []) or []:
+                low = str(rel_path or "").lower().replace("\\", "/")
+                if "/pages/" in low or "/routes/" in low:
+                    route_like_files += 1
+            route_count = route_like_files
+
+        capabilities = {
+            "has_design_system": (
+                has_design_system,
+                0.88 if has_design_system else 0.62,
+                ["design_system_packages_detected" if has_design_system else "design_system_packages_not_detected"],
+            ),
+            "is_public_facing": (
+                is_public_facing,
+                0.84 if is_public_facing else 0.64,
+                [f"public_routes={public_route_count}", f"private_routes={private_route_count}"],
+            ),
+            "typescript_strict": (
+                tsconfig_strict,
+                0.9 if tsconfig_strict else 0.7,
+                [f"tsconfig_strict={int(tsconfig_strict)}"],
+            ),
+            "context_provider_count_high": (
+                context_provider_count > 5,
+                0.8,
+                [f"context_provider_count={context_provider_count}"],
+            ),
+            "route_count_large": (
+                route_count >= 10,
+                0.82,
+                [f"route_count={route_count}"],
+            ),
+        }
+
+        return {
+            "project_type": project_type,
+            "project_type_confidence": project_type_conf,
+            "project_type_confidence_kind": project_type_kind,
+            "profile": "component-driven",
+            "profile_confidence": 0.72,
+            "profile_confidence_kind": "heuristic",
+            "capabilities": capabilities,
+        }
 
     def _detect_react_structure_context(self) -> tuple[str, list[str]]:
         import re

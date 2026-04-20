@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from core.fix_intelligence import evaluate_fix_confidence, get_fix_strategy
 from schemas.finding import Finding
 
 
@@ -26,6 +27,11 @@ class FixSuggestion:
     line_end: int
     confidence: float = 0.8
     auto_applicable: bool = False  # Can this be auto-applied?
+    strategy: str = "risky"  # safe|risky|refactor
+    confidence_breakdown: dict[str, float] = field(default_factory=dict)
+    why_correct_for_project: str = ""
+    risk_notes: str = ""
+    requires_human_review: bool = True
     
     def to_diff(self) -> str:
         """Generate a unified diff for this fix."""
@@ -58,6 +64,11 @@ class FixSuggestion:
             "line_end": self.line_end,
             "confidence": self.confidence,
             "auto_applicable": self.auto_applicable,
+            "strategy": self.strategy,
+            "confidence_breakdown": dict(self.confidence_breakdown),
+            "why_correct_for_project": self.why_correct_for_project,
+            "risk_notes": self.risk_notes,
+            "requires_human_review": self.requires_human_review,
             "diff": self.to_diff(),
         }
 
@@ -132,8 +143,14 @@ class AutoFixEngine:
         },
     }
     
-    def __init__(self, project_path: str | Path | None = None):
+    def __init__(
+        self,
+        project_path: str | Path | None = None,
+        *,
+        project_context: dict[str, Any] | None = None,
+    ):
         self.project_path = Path(project_path) if project_path else None
+        self.project_context = dict(project_context or {})
     
     def get_fix_suggestion(self, finding: Finding, file_content: str) -> FixSuggestion | None:
         """
@@ -168,6 +185,16 @@ class AutoFixEngine:
         if not fixed_code:
             return None
         
+        strategy = get_fix_strategy(rule_id)
+        confidence, breakdown, fit_reason, risk_notes = evaluate_fix_confidence(
+            finding=finding,
+            original_code=original_code,
+            fixed_code=fixed_code,
+            strategy=strategy,
+            project_context=self.project_context,
+        )
+        auto_applicable = self._is_auto_applicable(rule_id, strategy)
+
         return FixSuggestion(
             rule_id=rule_id,
             title=f"Fix: {finding.title}",
@@ -176,8 +203,13 @@ class AutoFixEngine:
             fixed_code=fixed_code,
             line_start=line_start,
             line_end=line_end,
-            confidence=self._get_fix_confidence(rule_id),
-            auto_applicable=self._is_auto_applicable(rule_id),
+            confidence=confidence,
+            auto_applicable=auto_applicable,
+            strategy=strategy,
+            confidence_breakdown=breakdown,
+            why_correct_for_project=fit_reason,
+            risk_notes=risk_notes,
+            requires_human_review=(strategy != "safe" or not auto_applicable),
         )
     
     def _apply_fix(self, rule_id: str, code: str, finding: Finding) -> str | None:
@@ -229,21 +261,10 @@ class AutoFixEngine:
         
         return None
     
-    def _get_fix_confidence(self, rule_id: str) -> float:
-        """Get confidence level for auto-fix."""
-        high_confidence = {"no-log-debug-in-app", "env-outside-config"}
-        medium_confidence = {"prefer-imports", "react-no-array-index-key"}
-        
-        if rule_id in high_confidence:
-            return 0.95
-        elif rule_id in medium_confidence:
-            return 0.75
-        return 0.5
-    
-    def _is_auto_applicable(self, rule_id: str) -> bool:
+    def _is_auto_applicable(self, rule_id: str, strategy: str) -> bool:
         """Check if fix can be auto-applied safely."""
         safe_rules = {"no-log-debug-in-app"}
-        return rule_id in safe_rules
+        return strategy == "safe" and rule_id in safe_rules
     
     def get_fixes_for_findings(
         self,

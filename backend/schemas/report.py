@@ -112,6 +112,27 @@ class ActionItem(BaseModel):
     files: list[str] = Field(default_factory=list)
 
 
+class TriageItem(BaseModel):
+    """Multi-factor prioritization item for fix planning."""
+
+    id: str
+    rule_id: str
+    category: str
+    title: str
+    strategy: str = "risky"  # safe|risky|refactor
+    recommendation: str = "schedule_next"  # fix_now|schedule_next|ignore_safely_candidate
+    impact: float = 0.0
+    risk: float = 0.0
+    effort: float = 0.0
+    context_multiplier: float = 1.0
+    triage_score: float = 0.0
+    rationale: str = ""
+    max_severity: Severity = Severity.LOW
+    classification: FindingClassification = FindingClassification.ADVISORY
+    finding_fingerprints: list[str] = Field(default_factory=list)
+    files: list[str] = Field(default_factory=list)
+
+
 class ComplexityHotspot(BaseModel):
     """Method-level complexity hotspot for UI."""
 
@@ -181,6 +202,10 @@ class ScanReport(BaseModel):
 
     # Recommended actions (derived from findings)
     action_plan: list[ActionItem] = Field(default_factory=list)
+    triage_plan: list[TriageItem] = Field(default_factory=list)
+    top_5_first: list[str] = Field(default_factory=list)
+    safe_to_defer: list[str] = Field(default_factory=list)
+    pipeline_cache: dict[str, Any] = Field(default_factory=dict)
     
     # Human-readable summary
     summary: str = ""

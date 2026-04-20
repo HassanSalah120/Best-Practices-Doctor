@@ -21,6 +21,8 @@ type Finding = {
   description?: string;
   why_it_matters?: string;
   suggested_fix?: string;
+  why_flagged?: string;
+  why_not_ignored?: string;
   evidence_signals?: string[];
   context?: string;
   score_impact?: number;
@@ -412,6 +414,8 @@ function compactFinding(
     out.description = f.description ?? "";
     out.why_it_matters = f.why_it_matters ?? "";
     out.suggested_fix = f.suggested_fix ?? "";
+    out.why_flagged = f.why_flagged ?? "";
+    out.why_not_ignored = f.why_not_ignored ?? "";
     out.tags = f.tags ?? [];
     out.evidence_signals = f.evidence_signals ?? [];
   }
@@ -834,6 +838,104 @@ server.tool(
 );
 
 server.tool(
+  "bpdoctor.explain_finding",
+  { fingerprint: z.string().min(6) },
+  async ({ fingerprint }) => {
+    const id = await requireActiveScanId();
+    const resp = await httpJson<any>(
+      "GET",
+      apiUrl(`/api/scan/${id}/findings/${encodeURIComponent(fingerprint)}/explain`)
+    );
+    return { content: [{ type: "text", text: JSON.stringify(resp) }] };
+  }
+);
+
+server.tool(
+  "bpdoctor.suggest_fix",
+  { fingerprint: z.string().min(6) },
+  async ({ fingerprint }) => {
+    const id = await requireActiveScanId();
+    const resp = await httpJson<any>(
+      "GET",
+      apiUrl(`/api/scan/${id}/findings/${encodeURIComponent(fingerprint)}/suggest-fix`)
+    );
+    return { content: [{ type: "text", text: JSON.stringify(resp) }] };
+  }
+);
+
+server.tool(
+  "bpdoctor.group_fixes",
+  {
+    group_by: z.enum(["rule", "file", "strategy"]).optional(),
+    include_only_recommendation: z.enum(["fix_now", "schedule_next", "ignore_safely_candidate"]).optional(),
+  },
+  async ({ group_by, include_only_recommendation }) => {
+    const id = await requireActiveScanId();
+    const fixesResp = await httpJson<any>("GET", apiUrl(`/api/scan/${id}/fixes`));
+    const triageResp = await httpJson<any>("GET", apiUrl(`/api/scan/${id}/triage`));
+
+    const triageList: any[] = Array.isArray(triageResp?.triage_plan) ? triageResp.triage_plan : [];
+    const triageByRule = new Map<string, any>();
+    for (const t of triageList) {
+      const rid = String(t?.rule_id || "");
+      if (!rid) continue;
+      if (!triageByRule.has(rid) || Number(t?.triage_score || 0) > Number(triageByRule.get(rid)?.triage_score || 0)) {
+        triageByRule.set(rid, t);
+      }
+    }
+
+    const grouped: Record<string, any[]> = {};
+    const byFile = (fixesResp?.fixes && typeof fixesResp.fixes === "object") ? fixesResp.fixes : {};
+    const mode = group_by || "rule";
+    for (const [filePath, fixes] of Object.entries(byFile)) {
+      if (!Array.isArray(fixes)) continue;
+      for (const raw of fixes as any[]) {
+        const ruleId = String(raw?.rule_id || "");
+        const strategy = String(raw?.strategy || "risky");
+        const triage = triageByRule.get(ruleId) || null;
+        if (include_only_recommendation && String(triage?.recommendation || "") !== include_only_recommendation) {
+          continue;
+        }
+        const key =
+          mode === "file" ? String(filePath) : mode === "strategy" ? strategy : ruleId;
+        const item = {
+          file: filePath,
+          rule_id: ruleId,
+          strategy,
+          confidence: Number(raw?.confidence || 0),
+          auto_applicable: Boolean(raw?.auto_applicable),
+          requires_human_review: Boolean(raw?.requires_human_review ?? true),
+          triage_score: Number(triage?.triage_score || 0),
+          recommendation: String(triage?.recommendation || "schedule_next"),
+          fix: raw,
+        };
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(item);
+      }
+    }
+
+    for (const key of Object.keys(grouped)) {
+      grouped[key].sort((a, b) => (b.triage_score - a.triage_score) || (b.confidence - a.confidence));
+    }
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            active_job_id: id,
+            group_by: mode,
+            groups: grouped,
+            top_5_first: triageResp?.top_5_first || [],
+            safe_to_defer: triageResp?.safe_to_defer || [],
+          }),
+        },
+      ],
+    };
+  }
+);
+
+server.tool(
   "bpdoctor.set_status",
   {
     fingerprint: z.string().min(6),
@@ -842,13 +944,37 @@ server.tool(
   },
   async ({ fingerprint, status, note }) => {
     const st = await loadState();
+    const activeJobId = (st.active_job_id || "").trim();
     st.statuses[fingerprint] = {
       status,
       note: note || st.statuses[fingerprint]?.note || "",
       updated_at: nowIso(),
     };
     await saveState(st);
-    return { content: [{ type: "text", text: JSON.stringify(st.statuses[fingerprint]) }] };
+    let backendStatusResult: any = null;
+    if (activeJobId) {
+      try {
+        backendStatusResult = await httpJson<any>(
+          "POST",
+          apiUrl(`/api/scan/${activeJobId}/findings/${encodeURIComponent(fingerprint)}/status`),
+          { status, note: note || "" }
+        );
+      } catch {
+        // Keep MCP local state behavior backward-compatible if backend endpoint is unavailable.
+        backendStatusResult = null;
+      }
+    }
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            local: st.statuses[fingerprint],
+            backend: backendStatusResult,
+          }),
+        },
+      ],
+    };
   }
 );
 

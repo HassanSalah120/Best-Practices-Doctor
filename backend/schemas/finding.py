@@ -63,6 +63,9 @@ class Finding(BaseModel):
     description: str
     why_it_matters: str
     suggested_fix: str
+    # Additive trust/explainability fields (optional, populated centrally post-rule execution)
+    why_flagged: str | None = None
+    why_not_ignored: str | None = None
     
     # Code example (before/after)
     code_example: str | None = None

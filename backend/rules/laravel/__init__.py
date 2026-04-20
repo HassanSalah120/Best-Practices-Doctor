@@ -28,6 +28,7 @@ from .no_log_debug_in_app import NoLogDebugInAppRule
 from .no_closure_routes import NoClosureRoutesRule
 from .heavy_logic_in_routes import HeavyLogicInRoutesRule
 from .duplicate_route_definition import DuplicateRouteDefinitionRule
+from .missing_rate_limiting import MissingRateLimitingRule
 from .missing_throttle_on_auth_api_routes import MissingThrottleOnAuthApiRoutesRule
 from .missing_auth_on_mutating_api_routes import MissingAuthOnMutatingApiRoutesRule
 from .policy_coverage_on_mutations import PolicyCoverageOnMutationsRule
@@ -46,7 +47,9 @@ from .sensitive_model_appends_risk import SensitiveModelAppendsRiskRule
 from .sensitive_routes_missing_verified_middleware import SensitiveRoutesMissingVerifiedMiddlewareRule
 from .tenant_access_middleware_missing import TenantAccessMiddlewareMissingRule
 from .signed_routes_missing_signature_middleware import SignedRoutesMissingSignatureMiddlewareRule
+from .unsafe_redirect import UnsafeRedirectRule
 from .unsafe_external_redirect import UnsafeExternalRedirectRule
+from .unvalidated_login_redirect import UnvalidatedLoginRedirectRule
 from .authorization_missing_on_sensitive_reads import AuthorizationMissingOnSensitiveReadsRule
 from .insecure_session_cookie_config import InsecureSessionCookieConfigRule
 from .unsafe_csp_policy import UnsafeCspPolicyRule
@@ -84,6 +87,15 @@ from .broadcast_channel_authorization_missing import BroadcastChannelAuthorizati
 from .observer_heavy_logic import ObserverHeavyLogicRule
 from .public_api_versioning_missing import PublicApiVersioningMissingRule
 from .error_pages_missing import ErrorPagesMissingRule
+from .missing_hsts_header import MissingHstsHeaderRule
+from .cookie_samesite_missing import CookieSameSiteMissingRule
+from .timing_attack_token_comparison import TimingAttackTokenComparisonRule
+from .password_hash_weak_algorithm import PasswordHashWeakAlgorithmRule
+from .api_debug_trace_leak import ApiDebugTraceLeakRule
+from .plain_text_sensitive_config import PlainTextSensitiveConfigRule
+from .livewire_public_prop_mass_assignment import LivewirePublicPropMassAssignmentRule
+from .missing_content_security_policy import MissingContentSecurityPolicyRule
+from .debug_exposure_risk import DebugExposureRiskRule
 # New performance and security rules
 from .hardcoded_secrets import HardcodedSecretsRule
 from .sensitive_data_logging import SensitiveDataLoggingRule
@@ -135,6 +147,7 @@ __all__ = [
     "NoClosureRoutesRule",
     "HeavyLogicInRoutesRule",
     "DuplicateRouteDefinitionRule",
+    "MissingRateLimitingRule",
     "MissingThrottleOnAuthApiRoutesRule",
     "MissingAuthOnMutatingApiRoutesRule",
     "PolicyCoverageOnMutationsRule",
@@ -153,7 +166,9 @@ __all__ = [
     "SensitiveRoutesMissingVerifiedMiddlewareRule",
     "TenantAccessMiddlewareMissingRule",
     "SignedRoutesMissingSignatureMiddlewareRule",
+    "UnsafeRedirectRule",
     "UnsafeExternalRedirectRule",
+    "UnvalidatedLoginRedirectRule",
     "AuthorizationMissingOnSensitiveReadsRule",
     "InsecureSessionCookieConfigRule",
     "UnsafeCspPolicyRule",
@@ -191,6 +206,15 @@ __all__ = [
     "ObserverHeavyLogicRule",
     "PublicApiVersioningMissingRule",
     "ErrorPagesMissingRule",
+    "MissingHstsHeaderRule",
+    "CookieSameSiteMissingRule",
+    "TimingAttackTokenComparisonRule",
+    "PasswordHashWeakAlgorithmRule",
+    "ApiDebugTraceLeakRule",
+    "PlainTextSensitiveConfigRule",
+    "LivewirePublicPropMassAssignmentRule",
+    "MissingContentSecurityPolicyRule",
+    "DebugExposureRiskRule",
     # New performance and security rules
     "HardcodedSecretsRule",
     "SensitiveDataLoggingRule",

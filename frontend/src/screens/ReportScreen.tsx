@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import type { ScanReport, Finding, FileSummary } from "@/types/api";
+import type { ScanReport, Finding, FileSummary, ScanProjectContextOverrides } from "@/types/api";
 import { Severity, type Severity as SeverityT } from "@/types/api";
 import { ApiClient } from "@/lib/api";
 import { copyTextToClipboard } from "@/lib/clipboard";
@@ -27,6 +27,7 @@ interface ReportScreenProps {
     jobId: string;
     onBack: () => void;
     onRescan: (newJobId: string) => void;
+    projectContextOverrides?: ScanProjectContextOverrides;
 }
 
 type SeverityFilterMode = "all" | "high" | "medium" | "low";
@@ -39,7 +40,12 @@ const SEVERITY_FILTER_OPTIONS: ReadonlyArray<{ id: SeverityFilterMode; label: st
     { id: "low", label: "Low+" },
 ];
 
-export const ReportScreen: React.FC<ReportScreenProps> = ({ jobId, onBack, onRescan }) => {
+export const ReportScreen: React.FC<ReportScreenProps> = ({
+    jobId,
+    onBack,
+    onRescan,
+    projectContextOverrides,
+}) => {
     const [report, setReport] = useState<ScanReport | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
@@ -901,6 +907,8 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ jobId, onBack, onRes
                                 const { job_id } = await ApiClient.startScan(
                                     report.project_path,
                                     report.ruleset_path ?? undefined,
+                                    undefined,
+                                    projectContextOverrides,
                                 );
                                 onRescan(job_id);
                             } catch (err) {
@@ -1429,6 +1437,8 @@ export const ReportScreen: React.FC<ReportScreenProps> = ({ jobId, onBack, onRes
                                                 const { job_id } = await ApiClient.startScan(
                                                     report.project_path,
                                                     report.ruleset_path ?? undefined,
+                                                    undefined,
+                                                    projectContextOverrides,
                                                 );
                                                 onRescan(job_id);
                                             } catch (err) {

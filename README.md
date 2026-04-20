@@ -83,6 +83,14 @@ cargo build --release
 
 ## 📚 Usage Guide
 
+## 📘 Project Context Pack
+
+For contributors and AI agents, use this token-saving deep reference first:
+
+- [`docs/PROJECT_CONTEXT_FULL.md`](docs/PROJECT_CONTEXT_FULL.md)
+
+It captures architecture, scan pipeline flow, rule engine behavior, profile calibration, API surface, Tauri sidecar discovery, MCP integration, and high-value test playbooks.
+
 ### Starting a Scan
 
 1. **Launch the application**

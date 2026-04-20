@@ -10,8 +10,9 @@ from fastapi.responses import StreamingResponse
 from fastapi.responses import Response
 
 from core.job_manager import job_manager, CancellationToken, JobManager
+from core.pipeline import ScanPipelineRequest, run_scan_pipeline
 from core.detector import ProjectDetector
-from core.ruleset import Ruleset, DEFAULT_RULESET
+from core.ruleset import Ruleset
 from core.sarif import findings_to_sarif
 from core.hashing import fast_hash_hex
 from schemas.report import ScanJob, ScanReport
@@ -214,261 +215,24 @@ async def run_scan(
     token: CancellationToken,
     manager: JobManager,
 ) -> ScanReport:
-    """
-    Main scan function - orchestrates the full analysis pipeline.
-    
-    Pipeline stages:
-    1. Detect project type
-    2. Build raw facts from source files
-    3. Run rules against facts
-    4. Calculate scores from findings
-    5. Generate report
-    """
-    import asyncio
-    import uuid
-    import time
-    from datetime import datetime
-    from schemas import ScanReport, QualityScores, FileSummary, ProjectInfo
-    from analysis.facts_builder import FactsBuilder
-    from core.rule_engine import create_engine
-    from core.scoring import ScoringEngine
-    
-    start_time = time.perf_counter()
-    
-    # job_id is now passed explicitly
-    loop = asyncio.get_running_loop()
-    
-    # --- Phase 1: Detect project type ---
-    await manager.update_progress(job_id, 5.0, "detecting")
-    token.check()
-    
-    detector = ProjectDetector(project_path)
-    project_info = await asyncio.to_thread(detector.detect)
-    
-    # --- Phase 2: Build facts from source files ---
-    await manager.update_progress(job_id, 10.0, "parsing")
-    token.check()
-    
-    # Load ruleset (override path > active profile > user-saved > packaged default > built-in)
-    ruleset = None
-    if ruleset_path:
-        # Use explicit override path if provided
-        try:
-            ruleset = Ruleset.load(ruleset_path)
-        except Exception:
-            pass
-    
-    if ruleset is None and baseline_profile:
-        # Load the active profile ruleset (strict/balanced/startup)
-        try:
-            from core.ruleset_profiles import get_profile_path
-            profile_path = get_profile_path(baseline_profile)
-            if profile_path:
-                ruleset = Ruleset.load(profile_path)
-        except Exception:
-            pass
-    
-    if ruleset is None:
-        # Fall back to default loading chain
-        ruleset = Ruleset.load_default(override_path=ruleset_path)
-
-    ignore_patterns = ruleset.scan.ignore
-    
-    # Create facts builder with cancellation check
-    facts_builder = FactsBuilder(
-        project_info=project_info,
-        ignore_patterns=ignore_patterns,
-        cancellation_check=token.is_cancelled,
-        max_file_size_kb=ruleset.scan.max_file_size_kb,
-        max_files=ruleset.scan.max_files,
-        context_overrides=project_context_overrides,
-    )
-    
-    # Progress callback for facts building - handled thread-safely
-    def on_facts_progress(progress):
-        if progress.total_files > 0:
-            pct = 10.0 + (progress.files_processed / progress.total_files) * 40.0
-            asyncio.run_coroutine_threadsafe(
-                manager.update_progress(
-                    job_id,
-                    pct,
-                    "parsing",
-                    current_file=progress.current_file,
-                    files_processed=progress.files_processed,
-                    files_total=progress.total_files,
-                ),
-                loop
-            )
-    
-    # Build facts (run in thread to not block)
-    facts = await asyncio.to_thread(facts_builder.build, on_facts_progress)
-    token.check()
-    
-    # --- Phase 2.5: Calculate derived metrics ---
-    from analysis.metrics_analyzer import MetricsAnalyzer
-    
-    analyzer = MetricsAnalyzer()
-    metrics = analyzer.analyze(facts)
-    
-    # --- Phase 3: Run rules against facts ---
-    await manager.update_progress(job_id, 55.0, "analyzing")
-    token.check()
-    
-    # Create rule engine with ruleset
-    rule_engine = create_engine(ruleset=ruleset, selected_rules=selected_rules)
-    
-    # Progress callback for rule execution - maps 55% to 80% range
-    def on_rule_progress(fraction: float, rules_done: int, rules_total: int):
-        # Map rule progress (0-1) to progress range (55-80)
-        pct = 55.0 + fraction * 25.0
-        asyncio.run_coroutine_threadsafe(
-            manager.update_progress(
-                job_id,
-                pct,
-                "analyzing",
-                current_file=f"Rule {rules_done}/{rules_total}",
-                files_processed=rules_done,
-                files_total=rules_total,
-            ),
-            loop
-        )
-    
-    # Run rules with progress callback
-    engine_result = await asyncio.to_thread(
-        rule_engine.run,
-        facts,
-        metrics,  # Pass computed metrics
-        project_info.project_type.value,
-        token.is_cancelled,
-        differential_mode,
-        set(changed_files or []),
-        on_rule_progress,
-    )
-    token.check()
-    
-    await manager.update_progress(job_id, 80.0, "analyzing")
-    
-    # --- Phase 4 & 5: Calculate scores and Generate Report ---
-    await manager.update_progress(job_id, 85.0, "scoring")
-    token.check()
-    
-    scoring_engine = ScoringEngine(ruleset)
-    report = await asyncio.to_thread(
-        scoring_engine.generate_report,
-        job_id=job_id or f"scan_{uuid.uuid4().hex[:12]}",
+    """Thin adapter that forwards scan execution to the composable pipeline."""
+    pipeline_request = ScanPipelineRequest(
         project_path=project_path,
-        findings=engine_result.findings,
-        facts=facts,
-        project_info=project_info,
-        ruleset_path=str(ruleset_path) if ruleset_path else None,
-        rules_executed=rule_engine.get_rule_ids(),
+        ruleset_path=ruleset_path,
+        baseline_profile=baseline_profile,
+        differential_mode=differential_mode,
+        changed_files=changed_files,
+        pr_mode=pr_mode,
+        pr_gate_preset=pr_gate_preset,
+        selected_rules=selected_rules,
+        project_context_overrides=project_context_overrides,
     )
-    try:
-        if not isinstance(report.analysis_debug, dict):
-            report.analysis_debug = {}
-        report.analysis_debug["requested_project_context"] = dict(project_context_overrides or {})
-    except Exception:
-        pass
-
-    # Phase 11: compute UI hotspots from derived metrics/facts (do not change scoring behavior).
-    try:
-        from schemas.report import ComplexityHotspot, DuplicationHotspot
-
-        method_by_fqn = {m.method_fqn: m for m in getattr(facts, "methods", []) or []}
-        hotspots: list[ComplexityHotspot] = []
-        for mm in (metrics or {}).values():
-            if not mm:
-                continue
-            mi = method_by_fqn.get(getattr(mm, "method_fqn", "") or "")
-            if not mi:
-                continue
-            hotspots.append(
-                ComplexityHotspot(
-                    method_fqn=mm.method_fqn,
-                    file=mm.file_path,
-                    line_start=int(getattr(mi, "line_start", 1) or 1),
-                    loc=int(getattr(mi, "loc", 0) or 0),
-                    cyclomatic=int(getattr(mm, "cyclomatic_complexity", 1) or 1),
-                    cognitive=int(getattr(mm, "cognitive_complexity", 1) or 1),
-                    nesting_depth=int(getattr(mm, "nesting_depth", 0) or 0),
-                )
-            )
-
-        hotspots.sort(key=lambda h: (-h.cognitive, -h.cyclomatic, h.method_fqn))
-        report.complexity_hotspots = hotspots[:10]
-
-        dup_raw = getattr(facts, "_duplication", None)
-        dup_hs: list[DuplicationHotspot] = []
-        if isinstance(dup_raw, dict):
-            for fp, data in dup_raw.items():
-                if not isinstance(data, dict):
-                    continue
-                try:
-                    pct = float(data.get("duplication_pct", 0.0) or 0.0)
-                except Exception:
-                    pct = 0.0
-                if pct <= 0:
-                    continue
-                dup_hs.append(
-                    DuplicationHotspot(
-                        file=str(fp),
-                        duplication_pct=float(pct),
-                        duplicated_tokens=int(data.get("duplicated_tokens", 0) or 0),
-                        total_tokens=int(data.get("total_tokens", 0) or 0),
-                        duplicate_blocks=int(data.get("duplicate_blocks", 0) or 0),
-                    )
-                )
-
-        dup_hs.sort(key=lambda d: (-d.duplication_pct, -d.duplicated_tokens, d.file))
-        report.duplication_hotspots = dup_hs[:10]
-    except Exception:
-        pass
-    
-    # Update duration
-    report.duration_ms = round((time.perf_counter() - start_time) * 1000)
-
-    # Phase 10: baseline delta ("new issues since last scan") persisted per project in app data.
-    try:
-        from core.baseline import update_report_baseline_metadata
-
-        profile_for_baseline = (baseline_profile or getattr(ruleset, "name", "startup") or "startup").strip()
-        baseline_diff = update_report_baseline_metadata(report, profile=profile_for_baseline)
-    except Exception:
-        baseline_diff = None
-
-    # Optional PR mode: evaluate gate directly on new regressions vs baseline.
-    if pr_mode:
-        try:
-            from core.pr_gate import evaluate_pr_gate
-
-            gate = evaluate_pr_gate(
-                report,
-                preset_name=pr_gate_preset or getattr(ruleset, "name", "startup"),
-                profile=profile_for_baseline if "profile_for_baseline" in locals() else None,
-                baseline_diff=baseline_diff,
-            )
-            setattr(
-                report,
-                "pr_gate",
-                {
-                    "preset": gate.preset,
-                    "profile": gate.profile,
-                    "passed": gate.passed,
-                    "reason": gate.reason,
-                    "baseline_has_previous": gate.baseline_has_previous,
-                    "baseline_path": gate.baseline_path,
-                    "total_new_findings": gate.total_new_findings,
-                    "eligible_new_findings": gate.eligible_new_findings,
-                    "blocking_findings_count": gate.blocking_findings_count,
-                    "blocking_fingerprints": list(gate.blocking_fingerprints),
-                    "by_severity": dict(gate.by_severity),
-                    "by_rule": dict(gate.by_rule),
-                },
-            )
-        except Exception:
-            pass
-    
-    return report
+    return await run_scan_pipeline(
+        pipeline_request,
+        job_id=job_id,
+        token=token,
+        manager=manager,
+    )
 
 
 # --- Endpoints ---
@@ -743,6 +507,195 @@ async def get_file_content(job_id: str, path: str = Query(..., description="File
         raise HTTPException(status_code=500, detail=f"Failed to read file: {e}")
 
 
+class FindingStatusUpdateRequest(BaseModel):
+    """Update finding work status for project intelligence tracking."""
+    status: str = Field(..., description="open|in_progress|fixed|skipped")
+    note: str = ""
+
+
+class FindingFeedbackRequest(BaseModel):
+    """One-click feedback payload for false-positive collection."""
+    feedback_type: str = Field(..., description="false_positive|not_actionable|correct")
+
+
+def _latest_completed_report() -> ScanReport | None:
+    reports = list(getattr(job_manager, "_reports", {}).values())
+    if not reports:
+        return None
+    return reports[-1]
+
+
+@router.get("/scan/{job_id}/findings/{fingerprint}/explain")
+async def explain_finding(job_id: str, fingerprint: str):
+    """Return explainability/trust payload for a finding."""
+    report = job_manager.get_report(job_id)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
+
+    finding = next((f for f in report.findings if str(getattr(f, "fingerprint", "")) == str(fingerprint)), None)
+    if not finding:
+        raise HTTPException(status_code=404, detail=f"Finding not found: {fingerprint}")
+
+    trust_payload = {}
+    if isinstance(getattr(finding, "metadata", None), dict):
+        trust_candidate = finding.metadata.get("trust")
+        if isinstance(trust_candidate, dict):
+            trust_payload = trust_candidate
+
+    return {
+        "fingerprint": finding.fingerprint,
+        "rule_id": finding.rule_id,
+        "file": finding.file,
+        "line_start": finding.line_start,
+        "title": finding.title,
+        "severity": str(getattr(finding.severity, "value", finding.severity)),
+        "classification": str(getattr(finding.classification, "value", finding.classification)),
+        "why_flagged": finding.why_flagged or "",
+        "why_not_ignored": finding.why_not_ignored or "",
+        "evidence_signals": list(getattr(finding, "evidence_signals", []) or []),
+        "trust": trust_payload,
+    }
+
+
+@router.get("/scan/{job_id}/findings/{fingerprint}/suggest-fix")
+async def suggest_fix_for_finding(job_id: str, fingerprint: str):
+    """Return intelligent fix suggestion for one finding."""
+    report = job_manager.get_report(job_id)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
+
+    finding = next((f for f in report.findings if str(getattr(f, "fingerprint", "")) == str(fingerprint)), None)
+    if not finding:
+        raise HTTPException(status_code=404, detail=f"Finding not found: {fingerprint}")
+
+    file_path = Path(report.project_path) / finding.file
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"File not found: {finding.file}")
+
+    try:
+        from core.auto_fix import AutoFixEngine
+
+        content = file_path.read_text(encoding="utf-8", errors="replace")
+        project_context = {}
+        if isinstance(getattr(report, "analysis_debug", None), dict):
+            project_context = dict(report.analysis_debug.get("project_context") or {})
+        engine = AutoFixEngine(project_context=project_context)
+        fix = engine.get_fix_suggestion(finding, content)
+        return {
+            "fingerprint": finding.fingerprint,
+            "rule_id": finding.rule_id,
+            "has_fix": fix is not None,
+            "fix": FixSuggestionResponse(**fix.to_dict()).model_dump() if fix else None,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to suggest fix: {e}")
+
+
+@router.get("/scan/{job_id}/triage")
+async def get_scan_triage(job_id: str):
+    """Return triage-plan projection from report."""
+    report = job_manager.get_report(job_id)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
+    return {
+        "triage_plan": [item.model_dump() for item in (getattr(report, "triage_plan", []) or [])],
+        "top_5_first": list(getattr(report, "top_5_first", []) or []),
+        "safe_to_defer": list(getattr(report, "safe_to_defer", []) or []),
+    }
+
+
+@router.post("/scan/{job_id}/findings/{fingerprint}/status")
+async def update_finding_status(job_id: str, fingerprint: str, request: FindingStatusUpdateRequest):
+    """Track finding status for project intelligence (advisory memory)."""
+    report = job_manager.get_report(job_id)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
+    finding = next((f for f in report.findings if str(getattr(f, "fingerprint", "")) == str(fingerprint)), None)
+    if not finding:
+        raise HTTPException(status_code=404, detail=f"Finding not found: {fingerprint}")
+
+    status = str(request.status or "").strip().lower()
+    if status not in {"open", "in_progress", "fixed", "skipped"}:
+        raise HTTPException(status_code=400, detail="Invalid status; use open|in_progress|fixed|skipped")
+
+    try:
+        from core.project_memory import ProjectIntelligenceManager
+
+        manager = ProjectIntelligenceManager()
+        memory = manager.record_finding_status(
+            report.project_path,
+            rule_id=finding.rule_id,
+            status=status,
+        )
+        return {
+            "status": "updated",
+            "fingerprint": finding.fingerprint,
+            "rule_id": finding.rule_id,
+            "finding_status": status,
+            "note": request.note or "",
+            "memory_updated_at": memory.updated_at,
+            "project_hash": memory.project_hash,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update finding status: {e}")
+
+
+@router.post("/findings/{fingerprint}/feedback")
+async def submit_finding_feedback(fingerprint: str, request: FindingFeedbackRequest):
+    """Record false-positive/not-actionable/correct feedback for the latest scan finding."""
+    feedback_type = str(request.feedback_type or "").strip().lower()
+    if feedback_type not in {"false_positive", "not_actionable", "correct"}:
+        raise HTTPException(status_code=400, detail="Invalid feedback_type")
+
+    report = _latest_completed_report()
+    if report is None:
+        raise HTTPException(status_code=404, detail="No completed scan available")
+
+    finding = next((f for f in report.findings if str(getattr(f, "fingerprint", "")) == str(fingerprint)), None)
+    if finding is None:
+        raise HTTPException(status_code=404, detail=f"Finding not found in latest scan: {fingerprint}")
+
+    try:
+        from core.fp_feedback import FeedbackBusyError, FeedbackStore
+
+        store = FeedbackStore()
+        store.record(
+            fingerprint=fingerprint,
+            rule_id=finding.rule_id,
+            project_hash=fast_hash_hex(report.project_path, length=16),
+            feedback_type=feedback_type,
+        )
+        return {"status": "recorded"}
+    except FeedbackBusyError:
+        return Response(
+            content='{"status":"busy","retry_after":2}',
+            status_code=409,
+            media_type="application/json",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to record feedback: {e}")
+
+
+@router.get("/feedback/summary")
+async def get_feedback_summary():
+    """Return aggregated feedback counters grouped by rule id."""
+    try:
+        from core.fp_feedback import FeedbackBusyError, FeedbackStore
+
+        store = FeedbackStore()
+        return {"by_rule": store.summary()}
+    except FeedbackBusyError:
+        return Response(
+            content='{"status":"busy","retry_after":2}',
+            status_code=409,
+            media_type="application/json",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to summarize feedback: {e}")
+
+
 @router.get("/ruleset")
 async def get_ruleset():
     """Get the current ruleset configuration."""
@@ -921,6 +874,15 @@ async def add_suppression(job_id: str, request: SuppressionRequest):
             until=until,
             created_by=request.created_by,
         )
+        try:
+            from core.project_memory import ProjectIntelligenceManager
+
+            ProjectIntelligenceManager().record_suppression(
+                report.project_path,
+                rule_id=request.rule_id or "*",
+            )
+        except Exception:
+            pass
         
         return SuppressionResponse(
             id=rule.id,
@@ -991,6 +953,11 @@ class FixSuggestionResponse(BaseModel):
     line_end: int
     confidence: float
     auto_applicable: bool
+    strategy: str = "risky"
+    confidence_breakdown: dict[str, float] = Field(default_factory=dict)
+    why_correct_for_project: str = ""
+    risk_notes: str = ""
+    requires_human_review: bool = True
     diff: str
 
 
@@ -1004,7 +971,10 @@ async def get_fix_suggestions(job_id: str):
     try:
         from core.auto_fix import AutoFixEngine
         
-        engine = AutoFixEngine()
+        project_context = {}
+        if isinstance(getattr(report, "analysis_debug", None), dict):
+            project_context = dict(report.analysis_debug.get("project_context") or {})
+        engine = AutoFixEngine(project_context=project_context)
         fixes_by_file = engine.get_fixes_for_findings(report.findings, report.project_path)
         
         result = {}
@@ -1035,7 +1005,10 @@ async def get_file_fix_suggestions(job_id: str, file_path: str):
         if not file_findings:
             return {"fixes": [], "total": 0}
         
-        engine = AutoFixEngine()
+        project_context = {}
+        if isinstance(getattr(report, "analysis_debug", None), dict):
+            project_context = dict(report.analysis_debug.get("project_context") or {})
+        engine = AutoFixEngine(project_context=project_context)
         file_content_path = Path(report.project_path) / file_path
         
         if not file_content_path.exists():
@@ -1070,7 +1043,10 @@ async def apply_fix(job_id: str, file_path: str, line_start: int = Query(...), d
     try:
         from core.auto_fix import AutoFixEngine
         
-        engine = AutoFixEngine()
+        project_context = {}
+        if isinstance(getattr(report, "analysis_debug", None), dict):
+            project_context = dict(report.analysis_debug.get("project_context") or {})
+        engine = AutoFixEngine(project_context=project_context)
         full_path = Path(report.project_path) / file_path
         
         if not full_path.exists():
@@ -1090,8 +1066,11 @@ async def apply_fix(job_id: str, file_path: str, line_start: int = Query(...), d
         if not fix:
             raise HTTPException(status_code=400, detail="No fix available for this finding")
         
-        if not fix.auto_applicable and not dry_run:
-            raise HTTPException(status_code=400, detail="This fix requires manual review")
+        if (not fix.auto_applicable or fix.strategy != "safe") and not dry_run:
+            raise HTTPException(
+                status_code=400,
+                detail="Only safe auto-applicable fixes can be applied automatically; use dry_run preview for risky/refactor fixes",
+            )
         
         success, result = engine.apply_fix(full_path, fix, dry_run=dry_run)
         

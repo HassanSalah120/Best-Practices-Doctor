@@ -85,6 +85,14 @@ class ScoringConfig(BaseModel):
     # Noise reduction: for LOW/INFO findings, only apply the worst penalty once per file per rule.
     # This prevents e.g. long-method (low) from nuking a category due to many occurrences.
     cap_low_info_per_file_rule: bool = True
+    # Optional weights for triage scoring (additive; defaults preserve current behavior).
+    triage_weights: dict[str, float] = Field(default_factory=lambda: {
+        "impact": 1.0,
+        "risk": 1.0,
+        "effort": 1.0,
+        "context": 1.0,
+        "effort_discount": 0.6,
+    })
 
 
 class Ruleset(BaseModel):

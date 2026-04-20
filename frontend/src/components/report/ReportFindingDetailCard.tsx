@@ -1,7 +1,9 @@
-import { CheckCircle2, Info, Sparkles, AlertCircle, AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, Info, Sparkles, AlertCircle, AlertTriangle, ThumbsDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ApiClient } from "@/lib/api";
 import type { Finding } from "@/types/api";
 import { getSeverityBadgeVariant } from "./reportUtils";
 
@@ -24,6 +26,10 @@ export function ReportFindingDetailCard({
   onOpenPrompt: () => void;
 }) {
   const finding = findings[0];
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
+  const [feedbackRecorded, setFeedbackRecorded] = useState(false);
+  const [feedbackError, setFeedbackError] = useState("");
   const occurrences = findings.length;
   const severityVariant = getSeverityBadgeVariant(finding.severity);
   const decisionProfile = finding.metadata?.decision_profile;
@@ -37,6 +43,21 @@ export function ReportFindingDetailCard({
     typeof decisionProfile?.profile_confidence === "number" && Number.isFinite(decisionProfile.profile_confidence)
       ? `${Math.round(decisionProfile.profile_confidence * 100)}% ${String(decisionProfile.profile_confidence_kind ?? "unknown")}`
       : null;
+
+  const submitFeedback = async (feedbackType: "false_positive" | "not_actionable") => {
+    if (feedbackBusy || feedbackRecorded) return;
+    try {
+      setFeedbackBusy(true);
+      setFeedbackError("");
+      await ApiClient.submitFindingFeedback(finding.fingerprint, feedbackType);
+      setFeedbackRecorded(true);
+      setFeedbackOpen(false);
+    } catch (err) {
+      setFeedbackError(err instanceof Error ? err.message : "Failed to record feedback");
+    } finally {
+      setFeedbackBusy(false);
+    }
+  };
 
   return (
     <Card className="group border-white/5 bg-gradient-to-br from-white/[0.03] to-transparent transition-all duration-300 hover:border-white/15 hover:bg-white/[0.05] hover:shadow-lg hover:shadow-cyan-500/5">
@@ -73,6 +94,44 @@ export function ReportFindingDetailCard({
             <div className="rounded-lg border border-white/10 bg-slate-900/80 px-2.5 py-1.5 text-xs font-mono text-white/70">
               {occurrences === 1 ? `L${finding.line_start}` : `${occurrences} lines`}
             </div>
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                title={feedbackRecorded ? "Feedback recorded" : "Report finding feedback"}
+                onClick={() => setFeedbackOpen((v) => !v)}
+                disabled={feedbackBusy}
+                className={
+                  feedbackRecorded
+                    ? "border-amber-400/40 bg-amber-500/20 text-amber-100 hover:bg-amber-500/30"
+                    : "border-white/15 bg-white/5 text-white/75 hover:bg-white/10"
+                }
+              >
+                <ThumbsDown className="h-3.5 w-3.5" />
+              </Button>
+              {feedbackOpen && !feedbackRecorded ? (
+                <div className="absolute right-0 z-20 mt-2 w-44 rounded-md border border-white/15 bg-slate-950/95 p-1.5 shadow-lg">
+                  <button
+                    type="button"
+                    className="w-full rounded px-2 py-1 text-left text-xs text-white/85 hover:bg-white/10"
+                    onClick={() => {
+                      void submitFeedback("false_positive");
+                    }}
+                  >
+                    False positive
+                  </button>
+                  <button
+                    type="button"
+                    className="mt-1 w-full rounded px-2 py-1 text-left text-xs text-white/85 hover:bg-white/10"
+                    onClick={() => {
+                      void submitFeedback("not_actionable");
+                    }}
+                  >
+                    Not actionable
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -85,6 +144,7 @@ export function ReportFindingDetailCard({
             </Button>
           </div>
         </div>
+        {feedbackError ? <p className="text-xs text-rose-300">{feedbackError}</p> : null}
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm leading-relaxed text-white/70">{finding.description}</p>

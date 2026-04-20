@@ -5,7 +5,9 @@ Orchestrates rule loading, execution, and result collection.
 """
 import logging
 import os
+import pkgutil
 import re
+from importlib import import_module
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import date
@@ -14,11 +16,16 @@ from typing import Callable, Type
 
 from schemas.facts import Facts
 from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, FindingClassification, Severity
+from schemas.finding import Category, Finding, FindingClassification, Severity
 from core.ruleset import Ruleset, RuleConfig
 from rules.base import Rule, RuleResult
 from core.path_utils import normalize_rel_path
-from core.context_profiles import ContextProfileMatrix, ContextSignalState, EffectiveContext
+from core.context_profiles import (
+    ContextProfileMatrix,
+    ContextSignalState,
+    EffectiveContext,
+    load_react_context_matrix,
+)
 
 # Import all rules
 from rules.laravel import (
@@ -51,7 +58,7 @@ from rules.laravel import (
     NoClosureRoutesRule,
     HeavyLogicInRoutesRule,
     DuplicateRouteDefinitionRule,
-    MissingThrottleOnAuthApiRoutesRule,
+    MissingRateLimitingRule,
     MissingAuthOnMutatingApiRoutesRule,
     PolicyCoverageOnMutationsRule,
     AuthorizationBypassRiskRule,
@@ -69,7 +76,7 @@ from rules.laravel import (
     SensitiveRoutesMissingVerifiedMiddlewareRule,
     TenantAccessMiddlewareMissingRule,
     SignedRoutesMissingSignatureMiddlewareRule,
-    UnsafeExternalRedirectRule,
+    UnsafeRedirectRule,
     AuthorizationMissingOnSensitiveReadsRule,
     InsecureSessionCookieConfigRule,
     UnsafeCspPolicyRule,
@@ -78,7 +85,6 @@ from rules.laravel import (
     InsecureFileDownloadResponseRule,
     WebhookSignatureMissingRule,
     IdorRiskMissingOwnershipCheckRule,
-    SensitiveRouteRateLimitMissingRule,
     SanctumTokenScopeMissingRule,
     SessionFixationRegenerateMissingRule,
     WeakPasswordPolicyValidationRule,
@@ -110,7 +116,14 @@ from rules.laravel import (
     HardcodedSecretsRule,
     SensitiveDataLoggingRule,
     InsecureRandomForSecurityRule,
-    DebugModeExposureRule,
+    MissingHstsHeaderRule,
+    CookieSameSiteMissingRule,
+    TimingAttackTokenComparisonRule,
+    PasswordHashWeakAlgorithmRule,
+    PlainTextSensitiveConfigRule,
+    LivewirePublicPropMassAssignmentRule,
+    MissingContentSecurityPolicyRule,
+    DebugExposureRiskRule,
     MissingHttpsEnforcementRule,
     CorsMisconfigurationRule,
     MissingCsrfTokenVerificationRule,
@@ -146,6 +159,8 @@ from rules.php import (
     SqlInjectionRiskRule,
     TestsMissingRule,
     LowCoverageFilesRule,
+    PcreRedosRiskRule,
+    UnsafeFileIncludeVariableRule,
 )
 from rules.react import (
     LargeComponentRule,
@@ -192,6 +207,8 @@ from rules.react import (
     InsecurePostMessageOriginWildcardRule,
     TokenStorageInsecureLocalStorageRule,
     ClientOpenRedirectUnvalidatedNavigationRule,
+    ApiKeyInClientBundleRule,
+    ClientSideAuthOnlyRule,
     PostMessageReceiverOriginNotVerifiedRule,
     DangerousHtmlSinkWithoutSanitizerRule,
     # Phase 1 React rules
@@ -330,7 +347,7 @@ ALL_RULES: dict[str, Type[Rule]] = {
     "no-closure-routes": NoClosureRoutesRule,
     "heavy-logic-in-routes": HeavyLogicInRoutesRule,
     "duplicate-route-definition": DuplicateRouteDefinitionRule,
-    "missing-throttle-on-auth-api-routes": MissingThrottleOnAuthApiRoutesRule,
+    "missing-rate-limiting": MissingRateLimitingRule,
     "missing-auth-on-mutating-api-routes": MissingAuthOnMutatingApiRoutesRule,
     "policy-coverage-on-mutations": PolicyCoverageOnMutationsRule,
     "authorization-bypass-risk": AuthorizationBypassRiskRule,
@@ -347,13 +364,12 @@ ALL_RULES: dict[str, Type[Rule]] = {
     "sensitive-routes-missing-verified-middleware": SensitiveRoutesMissingVerifiedMiddlewareRule,
     "tenant-access-middleware-missing": TenantAccessMiddlewareMissingRule,
     "signed-routes-missing-signature-middleware": SignedRoutesMissingSignatureMiddlewareRule,
-    "unsafe-external-redirect": UnsafeExternalRedirectRule,
+    "unsafe-redirect": UnsafeRedirectRule,
     "ssrf-risk-http-client": SsrfRiskHttpClientRule,
     "path-traversal-file-access": PathTraversalFileAccessRule,
     "insecure-file-download-response": InsecureFileDownloadResponseRule,
     "webhook-signature-missing": WebhookSignatureMissingRule,
     "idor-risk-missing-ownership-check": IdorRiskMissingOwnershipCheckRule,
-    "sensitive-route-rate-limit-missing": SensitiveRouteRateLimitMissingRule,
     "sanctum-token-scope-missing": SanctumTokenScopeMissingRule,
     "session-fixation-regenerate-missing": SessionFixationRegenerateMissingRule,
     "weak-password-policy-validation": WeakPasswordPolicyValidationRule,
@@ -387,13 +403,20 @@ ALL_RULES: dict[str, Type[Rule]] = {
     
     # Security rules (Laravel)
     "hardcoded-secrets": HardcodedSecretsRule,
-    "debug-mode-exposure": DebugModeExposureRule,
+    "debug-exposure-risk": DebugExposureRiskRule,
     "cors-misconfiguration": CorsMisconfigurationRule,
     "missing-csrf-token-verification": MissingCsrfTokenVerificationRule,
     "missing-https-enforcement": MissingHttpsEnforcementRule,
     "insecure-deserialization": InsecureDeserializationRule,
     "insecure-random-for-security": InsecureRandomForSecurityRule,
     "sensitive-data-logging": SensitiveDataLoggingRule,
+    "missing-hsts-header": MissingHstsHeaderRule,
+    "cookie-samesite-missing": CookieSameSiteMissingRule,
+    "timing-attack-token-comparison": TimingAttackTokenComparisonRule,
+    "password-hash-weak-algorithm": PasswordHashWeakAlgorithmRule,
+    "plain-text-sensitive-config": PlainTextSensitiveConfigRule,
+    "livewire-public-prop-mass-assignment": LivewirePublicPropMassAssignmentRule,
+    "missing-content-security-policy": MissingContentSecurityPolicyRule,
     
     # Performance rules (Laravel)
     "column-selection-suggestion": ColumnSelectionSuggestionRule,
@@ -428,6 +451,8 @@ ALL_RULES: dict[str, Type[Rule]] = {
     # Quality gates
     "tests-missing": TestsMissingRule,
     "low-coverage-files": LowCoverageFilesRule,
+    "pcre-redos-risk": PcreRedosRiskRule,
+    "unsafe-file-include-variable": UnsafeFileIncludeVariableRule,
     
     # React rules
     "large-react-component": LargeComponentRule,
@@ -474,6 +499,8 @@ ALL_RULES: dict[str, Type[Rule]] = {
     "insecure-postmessage-origin-wildcard": InsecurePostMessageOriginWildcardRule,
     "token-storage-insecure-localstorage": TokenStorageInsecureLocalStorageRule,
     "client-open-redirect-unvalidated-navigation": ClientOpenRedirectUnvalidatedNavigationRule,
+    "api-key-in-client-bundle": ApiKeyInClientBundleRule,
+    "client-side-auth-only": ClientSideAuthOnlyRule,
     "postmessage-receiver-origin-not-verified": PostMessageReceiverOriginNotVerifiedRule,
     "dangerous-html-sink-without-sanitizer": DangerousHtmlSinkWithoutSanitizerRule,
     
@@ -565,6 +592,160 @@ ALL_RULES: dict[str, Type[Rule]] = {
     "typescript-type-check": TypeScriptTypeCheckRule,
 }
 
+RULE_ALIASES: dict[str, str] = {
+    "missing-throttle-on-auth-api-routes": "missing-rate-limiting",
+    "sensitive-route-rate-limit-missing": "missing-rate-limiting",
+    "rate-limit-public-forms": "missing-rate-limiting",
+    "rate-limit-password-reset": "missing-rate-limiting",
+    "debug-mode-exposure": "debug-exposure-risk",
+    "api-debug-trace-leak": "debug-exposure-risk",
+    "unsafe-external-redirect": "unsafe-redirect",
+    "unvalidated-login-redirect": "unsafe-redirect",
+}
+
+
+def resolve_rule_alias(rule_id: str) -> str:
+    """Resolve legacy/alias ids to canonical runtime ids."""
+    current = str(rule_id or "").strip()
+    if not current:
+        return current
+    seen: set[str] = set()
+    while current in RULE_ALIASES and current not in seen:
+        seen.add(current)
+        current = RULE_ALIASES[current]
+    return current
+
+
+def _iter_rule_subclasses(base: type[Rule]) -> list[type[Rule]]:
+    """Collect every loaded subclass recursively."""
+    out: list[type[Rule]] = []
+    stack: list[type[Rule]] = list(base.__subclasses__())
+    seen: set[type[Rule]] = set()
+    while stack:
+        cls = stack.pop()
+        if cls in seen:
+            continue
+        seen.add(cls)
+        out.append(cls)
+        stack.extend(cls.__subclasses__())
+    return out
+
+
+_RULE_DISCOVERY_FAMILIES: tuple[str, ...] = ("rules.laravel", "rules.react", "rules.php")
+
+
+def _import_discovery_modules() -> list[str]:
+    """Import rule modules under known families and return imported module names."""
+    imported: list[str] = []
+    for family_module in _RULE_DISCOVERY_FAMILIES:
+        try:
+            family_pkg = import_module(family_module)
+        except Exception as exc:
+            logger.warning("Rule discovery failed to import %s: %s", family_module, exc)
+            continue
+
+        imported.append(family_module)
+        for module_info in pkgutil.walk_packages(
+            family_pkg.__path__,
+            prefix=f"{family_module}.",
+        ):
+            module_name = str(module_info.name)
+            try:
+                import_module(module_name)
+                imported.append(module_name)
+            except Exception as exc:
+                logger.warning("Rule discovery skipped module %s: %s", module_name, exc)
+    return imported
+
+
+def discover_rules() -> dict[str, Type[Rule]]:
+    """Discover rules by importing modules and scanning loaded Rule subclasses."""
+    _import_discovery_modules()
+    discovered: dict[str, Type[Rule]] = {}
+    for rule_cls in _iter_rule_subclasses(Rule):
+        rule_id = str(getattr(rule_cls, "id", "") or "").strip()
+        if not rule_id:
+            logger.warning(
+                "Rule discovery skipped malformed rule class %s.%s: missing `id`",
+                str(getattr(rule_cls, "__module__", "unknown")),
+                str(getattr(rule_cls, "__name__", "Rule")),
+            )
+            continue
+        if rule_id == "base-rule":
+            continue
+        if rule_id in discovered and discovered[rule_id] is not rule_cls:
+            logger.warning(
+                "Rule discovery duplicate id '%s': keeping %s, skipping %s",
+                rule_id,
+                discovered[rule_id].__name__,
+                rule_cls.__name__,
+            )
+            continue
+        discovered[rule_id] = rule_cls
+    return discovered
+
+
+def build_rule_registry(
+    manual_registry: dict[str, Type[Rule]] | None = None,
+    discovered_registry: dict[str, Type[Rule]] | None = None,
+) -> dict[str, Type[Rule]]:
+    """Merge manual registry with discovered rules (manual remains authoritative)."""
+    manual = dict(manual_registry or {})
+    discovered = dict(discovered_registry or discover_rules())
+    merged = dict(manual)
+
+    added = 0
+    for rule_id, rule_cls in discovered.items():
+        if rule_id in merged:
+            continue
+        merged[rule_id] = rule_cls
+        added += 1
+
+    logger.info(
+        "Rule discovery complete: manual=%d discovered=%d merged=%d added=%d",
+        len(manual),
+        len(discovered),
+        len(merged),
+        added,
+    )
+    _validate_rule_registry(merged)
+    return merged
+
+
+def _validate_rule_registry(registry: dict[str, Type[Rule]]) -> None:
+    """Guard against silent registry corruption from malformed entries."""
+    for rule_id, rule_cls in registry.items():
+        canonical_id = str(rule_id or "").strip()
+        if not canonical_id:
+            raise ValueError("Rule registry contains an empty rule id key")
+        if not isinstance(rule_cls, type) or not issubclass(rule_cls, Rule):
+            raise ValueError(f"Rule registry entry '{canonical_id}' is not a Rule subclass")
+
+        class_rule_id = str(getattr(rule_cls, "id", "") or "").strip()
+        if not class_rule_id:
+            raise ValueError(f"Rule class {rule_cls.__name__} has no `id`")
+
+        category = getattr(rule_cls, "category", None)
+        if isinstance(category, Category):
+            pass
+        elif isinstance(category, str):
+            Category(category)
+        else:
+            raise ValueError(f"Rule class {rule_cls.__name__} has invalid category")
+
+        severity = getattr(rule_cls, "default_severity", None)
+        if isinstance(severity, Severity):
+            pass
+        elif isinstance(severity, str):
+            Severity(severity)
+        else:
+            raise ValueError(f"Rule class {rule_cls.__name__} has invalid default severity")
+
+
+DISCOVERED_RULES: dict[str, Type[Rule]] = discover_rules()
+REGISTERED_RULES: dict[str, Type[Rule]] = build_rule_registry(ALL_RULES, DISCOVERED_RULES)
+RUNTIME_RULES: dict[str, Type[Rule]] = dict(ALL_RULES)
+
 
 class RuleEngine:
     """
@@ -577,22 +758,32 @@ class RuleEngine:
     def __init__(self, ruleset: Ruleset, selected_rules: list[str] | None = None):
         self.ruleset = ruleset
         self.rules: list[Rule] = []
-        self.selected_rules = set(selected_rules) if selected_rules else None
+        self.selected_rules = (
+            {resolve_rule_alias(rule_id) for rule_id in selected_rules}
+            if selected_rules
+            else None
+        )
+        self._context_matrices: dict[str, ContextProfileMatrix] = {}
         try:
-            self._context_matrix = ContextProfileMatrix.load_default()
+            self._context_matrices["laravel"] = ContextProfileMatrix.load_default()
         except Exception:
-            self._context_matrix = None
+            pass
+        try:
+            self._context_matrices["react"] = load_react_context_matrix()
+        except Exception:
+            pass
         self._load_rules()
     
     def _load_rules(self) -> None:
-        """Load and configure rules from the registry."""
-        for rule_id, rule_class in ALL_RULES.items():
+        """Load and configure rules from the runtime registry (manual source of truth)."""
+        for rule_id, rule_class in RUNTIME_RULES.items():
+
             # If selected_rules is specified, only load those rules
             if self.selected_rules is not None and rule_id not in self.selected_rules:
                 continue
             
             # Get config from ruleset (or use defaults)
-            config = self.ruleset.get_rule_config(rule_id)
+            config = self._resolve_rule_config(rule_id)
             
             if config.enabled:
                 try:
@@ -602,6 +793,20 @@ class RuleEngine:
                     logger.debug(f"Loaded rule: {rule_id}")
                 except Exception as e:
                     logger.warning(f"Failed to load rule {rule_id}: {e}")
+
+    def _resolve_rule_config(self, rule_id: str) -> RuleConfig:
+        """Resolve config by canonical id with legacy alias fallback."""
+        config = self.ruleset.get_rule_config(rule_id)
+        if config.enabled:
+            return config
+
+        for alias_id, canonical_id in RULE_ALIASES.items():
+            if canonical_id != rule_id:
+                continue
+            alias_cfg = self.ruleset.get_rule_config(alias_id)
+            if alias_cfg.enabled:
+                return alias_cfg
+        return config
     
     def run(
         self,
@@ -919,12 +1124,16 @@ class RuleEngine:
         return result
 
     def _apply_context_calibration(self, facts: Facts) -> None:
-        if self._context_matrix is None:
+        if not self._context_matrices:
             return
-        effective_context = self._build_effective_context_from_facts(facts)
+        laravel_context = self._build_effective_context_from_facts(facts)
+        react_context = self._build_react_effective_context_from_facts(facts)
         for rule in self.rules:
             self._reset_rule_runtime_state(rule)
-            calibration = self._context_matrix.calibrate_rule(rule.id, effective_context)
+            matrix, effective_context = self._matrix_and_context_for_rule(rule, laravel_context, react_context)
+            if matrix is None:
+                continue
+            calibration = matrix.calibrate_rule(rule.id, effective_context)
             setattr(rule, "_context_calibration", calibration)
             setattr(rule, "_runtime_effective_context", effective_context)
             if calibration.get("enabled") is False:
@@ -941,6 +1150,19 @@ class RuleEngine:
                 merged = dict(getattr(rule.config, "thresholds", {}) or {})
                 merged.update({str(k): v for k, v in thresholds.items()})
                 rule.config.thresholds = merged
+
+    def _matrix_and_context_for_rule(
+        self,
+        rule: Rule,
+        laravel_context: EffectiveContext,
+        react_context: EffectiveContext,
+    ) -> tuple[ContextProfileMatrix | None, EffectiveContext]:
+        module_name = str(getattr(rule.__class__, "__module__", "") or "").lower()
+        if ".react." in module_name:
+            return self._context_matrices.get("react"), react_context
+        if ".laravel." in module_name:
+            return self._context_matrices.get("laravel"), laravel_context
+        return self._context_matrices.get("laravel"), laravel_context
 
     def _reset_rule_runtime_state(self, rule: Rule) -> None:
         # Reset runtime state before applying context calibration so repeated runs remain deterministic.
@@ -1010,6 +1232,108 @@ class RuleEngine:
                 source=str(payload.get("source", "default") or "default"),
                 evidence=list(payload.get("evidence", []) or []),
             )
+        return effective
+
+    def _build_react_effective_context_from_facts(self, facts: Facts) -> EffectiveContext:
+        project_context = getattr(facts, "project_context", None)
+        effective = EffectiveContext(
+            framework="react",
+            project_type="standalone",
+            project_type_confidence=0.6,
+            project_type_confidence_kind="heuristic",
+            project_type_source="detected",
+            architecture_profile="component-driven",
+            architecture_profile_confidence=0.6,
+            architecture_profile_confidence_kind="heuristic",
+            architecture_profile_source="detected",
+        )
+
+        imports: list[str] = []
+        provider_count = 0
+        for component in getattr(facts, "react_components", []) or []:
+            comp_imports = [str(item or "") for item in (getattr(component, "imports", []) or [])]
+            imports.extend(comp_imports)
+            if any("provider" in str(item or "").lower() for item in comp_imports) or "provider" in str(
+                getattr(component, "name", "")
+            ).lower():
+                provider_count += 1
+
+        imports_low = [item.lower() for item in imports]
+        if any("@inertiajs" in item for item in imports_low):
+            effective.project_type = "inertia_spa"
+            effective.project_type_confidence = 0.9
+            effective.project_type_confidence_kind = "structural"
+        elif any("next/router" in item or "next/navigation" in item for item in imports_low):
+            effective.project_type = "next_js"
+            effective.project_type_confidence = 0.88
+            effective.project_type_confidence_kind = "structural"
+
+        has_design_system = any(
+            marker in item
+            for marker in ("@radix-ui", "@chakra-ui", "@mui", "shadcn", "@/components/ui")
+            for item in imports_low
+        )
+        is_public_facing = False
+        route_count = len(getattr(facts, "routes", []) or [])
+        if route_count > 0:
+            public_count = 0
+            private_count = 0
+            for route in getattr(facts, "routes", []) or []:
+                middleware = " ".join(str(item or "").lower() for item in (getattr(route, "middleware", []) or []))
+                if "auth" in middleware:
+                    private_count += 1
+                else:
+                    public_count += 1
+            is_public_facing = public_count > 0 and public_count >= private_count
+
+        if route_count == 0:
+            route_count = len(
+                [
+                    p
+                    for p in (getattr(facts, "files", []) or [])
+                    if "/pages/" in str(p or "").replace("\\", "/").lower()
+                    or "/routes/" in str(p or "").replace("\\", "/").lower()
+                ]
+            )
+
+        typescript_strict = False
+        if project_context is not None:
+            auto_ctx = dict(getattr(project_context, "auto_detected_context", {}) or {})
+            cap_payload = dict(auto_ctx.get("capabilities", {}) or {})
+            strict_payload = cap_payload.get("typescript_strict")
+            if isinstance(strict_payload, dict):
+                typescript_strict = bool(strict_payload.get("enabled", False))
+
+        effective.capabilities["has_design_system"] = ContextSignalState(
+            enabled=has_design_system,
+            confidence=0.88 if has_design_system else 0.62,
+            source="detected",
+            evidence=["imports:design-system"],
+        )
+        effective.capabilities["is_public_facing"] = ContextSignalState(
+            enabled=is_public_facing,
+            confidence=0.82,
+            source="detected",
+            evidence=[f"route_count={route_count}"],
+        )
+        effective.capabilities["typescript_strict"] = ContextSignalState(
+            enabled=typescript_strict,
+            confidence=0.8 if typescript_strict else 0.6,
+            source="detected",
+            evidence=[f"typescript_strict={int(typescript_strict)}"],
+        )
+        effective.capabilities["context_provider_count_high"] = ContextSignalState(
+            enabled=provider_count > 5,
+            confidence=0.8,
+            source="detected",
+            evidence=[f"context_provider_count={provider_count}"],
+        )
+        effective.capabilities["route_count_large"] = ContextSignalState(
+            enabled=route_count >= 10,
+            confidence=0.84,
+            source="detected",
+            evidence=[f"route_count={route_count}"],
+        )
         return effective
 
     def _profile_confidence_floor(self) -> float:

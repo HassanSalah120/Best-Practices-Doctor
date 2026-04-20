@@ -17,6 +17,8 @@ from schemas.finding import (
 )
 from schemas.report import CategoryScore, QualityScores, ScanReport
 from core.ruleset import Ruleset
+from core.fix_intelligence import get_fix_strategy
+from core.project_memory import ProjectIntelligenceManager
 
 logger = logging.getLogger(__name__)
 
@@ -334,7 +336,7 @@ class ScoringEngine:
         """
         from datetime import datetime, timezone
         import hashlib
-        from schemas.report import ScanReport, FileSummary, ActionItem
+        from schemas.report import ScanReport, FileSummary, ActionItem, TriageItem
         from schemas.project_type import ProjectInfo
         
         # Calculate scores
@@ -391,6 +393,21 @@ class ScoringEngine:
             by_rule.setdefault(f.rule_id, []).append(f)
 
         action_plan: list[ActionItem] = []
+        triage_plan: list[TriageItem] = []
+        memory_manager = ProjectIntelligenceManager()
+        project_memory = memory_manager.get_project(project_path)
+        triage_weights = dict(getattr(getattr(self.ruleset, "scoring", None), "triage_weights", {}) or {})
+        w_impact = float(triage_weights.get("impact", 1.0) or 1.0)
+        w_risk = float(triage_weights.get("risk", 1.0) or 1.0)
+        w_effort = float(triage_weights.get("effort", 1.0) or 1.0)
+        w_context = float(triage_weights.get("context", 1.0) or 1.0)
+        effort_discount = float(triage_weights.get("effort_discount", 0.6) or 0.6)
+        effort_discount = min(0.95, max(0.0, effort_discount))
+        project_context = (
+            facts.project_context.model_dump()
+            if getattr(facts, "project_context", None) is not None
+            else {}
+        )
         for rule_id, fs in by_rule.items():
             fs_sorted = sorted(fs, key=lambda f: (f.file, f.context, f.fingerprint))
             sample = fs_sorted[0]
@@ -439,7 +456,102 @@ class ScoringEngine:
                 )
             )
 
+            # Multi-factor triage scoring (additive; action_plan stays unchanged)
+            occurrences = len(fs_sorted)
+            mean_conf = sum(float(getattr(f, "confidence", 0.0) or 0.0) for f in fs_sorted) / max(1, occurrences)
+            occurrence_density = min(1.0, occurrences / 8.0)
+
+            severity_norm = {
+                Severity.CRITICAL: 1.0,
+                Severity.HIGH: 0.82,
+                Severity.MEDIUM: 0.62,
+                Severity.LOW: 0.38,
+                Severity.INFO: 0.2,
+            }.get(max_sev, 0.4)
+            impact = min(1.0, 0.55 * severity_norm + 0.30 * min(1.0, total_penalty / 20.0) + 0.15 * occurrence_density)
+
+            cls_norm = {
+                FindingClassification.DEFECT: 0.92,
+                FindingClassification.RISK: 0.78,
+                FindingClassification.ADVISORY: 0.46,
+            }.get(max_classification, 0.5)
+            security_boost = 0.12 if cat_key == Category.SECURITY.value else 0.0
+            public_surface_boost = 0.0
+            for finding in fs_sorted:
+                dp = (finding.metadata or {}).get("decision_profile", {})
+                if isinstance(dp, dict):
+                    caps = dp.get("capabilities")
+                    if isinstance(caps, list) and "public_surface" in {str(x) for x in caps}:
+                        public_surface_boost = 0.08
+                        break
+            risk = min(1.0, 0.60 * cls_norm + 0.30 * mean_conf + security_boost + public_surface_boost)
+
+            strategy = get_fix_strategy(rule_id)
+            base_effort = {"safe": 0.2, "risky": 0.55, "refactor": 0.8}.get(strategy, 0.55)
+            spread_factor = min(0.2, (max(0, len(files) - 1) / 5.0) * 0.2)
+            avg_span = 1.0
+            spans = []
+            for finding in fs_sorted:
+                ls = int(getattr(finding, "line_start", 1) or 1)
+                le = int(getattr(finding, "line_end", ls) or ls)
+                spans.append(max(1, le - ls + 1))
+            if spans:
+                avg_span = sum(spans) / len(spans)
+            span_factor = min(0.2, (avg_span / 40.0) * 0.2)
+            effort = min(1.0, base_effort + spread_factor + span_factor)
+
+            context_multiplier = 1.0
+            if cat_key == Category.SECURITY.value:
+                context_multiplier += 0.10
+            project_type = str(project_context.get("project_type") or project_context.get("project_business_context") or "").strip().lower()
+            if cat_key == Category.SECURITY.value and project_type in {"fintech_platform", "healthcare_platform", "marketplace_platform"}:
+                context_multiplier += 0.05
+            context_multiplier *= float(memory_manager.get_rule_memory_factor(project_path, rule_id))
+            context_multiplier = max(0.7, min(1.35, context_multiplier))
+
+            triage_score = 100.0 * (impact ** w_impact) * (risk ** w_risk) * (1.0 - effort_discount * (effort ** w_effort)) * (context_multiplier ** w_context)
+            triage_score = round(max(0.0, min(100.0, triage_score)), 2)
+
+            if triage_score >= 60.0:
+                recommendation = "fix_now"
+            elif triage_score >= 35.0:
+                recommendation = "schedule_next"
+            elif cat_key != Category.SECURITY.value or max_classification != FindingClassification.DEFECT:
+                recommendation = "ignore_safely_candidate"
+            else:
+                recommendation = "schedule_next"
+
+            triage_id_src = f"{rule_id}:{cat_key}:{strategy}:{'|'.join(fingerprints)}"
+            triage_id = hashlib.sha1(triage_id_src.encode("utf-8", errors="ignore")).hexdigest()[:12]
+            rationale = (
+                f"impact={impact:.2f}, risk={risk:.2f}, effort={effort:.2f}, "
+                f"context_multiplier={context_multiplier:.2f}"
+            )
+            triage_plan.append(
+                TriageItem(
+                    id=f"triage_{triage_id}",
+                    rule_id=rule_id,
+                    category=cat_key,
+                    title=sample.title,
+                    strategy=strategy,
+                    recommendation=recommendation,
+                    impact=round(impact, 4),
+                    risk=round(risk, 4),
+                    effort=round(effort, 4),
+                    context_multiplier=round(context_multiplier, 4),
+                    triage_score=triage_score,
+                    rationale=rationale,
+                    max_severity=max_sev,
+                    classification=max_classification,
+                    finding_fingerprints=fingerprints,
+                    files=files,
+                )
+            )
+
         action_plan.sort(key=lambda a: (-a.priority, a.category, a.rule_id, a.id))
+        triage_plan.sort(key=lambda t: (-t.triage_score, t.category, t.rule_id, t.id))
+        top_5_first = [item.id for item in triage_plan[:5]]
+        safe_to_defer = [item.id for item in triage_plan if item.recommendation == "ignore_safely_candidate"]
         
         report = ScanReport(
             id=job_id,
@@ -455,14 +567,17 @@ class ScoringEngine:
             category_breakdown=scoring_result.category_scores,
             file_summaries=file_summaries,
             action_plan=action_plan,
+            triage_plan=triage_plan,
+            top_5_first=top_5_first,
+            safe_to_defer=safe_to_defer,
             ruleset_path=ruleset_path,
             rules_executed=rules_executed or [],
             analysis_debug={
-                "project_context": (
-                    facts.project_context.model_dump()
-                    if getattr(facts, "project_context", None) is not None
-                    else {}
-                ),
+                "project_context": project_context,
+                "project_memory": {
+                    "project_hash": project_memory.project_hash,
+                    "updated_at": project_memory.updated_at,
+                },
             },
         )
         

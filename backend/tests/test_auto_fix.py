@@ -97,7 +97,11 @@ def test_auto_fix_env_outside_config(auto_fix_engine, sample_finding_env, sample
     assert fix is not None
     assert fix.rule_id == "env-outside-config"
     assert "config('app.stripe_key')" in fix.fixed_code.lower()
-    assert fix.confidence == 0.95
+    assert fix.confidence >= 0.8
+    assert fix.strategy in {"safe", "risky", "refactor"}
+    assert "project fit" in fix.why_correct_for_project.lower() or "framework" in fix.why_correct_for_project.lower()
+    assert fix.auto_applicable is False
+    assert fix.requires_human_review is True
 
 
 def test_auto_fix_log_debug(auto_fix_engine, sample_finding_log_debug, sample_php_file):
@@ -108,6 +112,8 @@ def test_auto_fix_log_debug(auto_fix_engine, sample_finding_log_debug, sample_ph
     assert fix.rule_id == "no-log-debug-in-app"
     assert "Log::info" in fix.fixed_code
     assert fix.auto_applicable is True
+    assert fix.strategy == "safe"
+    assert fix.requires_human_review is False
 
 
 def test_auto_fix_no_fix_available(auto_fix_engine):
@@ -228,6 +234,11 @@ def test_fix_suggestion_to_dict():
     assert data["fixed_code"] == "after"
     assert data["confidence"] == 0.8
     assert data["auto_applicable"] is True
+    assert data["strategy"] in {"safe", "risky", "refactor"}
+    assert "confidence_breakdown" in data
+    assert "why_correct_for_project" in data
+    assert "risk_notes" in data
+    assert "requires_human_review" in data
     assert "diff" in data
 
 

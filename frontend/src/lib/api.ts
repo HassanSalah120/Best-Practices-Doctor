@@ -175,6 +175,16 @@ export class ApiClient {
     return this.request(`/scan/${id}/file/content?path=${encodeURIComponent(path)}`);
   }
 
+  static async submitFindingFeedback(
+    fingerprint: string,
+    feedbackType: "false_positive" | "not_actionable" | "correct",
+  ): Promise<{ status: string; retry_after?: number }> {
+    return this.request(`/findings/${encodeURIComponent(fingerprint)}/feedback`, {
+      method: "POST",
+      body: JSON.stringify({ feedback_type: feedbackType }),
+    });
+  }
+
   static async getTrends(id: string, limit: number = 10): Promise<{
     direction: "improving" | "regressing" | "stable" | "insufficient_data";
     score_change: number;
