@@ -24,20 +24,6 @@
   "files_scanned": 31,
   "classes_found": 24,
   "methods_found": 40,
-  "scores": {
-    "overall": 75.2,
-    "grade": "C",
-    "architecture": 87.8,
-    "dry": 99.5,
-    "laravel": 96.5,
-    "react": 100.0,
-    "complexity": 100.0,
-    "security": 10.0,
-    "maintainability": 97.2,
-    "srp": 100.0,
-    "validation": 95.0,
-    "performance": 93.0
-  },
   "findings": [
     {
       "id": "finding_0232ad212cbe",
@@ -60,16 +46,6 @@
       "context": "Log::debug"
     },
     {
-      "id": "finding_17c9a71c89c1",
-      "fingerprint": "17c9a71c89c1",
-      "rule_id": "dry-violation",
-      "category": "dry",
-      "severity": "low",
-      "classification": "advisory",
-      "file": "app/Support/DupeA.php",
-      "context": "dup:bc21f1df596d52ac"
-    },
-    {
       "id": "finding_238ae9fa09c6",
       "fingerprint": "238ae9fa09c6",
       "rule_id": "unused-private-method",
@@ -84,10 +60,20 @@
       "fingerprint": "3860c5a49ddf",
       "rule_id": "missing-form-request",
       "category": "validation",
-      "severity": "medium",
-      "classification": "defect",
+      "severity": "low",
+      "classification": "advisory",
       "file": "app/Http/Controllers/FatController.php",
       "context": "index"
+    },
+    {
+      "id": "finding_40e3d4ad2882",
+      "fingerprint": "40e3d4ad2882",
+      "rule_id": "dry-violation",
+      "category": "dry",
+      "severity": "low",
+      "classification": "advisory",
+      "file": "app/Support/DupeA.php",
+      "context": "dup:fb72d5c5d7017ed9"
     },
     {
       "id": "finding_4996356c73ef",
@@ -100,6 +86,16 @@
       "context": "\\App\\Models\\User::all"
     },
     {
+      "id": "finding_57c74fe08132",
+      "fingerprint": "57c74fe08132",
+      "rule_id": "unused-service-class",
+      "category": "maintainability",
+      "severity": "medium",
+      "classification": "advisory",
+      "file": "app/Services/CoupledService.php",
+      "context": "App\\Services\\CoupledService"
+    },
+    {
       "id": "finding_5b752239f209",
       "fingerprint": "5b752239f209",
       "rule_id": "prefer-imports",
@@ -108,6 +104,16 @@
       "classification": "advisory",
       "file": "app/Services/CoupledService.php",
       "context": "App\\Http\\Controllers\\ThinController"
+    },
+    {
+      "id": "finding_6050f91b77b9",
+      "fingerprint": "6050f91b77b9",
+      "rule_id": "unused-service-class",
+      "category": "maintainability",
+      "severity": "medium",
+      "classification": "advisory",
+      "file": "app/Services/UnusedService.php",
+      "context": "App\\Services\\UnusedService"
     },
     {
       "id": "finding_614ad7940458",
@@ -260,16 +266,6 @@
       "context": "return env(\"STRIPE_KEY\", \"\");"
     },
     {
-      "id": "finding_a2aef3d335bd",
-      "fingerprint": "a2aef3d335bd",
-      "rule_id": "policy-coverage-on-mutations",
-      "category": "security",
-      "severity": "high",
-      "classification": "risk",
-      "file": "app/Http/Controllers/FatController.php",
-      "context": "App\\Http\\Controllers\\FatController::index"
-    },
-    {
       "id": "finding_a5c73f296c92",
       "fingerprint": "a5c73f296c92",
       "rule_id": "tests-missing",
@@ -288,16 +284,6 @@
       "classification": "advisory",
       "file": "app/Services/CoupledService.php",
       "context": "App\\Http\\Controllers\\NewingController"
-    },
-    {
-      "id": "finding_b53f32f90e6f",
-      "fingerprint": "b53f32f90e6f",
-      "rule_id": "no-json-encode-in-controllers",
-      "category": "laravel_best_practice",
-      "severity": "medium",
-      "classification": "advisory",
-      "file": "app/Http/Controllers/FatController.php",
-      "context": "json_encode_or_toJson"
     },
     {
       "id": "finding_bc8642dc16f3",
@@ -340,6 +326,16 @@
       "context": "App\\Services\\CycleA|App\\Services\\CycleB"
     },
     {
+      "id": "finding_dab704e44f3c",
+      "fingerprint": "dab704e44f3c",
+      "rule_id": "error-pages-missing",
+      "category": "laravel_best_practice",
+      "severity": "high",
+      "classification": "advisory",
+      "file": "resources/views/errors",
+      "context": "resources/views/errors"
+    },
+    {
       "id": "finding_edde5f110dac",
       "fingerprint": "edde5f110dac",
       "rule_id": "prefer-imports",
@@ -348,6 +344,16 @@
       "classification": "advisory",
       "file": "app/Services/CoupledService.php",
       "context": "App\\Http\\Controllers\\UploadController"
+    },
+    {
+      "id": "finding_f2e0265f6271",
+      "fingerprint": "f2e0265f6271",
+      "rule_id": "custom-exception-suggestion",
+      "category": "architecture",
+      "severity": "low",
+      "classification": "advisory",
+      "file": "app/Services/ThrowsBad.php",
+      "context": "App\\Services\\ThrowsBad::run"
     },
     {
       "id": "finding_fdab1b22b7db",
@@ -375,320 +381,364 @@
   "findings_by_severity": {},
   "findings_by_classification": {},
   "file_summaries": [],
-  "action_plan": [
-    {
-      "id": "action_06819d51b2c3",
-      "rule_id": "dry-violation",
-      "category": "dry",
-      "priority": 0.0,
-      "max_severity": "low",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "17c9a71c89c1"
-      ],
-      "files": [
-        "app/Support/DupeA.php"
-      ]
-    },
-    {
-      "id": "action_183cbd05e2c7",
-      "rule_id": "unused-private-method",
-      "category": "maintainability",
-      "priority": 0.05,
-      "max_severity": "low",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "238ae9fa09c6"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
-      "id": "action_1bd073207f9c",
-      "rule_id": "unsafe-unserialize",
-      "category": "security",
-      "priority": 3.75,
-      "max_severity": "high",
-      "classification": "risk",
-      "finding_fingerprints": [
-        "62bbd21c8b55"
-      ],
-      "files": [
-        "app/Http/Controllers/SecurityBadController.php"
-      ]
-    },
-    {
-      "id": "action_251386ea0e3a",
-      "rule_id": "no-log-debug-in-app",
-      "category": "maintainability",
-      "priority": 0.05,
-      "max_severity": "low",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "03e4b3f9393d"
-      ],
-      "files": [
-        "app/Services/EnvBad.php"
-      ]
-    },
-    {
-      "id": "action_259922501e23",
-      "rule_id": "blade-queries",
-      "category": "performance",
-      "priority": 0.53,
-      "max_severity": "medium",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "4996356c73ef",
-        "fdbf4c04c3f5"
-      ],
-      "files": [
-        "resources/views/users/index.blade.php"
-      ]
-    },
-    {
-      "id": "action_35c7b54ffa82",
-      "rule_id": "prefer-imports",
-      "category": "maintainability",
-      "priority": 0.63,
-      "max_severity": "low",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "0232ad212cbe",
-        "5b752239f209",
-        "658a246a146a",
-        "6c8a2795a1a9",
-        "8a603b322fed",
-        "8b546f22842a",
-        "9ee9c6d3ea4d",
-        "a7a29daf1810",
-        "bc8642dc16f3",
-        "c0d50b4b8962",
-        "edde5f110dac",
-        "fdab1b22b7db"
-      ],
-      "files": [
-        "app/Services/CoupledService.php",
-        "routes/web.php"
-      ]
-    },
-    {
-      "id": "action_3a0cff490d16",
-      "rule_id": "command-injection-risk",
-      "category": "security",
-      "priority": 3.75,
-      "max_severity": "high",
-      "classification": "risk",
-      "finding_fingerprints": [
-        "be5e21869ada"
-      ],
-      "files": [
-        "app/Http/Controllers/SecurityBadController.php"
-      ]
-    },
-    {
-      "id": "action_59f7500b0ba6",
-      "rule_id": "eager-loading",
-      "category": "performance",
-      "priority": 0.26,
-      "max_severity": "medium",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "988fb17e0f9e"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
-      "id": "action_67865fd31d75",
-      "rule_id": "authorization-bypass-risk",
-      "category": "security",
-      "priority": 3.75,
-      "max_severity": "high",
-      "classification": "risk",
-      "finding_fingerprints": [
-        "86015089d412"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
-      "id": "action_6c9850cdc3d3",
-      "rule_id": "no-json-encode-in-controllers",
-      "category": "laravel_best_practice",
-      "priority": 0.35,
-      "max_severity": "medium",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "b53f32f90e6f"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
-      "id": "action_7b70ffb2def9",
-      "rule_id": "mass-assignment-risk",
-      "category": "security",
-      "priority": 3.75,
-      "max_severity": "high",
-      "classification": "risk",
-      "finding_fingerprints": [
-        "614ad7940458"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
-      "id": "action_8bbad2f098b2",
-      "rule_id": "missing-form-request",
-      "category": "validation",
-      "priority": 0.0,
-      "max_severity": "medium",
-      "classification": "defect",
-      "finding_fingerprints": [
-        "3860c5a49ddf"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
-      "id": "action_a39c961d46c5",
-      "rule_id": "env-outside-config",
-      "category": "laravel_best_practice",
-      "priority": 0.35,
-      "max_severity": "medium",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "a219127177c0"
-      ],
-      "files": [
-        "app/Services/EnvBad.php"
-      ]
-    },
-    {
-      "id": "action_a746f3216ac9",
-      "rule_id": "fat-controller",
-      "category": "architecture",
-      "priority": 0.0,
-      "max_severity": "high",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "756116b14b75"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
-      "id": "action_a7600d158eab",
-      "rule_id": "unsafe-eval",
-      "category": "security",
-      "priority": 3.75,
-      "max_severity": "high",
-      "classification": "risk",
-      "finding_fingerprints": [
-        "6617311876d6"
-      ],
-      "files": [
-        "app/Http/Controllers/SecurityBadController.php"
-      ]
-    },
-    {
-      "id": "action_a80a33ee22d9",
-      "rule_id": "tests-missing",
-      "category": "maintainability",
-      "priority": 0.35,
-      "max_severity": "medium",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "a5c73f296c92"
-      ],
-      "files": [
-        "composer.json"
-      ]
-    },
-    {
-      "id": "action_aa5c1fa009b1",
-      "rule_id": "no-closure-routes",
-      "category": "architecture",
-      "priority": 0.0,
-      "max_severity": "medium",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "6a1b6348dfa4"
-      ],
-      "files": [
-        "routes/web.php"
-      ]
-    },
-    {
-      "id": "action_aac16a38847d",
-      "rule_id": "config-in-loop",
-      "category": "performance",
-      "priority": 0.26,
-      "max_severity": "medium",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "74e0d7fbd2a7"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
-      "id": "action_c6cf2fedae12",
-      "rule_id": "enum-suggestion",
-      "category": "dry",
-      "priority": 0.0,
-      "max_severity": "low",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "9330e87f4073"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    },
-    {
-      "id": "action_cb0a0f474bf3",
-      "rule_id": "circular-dependency",
-      "category": "architecture",
-      "priority": 0.0,
-      "max_severity": "high",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "ce84dfc66f70"
-      ],
-      "files": [
-        "app/Services/CycleA.php"
-      ]
-    },
-    {
-      "id": "action_e936dbc2b736",
-      "rule_id": "policy-coverage-on-mutations",
-      "category": "security",
-      "priority": 3.75,
-      "max_severity": "high",
-      "classification": "risk",
-      "finding_fingerprints": [
-        "a2aef3d335bd"
-      ],
-      "files": [
-        "app/Http/Controllers/FatController.php"
-      ]
-    }
-  ],
   "summary": "",
   "analysis_debug": {
     "project_context": {
       "tenant_mode": "non_tenant",
       "tenant_signals": [],
+      "project_type": "unknown",
+      "architecture_style": "mvc",
+      "capabilities": {
+        "multi_tenant": {
+          "enabled": false,
+          "confidence": 0.88,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "saas": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "realtime": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "billing": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "multi_role_portal": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "queue_heavy": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "mixed_public_dashboard": {
+          "enabled": true,
+          "confidence": 0.78,
+          "source": "detected",
+          "evidence": [
+            "web_routes_and_blade",
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "public_marketing_site": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "notifications_heavy": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "external_integrations_heavy": {
+          "enabled": false,
+          "confidence": 0.6,
+          "source": "detected",
+          "evidence": [
+            "integration_path=1",
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "file_upload_storage_heavy": {
+          "enabled": false,
+          "confidence": 0.6,
+          "source": "detected",
+          "evidence": [
+            "upload_paths=1",
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        }
+      },
+      "team_expectations": {
+        "thin_controllers": {
+          "enabled": false,
+          "confidence": 0.6375,
+          "source": "detected",
+          "evidence": [
+            "controller_delegation_ratio=0.12",
+            "architecture_profile=mvc"
+          ]
+        },
+        "form_requests_expected": {
+          "enabled": false,
+          "confidence": 0.35,
+          "source": "detected",
+          "evidence": [
+            "form_request_validations=0",
+            "inline_validations=1"
+          ]
+        },
+        "services_actions_expected": {
+          "enabled": true,
+          "confidence": 0.82,
+          "source": "detected",
+          "evidence": [
+            "layers=contracts,providers,services"
+          ]
+        },
+        "repositories_expected": {
+          "enabled": false,
+          "confidence": 0.28,
+          "source": "detected",
+          "evidence": [
+            "repository_count=0"
+          ]
+        },
+        "resources_expected": {
+          "enabled": false,
+          "confidence": 0.3,
+          "source": "detected",
+          "evidence": [
+            "has_resource_files=0",
+            "architecture_profile=mvc"
+          ]
+        },
+        "dto_data_objects_preferred": {
+          "enabled": false,
+          "confidence": 0.3,
+          "source": "detected",
+          "evidence": [
+            "has_dto_layer=0"
+          ]
+        }
+      },
+      "auto_detected_context": {
+        "project_type": "unknown",
+        "project_type_confidence": 0.0,
+        "project_type_confidence_kind": "unknown",
+        "architecture_style": "mvc",
+        "architecture_confidence": 0.86,
+        "architecture_confidence_kind": "structural",
+        "capabilities": {
+          "multi_tenant": {
+            "enabled": false,
+            "confidence": 0.88,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "saas": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "realtime": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "billing": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "multi_role_portal": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "queue_heavy": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "mixed_public_dashboard": {
+            "enabled": true,
+            "confidence": 0.78,
+            "source": "detected",
+            "evidence": [
+              "web_routes_and_blade",
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "public_marketing_site": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "notifications_heavy": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "external_integrations_heavy": {
+            "enabled": false,
+            "confidence": 0.6,
+            "source": "detected",
+            "evidence": [
+              "integration_path=1",
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "file_upload_storage_heavy": {
+            "enabled": false,
+            "confidence": 0.6,
+            "source": "detected",
+            "evidence": [
+              "upload_paths=1",
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          }
+        },
+        "team_expectations": {
+          "thin_controllers": {
+            "enabled": false,
+            "confidence": 0.6375,
+            "source": "detected",
+            "evidence": [
+              "controller_delegation_ratio=0.12",
+              "architecture_profile=mvc"
+            ]
+          },
+          "form_requests_expected": {
+            "enabled": false,
+            "confidence": 0.35,
+            "source": "detected",
+            "evidence": [
+              "form_request_validations=0",
+              "inline_validations=1"
+            ]
+          },
+          "services_actions_expected": {
+            "enabled": true,
+            "confidence": 0.82,
+            "source": "detected",
+            "evidence": [
+              "layers=contracts,providers,services"
+            ]
+          },
+          "repositories_expected": {
+            "enabled": false,
+            "confidence": 0.28,
+            "source": "detected",
+            "evidence": [
+              "repository_count=0"
+            ]
+          },
+          "resources_expected": {
+            "enabled": false,
+            "confidence": 0.3,
+            "source": "detected",
+            "evidence": [
+              "has_resource_files=0",
+              "architecture_profile=mvc"
+            ]
+          },
+          "dto_data_objects_preferred": {
+            "enabled": false,
+            "confidence": 0.3,
+            "source": "detected",
+            "evidence": [
+              "has_dto_layer=0"
+            ]
+          }
+        },
+        "evidence": {
+          "project_business_signals": [
+            "web_routes_and_blade",
+            "project_type=unknown",
+            "project_type_confidence=0.00",
+            "project_type_confidence_kind=unknown"
+          ],
+          "architecture_signals": [
+            "framework=laravel",
+            "layered_score=2",
+            "modular_score=0",
+            "api_score=1",
+            "mvc_score=3",
+            "layers=contracts,providers,services",
+            "profile=mvc",
+            "profile_confidence=0.86",
+            "profile_confidence_kind=structural"
+          ]
+        }
+      },
+      "project_business_context": "unknown",
+      "project_business_signals": [
+        "web_routes_and_blade",
+        "project_type=unknown",
+        "project_type_confidence=0.00",
+        "project_type_confidence_kind=unknown"
+      ],
+      "project_business_confidence": 0.0,
+      "project_business_confidence_kind": "unknown",
+      "project_business_source": "default",
       "backend_framework": "laravel",
       "backend_architecture_profile": "mvc",
       "backend_profile_signals": [
@@ -704,6 +754,7 @@
       ],
       "backend_profile_confidence": 0.86,
       "backend_profile_confidence_kind": "structural",
+      "backend_profile_source": "detected",
       "backend_profile_debug": {
         "framework": "laravel",
         "selected_profile": "mvc",
@@ -736,6 +787,173 @@
         "providers",
         "services"
       ],
+      "backend_capabilities": {
+        "multi_tenant": {
+          "enabled": false,
+          "confidence": 0.88,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "saas": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "realtime": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "billing": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "multi_role_portal": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "queue_heavy": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "mixed_public_dashboard": {
+          "enabled": true,
+          "confidence": 0.78,
+          "source": "detected",
+          "evidence": [
+            "web_routes_and_blade",
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "public_marketing_site": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "notifications_heavy": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "external_integrations_heavy": {
+          "enabled": false,
+          "confidence": 0.6,
+          "source": "detected",
+          "evidence": [
+            "integration_path=1",
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "file_upload_storage_heavy": {
+          "enabled": false,
+          "confidence": 0.6,
+          "source": "detected",
+          "evidence": [
+            "upload_paths=1",
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        }
+      },
+      "backend_team_expectations": {
+        "thin_controllers": {
+          "enabled": false,
+          "confidence": 0.6375,
+          "source": "detected",
+          "evidence": [
+            "controller_delegation_ratio=0.12",
+            "architecture_profile=mvc"
+          ]
+        },
+        "form_requests_expected": {
+          "enabled": false,
+          "confidence": 0.35,
+          "source": "detected",
+          "evidence": [
+            "form_request_validations=0",
+            "inline_validations=1"
+          ]
+        },
+        "services_actions_expected": {
+          "enabled": true,
+          "confidence": 0.82,
+          "source": "detected",
+          "evidence": [
+            "layers=contracts,providers,services"
+          ]
+        },
+        "repositories_expected": {
+          "enabled": false,
+          "confidence": 0.28,
+          "source": "detected",
+          "evidence": [
+            "repository_count=0"
+          ]
+        },
+        "resources_expected": {
+          "enabled": false,
+          "confidence": 0.3,
+          "source": "detected",
+          "evidence": [
+            "has_resource_files=0",
+            "architecture_profile=mvc"
+          ]
+        },
+        "dto_data_objects_preferred": {
+          "enabled": false,
+          "confidence": 0.3,
+          "source": "detected",
+          "evidence": [
+            "has_dto_layer=0"
+          ]
+        }
+      },
+      "context_resolution_signals": [
+        "framework=laravel",
+        "project_type=unknown",
+        "project_type_source=default",
+        "profile=mvc",
+        "profile_source=detected",
+        "capabilities=mixed_public_dashboard",
+        "team_expectations=services_actions_expected"
+      ],
+      "context_matrix_version": 2,
       "react_structure_mode": "unknown",
       "react_shared_roots": [],
       "has_i18n": false,
@@ -749,6 +967,10 @@
         "app/Exceptions",
         "app/Providers"
       ]
+    },
+    "project_memory": {
+      "project_hash": "2c6ec9d9c2cd7a5c",
+      "updated_at": "2026-04-20T00:59:21.429713+00:00"
     }
   },
   "ruleset_path": null,
@@ -764,8 +986,11 @@
     "controller-query-direct",
     "controller-business-logic",
     "controller-inline-validation",
+    "controller-index-filter-duplication",
     "mass-assignment-risk",
+    "action-class-naming-consistency",
     "massive-model",
+    "model-cross-model-query",
     "unsafe-file-upload",
     "unused-service-class",
     "no-json-encode-in-controllers",
@@ -774,7 +999,6 @@
     "no-closure-routes",
     "heavy-logic-in-routes",
     "duplicate-route-definition",
-    "missing-throttle-on-auth-api-routes",
     "missing-auth-on-mutating-api-routes",
     "policy-coverage-on-mutations",
     "authorization-bypass-risk",
@@ -786,7 +1010,7 @@
     "sensitive-routes-missing-verified-middleware",
     "tenant-access-middleware-missing",
     "signed-routes-missing-signature-middleware",
-    "unsafe-external-redirect",
+    "unsafe-redirect",
     "authorization-missing-on-sensitive-reads",
     "insecure-session-cookie-config",
     "unsafe-csp-policy",
@@ -797,6 +1021,7 @@
     "inertia-shared-props-eager-query",
     "job-missing-retry-policy",
     "job-http-call-missing-timeout",
+    "error-pages-missing",
     "dry-violation",
     "high-complexity",
     "long-method",
@@ -826,6 +1051,7 @@
     "form-label-association",
     "no-inline-types",
     "no-inline-services",
+    "react-parent-child-spacing-overlap",
     "react-project-structure-consistency",
     "inertia-page-missing-head",
     "inertia-internal-link-anchor",
@@ -833,96 +1059,62 @@
     "anonymous-default-export-component",
     "multiple-exported-react-components",
     "context-provider-inline-value",
-    "react-useeffect-fetch-without-abort"
-  ],
-  "category_breakdown": {
-    "dry": {
-      "category": "dry",
-      "score": null,
-      "raw_score": 99.5,
-      "weight": 0.0,
-      "has_weight": false,
-      "finding_count": 2
-    },
-    "srp": {
-      "category": "srp",
-      "score": null,
-      "raw_score": 100.0,
-      "weight": 0.0,
-      "has_weight": false,
-      "finding_count": 0
-    },
-    "validation": {
-      "category": "validation",
-      "score": null,
-      "raw_score": 95.0,
-      "weight": 0.0,
-      "has_weight": false,
-      "finding_count": 1
-    },
-    "architecture": {
-      "category": "architecture",
-      "score": null,
-      "raw_score": 87.8,
-      "weight": 0.0,
-      "has_weight": false,
-      "finding_count": 3
-    },
-    "performance": {
-      "category": "performance",
-      "score": 93.0,
-      "raw_score": 93.0,
-      "weight": 15.0,
-      "has_weight": true,
-      "finding_count": 4
-    },
-    "security": {
-      "category": "security",
-      "score": 10.0,
-      "raw_score": 10.0,
-      "weight": 25.0,
-      "has_weight": true,
-      "finding_count": 6
-    },
-    "accessibility": {
-      "category": "accessibility",
-      "score": null,
-      "raw_score": 100.0,
-      "weight": 0.0,
-      "has_weight": false,
-      "finding_count": 0
-    },
-    "laravel_best_practice": {
-      "category": "laravel_best_practice",
-      "score": 96.5,
-      "raw_score": 96.5,
-      "weight": 20.0,
-      "has_weight": true,
-      "finding_count": 2
-    },
-    "react_best_practice": {
-      "category": "react_best_practice",
-      "score": null,
-      "raw_score": 100.0,
-      "weight": 0.0,
-      "has_weight": false,
-      "finding_count": 0
-    },
-    "complexity": {
-      "category": "complexity",
-      "score": 100.0,
-      "raw_score": 100.0,
-      "weight": 20.0,
-      "has_weight": true,
-      "finding_count": 0
-    },
-    "maintainability": {
-      "category": "maintainability",
-      "score": 97.2,
-      "raw_score": 97.2,
-      "weight": 20.0,
-      "has_weight": true,
-      "finding_count": 15
-    }
-  }
+    "react-useeffect-fetch-without-abort",
+    "derived-state-in-effect",
+    "state-update-in-render",
+    "large-custom-hook",
+    "cross-feature-import-boundary",
+    "query-key-instability",
+    "effect-event-relay-smell",
+    "route-shell-missing-error-boundary",
+    "unsafe-async-handler-without-guard",
+    "touch-target-size",
+    "focus-indicator-missing",
+    "skip-link-missing",
+    "modal-trap-focus",
+    "semantic-wrapper-breakage",
+    "interactive-accessible-name-required",
+    "jsx-aria-attribute-format",
+    "outside-click-without-keyboard-fallback",
+    "apg-tabs-keyboard-contract",
+    "apg-accordion-disclosure-contract",
+    "apg-menu-button-contract",
+    "apg-combobox-contract",
+    "dialog-focus-restore-missing",
+    "avoid-props-to-state-copy",
+    "props-state-sync-effect-smell",
+    "controlled-uncontrolled-input-mismatch",
+    "usememo-overuse",
+    "usecallback-overuse",
+    "context-oversized-provider",
+    "lazy-without-suspense",
+    "suspense-fallback-missing",
+    "stale-closure-in-timer",
+    "stale-closure-in-listener",
+    "duplicate-key-source",
+    "missing-loading-state",
+    "missing-empty-state",
+    "ref-access-during-render",
+    "ref-used-as-reactive-state",
+    "meta-description-missing-or-generic",
+    "canonical-missing-or-invalid",
+    "robots-directive-risk",
+    "crawlable-internal-navigation-required",
+    "jsonld-structured-data-invalid-or-mismatched",
+    "h1-singleton-violation",
+    "page-indexability-conflict",
+    "css-font-size-px",
+    "css-spacing-px",
+    "css-fixed-layout-px",
+    "tailwind-arbitrary-value-overuse",
+    "tailwind-arbitrary-text-size",
+    "tailwind-arbitrary-spacing",
+    "tailwind-arbitrary-layout-size",
+    "tailwind-arbitrary-radius-shadow",
+    "tailwind-motion-reduce-missing",
+    "tailwind-appearance-none-risk",
+    "css-focus-outline-without-replacement",
+    "css-hover-only-interaction",
+    "css-color-only-state-indicator"
+  ]
 }

@@ -32,20 +32,6 @@
   "files_scanned": 4,
   "classes_found": 0,
   "methods_found": 0,
-  "scores": {
-    "overall": 99.6,
-    "grade": "A",
-    "architecture": 100.0,
-    "dry": 100.0,
-    "laravel": 100.0,
-    "react": 85.5,
-    "complexity": 100.0,
-    "security": 100.0,
-    "maintainability": 98.2,
-    "srp": 100.0,
-    "validation": 100.0,
-    "performance": 100.0
-  },
   "findings": [
     {
       "id": "finding_37175544b890",
@@ -88,24 +74,14 @@
       "context": "BigPage"
     },
     {
-      "id": "finding_5e96c98a6e90",
-      "fingerprint": "5e96c98a6e90",
-      "rule_id": "inline-api-logic",
-      "category": "react_best_practice",
+      "id": "finding_b1dda3bea4dc",
+      "fingerprint": "b1dda3bea4dc",
+      "rule_id": "error-pages-missing",
+      "category": "laravel_best_practice",
       "severity": "high",
       "classification": "advisory",
-      "file": "resources/js/Pages/BigPage.tsx",
-      "context": "BigPage"
-    },
-    {
-      "id": "finding_7e0a6e030e4d",
-      "fingerprint": "7e0a6e030e4d",
-      "rule_id": "large-react-component",
-      "category": "react_best_practice",
-      "severity": "medium",
-      "classification": "advisory",
-      "file": "resources/js/Pages/BigPage.tsx",
-      "context": "BigPage"
+      "file": "resources/js/pages/errors",
+      "context": "resources/js/pages/errors (Inertia) or resources/views/errors"
     },
     {
       "id": "finding_e255b1ef5e9f",
@@ -123,85 +99,358 @@
   "findings_by_severity": {},
   "findings_by_classification": {},
   "file_summaries": [],
-  "action_plan": [
-    {
-      "id": "action_21f8eb9d8cb5",
-      "rule_id": "inertia-page-missing-head",
-      "category": "react_best_practice",
-      "priority": 0.0,
-      "max_severity": "low",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "37175544b890",
-        "4353f1e36957"
-      ],
-      "files": [
-        "resources/js/Pages/BigPage.tsx",
-        "resources/js/Pages/SmallPage.tsx"
-      ]
-    },
-    {
-      "id": "action_61626e785590",
-      "rule_id": "react-useeffect-fetch-without-abort",
-      "category": "react_best_practice",
-      "priority": 0.0,
-      "max_severity": "medium",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "5e90b443681d"
-      ],
-      "files": [
-        "resources/js/Pages/BigPage.tsx"
-      ]
-    },
-    {
-      "id": "action_712df1254314",
-      "rule_id": "tests-missing",
-      "category": "maintainability",
-      "priority": 0.35,
-      "max_severity": "medium",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "e255b1ef5e9f"
-      ],
-      "files": [
-        "package.json"
-      ]
-    },
-    {
-      "id": "action_deeb164c52b0",
-      "rule_id": "inline-api-logic",
-      "category": "react_best_practice",
-      "priority": 0.0,
-      "max_severity": "high",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "5e96c98a6e90"
-      ],
-      "files": [
-        "resources/js/Pages/BigPage.tsx"
-      ]
-    },
-    {
-      "id": "action_e2b5e5562ec4",
-      "rule_id": "large-react-component",
-      "category": "react_best_practice",
-      "priority": 0.0,
-      "max_severity": "medium",
-      "classification": "advisory",
-      "finding_fingerprints": [
-        "7e0a6e030e4d"
-      ],
-      "files": [
-        "resources/js/Pages/BigPage.tsx"
-      ]
-    }
-  ],
   "summary": "",
   "analysis_debug": {
     "project_context": {
       "tenant_mode": "non_tenant",
       "tenant_signals": [],
+      "project_type": "unknown",
+      "architecture_style": "mvc",
+      "capabilities": {
+        "multi_tenant": {
+          "enabled": false,
+          "confidence": 0.88,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "saas": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "realtime": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "billing": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "multi_role_portal": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "queue_heavy": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "mixed_public_dashboard": {
+          "enabled": false,
+          "confidence": 0.3,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "public_marketing_site": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "notifications_heavy": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "external_integrations_heavy": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "file_upload_storage_heavy": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        }
+      },
+      "team_expectations": {
+        "thin_controllers": {
+          "enabled": false,
+          "confidence": 0.6,
+          "source": "detected",
+          "evidence": [
+            "controller_delegation_ratio=0.00",
+            "architecture_profile=mvc"
+          ]
+        },
+        "form_requests_expected": {
+          "enabled": false,
+          "confidence": 0.35,
+          "source": "detected",
+          "evidence": [
+            "form_request_validations=0",
+            "inline_validations=0"
+          ]
+        },
+        "services_actions_expected": {
+          "enabled": false,
+          "confidence": 0.3,
+          "source": "detected",
+          "evidence": [
+            "layers=none"
+          ]
+        },
+        "repositories_expected": {
+          "enabled": false,
+          "confidence": 0.28,
+          "source": "detected",
+          "evidence": [
+            "repository_count=0"
+          ]
+        },
+        "resources_expected": {
+          "enabled": false,
+          "confidence": 0.3,
+          "source": "detected",
+          "evidence": [
+            "has_resource_files=0",
+            "architecture_profile=mvc"
+          ]
+        },
+        "dto_data_objects_preferred": {
+          "enabled": false,
+          "confidence": 0.3,
+          "source": "detected",
+          "evidence": [
+            "has_dto_layer=0"
+          ]
+        }
+      },
+      "auto_detected_context": {
+        "project_type": "unknown",
+        "project_type_confidence": 0.0,
+        "project_type_confidence_kind": "unknown",
+        "architecture_style": "mvc",
+        "architecture_confidence": 0.74,
+        "architecture_confidence_kind": "heuristic",
+        "capabilities": {
+          "multi_tenant": {
+            "enabled": false,
+            "confidence": 0.88,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "saas": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "realtime": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "billing": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "multi_role_portal": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "queue_heavy": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "mixed_public_dashboard": {
+            "enabled": false,
+            "confidence": 0.3,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "public_marketing_site": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "notifications_heavy": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "external_integrations_heavy": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          },
+          "file_upload_storage_heavy": {
+            "enabled": false,
+            "confidence": 0.5,
+            "source": "detected",
+            "evidence": [
+              "business_context=unknown",
+              "architecture_profile=mvc"
+            ]
+          }
+        },
+        "team_expectations": {
+          "thin_controllers": {
+            "enabled": false,
+            "confidence": 0.6,
+            "source": "detected",
+            "evidence": [
+              "controller_delegation_ratio=0.00",
+              "architecture_profile=mvc"
+            ]
+          },
+          "form_requests_expected": {
+            "enabled": false,
+            "confidence": 0.35,
+            "source": "detected",
+            "evidence": [
+              "form_request_validations=0",
+              "inline_validations=0"
+            ]
+          },
+          "services_actions_expected": {
+            "enabled": false,
+            "confidence": 0.3,
+            "source": "detected",
+            "evidence": [
+              "layers=none"
+            ]
+          },
+          "repositories_expected": {
+            "enabled": false,
+            "confidence": 0.28,
+            "source": "detected",
+            "evidence": [
+              "repository_count=0"
+            ]
+          },
+          "resources_expected": {
+            "enabled": false,
+            "confidence": 0.3,
+            "source": "detected",
+            "evidence": [
+              "has_resource_files=0",
+              "architecture_profile=mvc"
+            ]
+          },
+          "dto_data_objects_preferred": {
+            "enabled": false,
+            "confidence": 0.3,
+            "source": "detected",
+            "evidence": [
+              "has_dto_layer=0"
+            ]
+          }
+        },
+        "evidence": {
+          "project_business_signals": [
+            "no_blade_views",
+            "project_type=unknown",
+            "project_type_confidence=0.00",
+            "project_type_confidence_kind=unknown"
+          ],
+          "architecture_signals": [
+            "framework=laravel",
+            "layered_score=0",
+            "modular_score=0",
+            "api_score=2",
+            "mvc_score=2",
+            "layers=none",
+            "profile=mvc",
+            "profile_confidence=0.74",
+            "profile_confidence_kind=heuristic"
+          ]
+        }
+      },
+      "project_business_context": "unknown",
+      "project_business_signals": [
+        "no_blade_views",
+        "project_type=unknown",
+        "project_type_confidence=0.00",
+        "project_type_confidence_kind=unknown"
+      ],
+      "project_business_confidence": 0.0,
+      "project_business_confidence_kind": "unknown",
+      "project_business_source": "default",
       "backend_framework": "laravel",
       "backend_architecture_profile": "mvc",
       "backend_profile_signals": [
@@ -217,6 +466,7 @@
       ],
       "backend_profile_confidence": 0.74,
       "backend_profile_confidence_kind": "heuristic",
+      "backend_profile_source": "detected",
       "backend_profile_debug": {
         "framework": "laravel",
         "selected_profile": "mvc",
@@ -241,6 +491,170 @@
       },
       "backend_structure_mode": "mvc",
       "backend_layers": [],
+      "backend_capabilities": {
+        "multi_tenant": {
+          "enabled": false,
+          "confidence": 0.88,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "saas": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "realtime": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "billing": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "multi_role_portal": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "queue_heavy": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "mixed_public_dashboard": {
+          "enabled": false,
+          "confidence": 0.3,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "public_marketing_site": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "notifications_heavy": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "external_integrations_heavy": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        },
+        "file_upload_storage_heavy": {
+          "enabled": false,
+          "confidence": 0.5,
+          "source": "detected",
+          "evidence": [
+            "business_context=unknown",
+            "architecture_profile=mvc"
+          ]
+        }
+      },
+      "backend_team_expectations": {
+        "thin_controllers": {
+          "enabled": false,
+          "confidence": 0.6,
+          "source": "detected",
+          "evidence": [
+            "controller_delegation_ratio=0.00",
+            "architecture_profile=mvc"
+          ]
+        },
+        "form_requests_expected": {
+          "enabled": false,
+          "confidence": 0.35,
+          "source": "detected",
+          "evidence": [
+            "form_request_validations=0",
+            "inline_validations=0"
+          ]
+        },
+        "services_actions_expected": {
+          "enabled": false,
+          "confidence": 0.3,
+          "source": "detected",
+          "evidence": [
+            "layers=none"
+          ]
+        },
+        "repositories_expected": {
+          "enabled": false,
+          "confidence": 0.28,
+          "source": "detected",
+          "evidence": [
+            "repository_count=0"
+          ]
+        },
+        "resources_expected": {
+          "enabled": false,
+          "confidence": 0.3,
+          "source": "detected",
+          "evidence": [
+            "has_resource_files=0",
+            "architecture_profile=mvc"
+          ]
+        },
+        "dto_data_objects_preferred": {
+          "enabled": false,
+          "confidence": 0.3,
+          "source": "detected",
+          "evidence": [
+            "has_dto_layer=0"
+          ]
+        }
+      },
+      "context_resolution_signals": [
+        "framework=laravel",
+        "project_type=unknown",
+        "project_type_source=default",
+        "profile=mvc",
+        "profile_source=detected",
+        "capabilities=none",
+        "team_expectations=none"
+      ],
+      "context_matrix_version": 2,
       "react_structure_mode": "unknown",
       "react_shared_roots": [],
       "has_i18n": false,
@@ -248,6 +662,10 @@
       "custom_head_wrappers": [],
       "auth_flow_paths": [],
       "shared_infra_roots": []
+    },
+    "project_memory": {
+      "project_hash": "816a5c539808dafc",
+      "updated_at": "2026-04-20T00:59:22.085731+00:00"
     }
   },
   "ruleset_path": null,
@@ -263,8 +681,11 @@
     "controller-query-direct",
     "controller-business-logic",
     "controller-inline-validation",
+    "controller-index-filter-duplication",
     "mass-assignment-risk",
+    "action-class-naming-consistency",
     "massive-model",
+    "model-cross-model-query",
     "unsafe-file-upload",
     "unused-service-class",
     "no-json-encode-in-controllers",
@@ -273,7 +694,6 @@
     "no-closure-routes",
     "heavy-logic-in-routes",
     "duplicate-route-definition",
-    "missing-throttle-on-auth-api-routes",
     "missing-auth-on-mutating-api-routes",
     "policy-coverage-on-mutations",
     "authorization-bypass-risk",
@@ -285,7 +705,7 @@
     "sensitive-routes-missing-verified-middleware",
     "tenant-access-middleware-missing",
     "signed-routes-missing-signature-middleware",
-    "unsafe-external-redirect",
+    "unsafe-redirect",
     "authorization-missing-on-sensitive-reads",
     "insecure-session-cookie-config",
     "unsafe-csp-policy",
@@ -296,6 +716,7 @@
     "inertia-shared-props-eager-query",
     "job-missing-retry-policy",
     "job-http-call-missing-timeout",
+    "error-pages-missing",
     "dry-violation",
     "high-complexity",
     "long-method",
@@ -325,6 +746,7 @@
     "form-label-association",
     "no-inline-types",
     "no-inline-services",
+    "react-parent-child-spacing-overlap",
     "react-project-structure-consistency",
     "inertia-page-missing-head",
     "inertia-internal-link-anchor",
@@ -332,96 +754,62 @@
     "anonymous-default-export-component",
     "multiple-exported-react-components",
     "context-provider-inline-value",
-    "react-useeffect-fetch-without-abort"
-  ],
-  "category_breakdown": {
-    "dry": {
-      "category": "dry",
-      "score": null,
-      "raw_score": 100.0,
-      "weight": 0.0,
-      "has_weight": false,
-      "finding_count": 0
-    },
-    "srp": {
-      "category": "srp",
-      "score": null,
-      "raw_score": 100.0,
-      "weight": 0.0,
-      "has_weight": false,
-      "finding_count": 0
-    },
-    "validation": {
-      "category": "validation",
-      "score": null,
-      "raw_score": 100.0,
-      "weight": 0.0,
-      "has_weight": false,
-      "finding_count": 0
-    },
-    "architecture": {
-      "category": "architecture",
-      "score": null,
-      "raw_score": 100.0,
-      "weight": 0.0,
-      "has_weight": false,
-      "finding_count": 0
-    },
-    "performance": {
-      "category": "performance",
-      "score": 100.0,
-      "raw_score": 100.0,
-      "weight": 15.0,
-      "has_weight": true,
-      "finding_count": 0
-    },
-    "security": {
-      "category": "security",
-      "score": 100.0,
-      "raw_score": 100.0,
-      "weight": 25.0,
-      "has_weight": true,
-      "finding_count": 0
-    },
-    "accessibility": {
-      "category": "accessibility",
-      "score": null,
-      "raw_score": 100.0,
-      "weight": 0.0,
-      "has_weight": false,
-      "finding_count": 0
-    },
-    "laravel_best_practice": {
-      "category": "laravel_best_practice",
-      "score": 100.0,
-      "raw_score": 100.0,
-      "weight": 20.0,
-      "has_weight": true,
-      "finding_count": 0
-    },
-    "react_best_practice": {
-      "category": "react_best_practice",
-      "score": null,
-      "raw_score": 85.5,
-      "weight": 0.0,
-      "has_weight": false,
-      "finding_count": 6
-    },
-    "complexity": {
-      "category": "complexity",
-      "score": 100.0,
-      "raw_score": 100.0,
-      "weight": 20.0,
-      "has_weight": true,
-      "finding_count": 0
-    },
-    "maintainability": {
-      "category": "maintainability",
-      "score": 98.2,
-      "raw_score": 98.2,
-      "weight": 20.0,
-      "has_weight": true,
-      "finding_count": 1
-    }
-  }
+    "react-useeffect-fetch-without-abort",
+    "derived-state-in-effect",
+    "state-update-in-render",
+    "large-custom-hook",
+    "cross-feature-import-boundary",
+    "query-key-instability",
+    "effect-event-relay-smell",
+    "route-shell-missing-error-boundary",
+    "unsafe-async-handler-without-guard",
+    "touch-target-size",
+    "focus-indicator-missing",
+    "skip-link-missing",
+    "modal-trap-focus",
+    "semantic-wrapper-breakage",
+    "interactive-accessible-name-required",
+    "jsx-aria-attribute-format",
+    "outside-click-without-keyboard-fallback",
+    "apg-tabs-keyboard-contract",
+    "apg-accordion-disclosure-contract",
+    "apg-menu-button-contract",
+    "apg-combobox-contract",
+    "dialog-focus-restore-missing",
+    "avoid-props-to-state-copy",
+    "props-state-sync-effect-smell",
+    "controlled-uncontrolled-input-mismatch",
+    "usememo-overuse",
+    "usecallback-overuse",
+    "context-oversized-provider",
+    "lazy-without-suspense",
+    "suspense-fallback-missing",
+    "stale-closure-in-timer",
+    "stale-closure-in-listener",
+    "duplicate-key-source",
+    "missing-loading-state",
+    "missing-empty-state",
+    "ref-access-during-render",
+    "ref-used-as-reactive-state",
+    "meta-description-missing-or-generic",
+    "canonical-missing-or-invalid",
+    "robots-directive-risk",
+    "crawlable-internal-navigation-required",
+    "jsonld-structured-data-invalid-or-mismatched",
+    "h1-singleton-violation",
+    "page-indexability-conflict",
+    "css-font-size-px",
+    "css-spacing-px",
+    "css-fixed-layout-px",
+    "tailwind-arbitrary-value-overuse",
+    "tailwind-arbitrary-text-size",
+    "tailwind-arbitrary-spacing",
+    "tailwind-arbitrary-layout-size",
+    "tailwind-arbitrary-radius-shadow",
+    "tailwind-motion-reduce-missing",
+    "tailwind-appearance-none-risk",
+    "css-focus-outline-without-replacement",
+    "css-hover-only-interaction",
+    "css-color-only-state-indicator"
+  ]
 }
