@@ -131,7 +131,7 @@ class SsrfRiskHttpClientRule(Rule):
         if not request_vars:
             return []
 
-        safe_low = text.lower()
+        text.lower()
         for call in self._HTTP_CLIENT_CALL.finditer(text):
             var_name = str(call.group("var") or "").strip()
             if not var_name or var_name not in request_vars:

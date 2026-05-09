@@ -43,9 +43,7 @@ def _arg_has_concat_or_var(arg: str) -> bool:
     # Simple concatenation heuristic.
     if "." in a and re.search(r"\$\w+", a):
         return True
-    if a.startswith("$"):
-        return True
-    return False
+    return bool(a.startswith("$"))
 
 
 def _arg_has_placeholder(arg: str) -> bool:

@@ -225,12 +225,12 @@ class FormLabelAssociationRule(Rule):
         labels = re.findall(r"<label\b[^>]*\bid=['\"]([A-Za-z0-9\-_:.]+)['\"][^>]*>", content, flags=re.IGNORECASE)
         if not labels:
             return False
-        referenced = set(
+        referenced = {
             part.strip()
             for raw in re.findall(r"aria-labelledby=['\"]([^'\"]+)['\"]", content, flags=re.IGNORECASE)
             for part in raw.split()
             if part.strip()
-        )
+        }
         return any(label_id in referenced for label_id in labels)
 
     def _is_allowlisted_path(self, file_path: str) -> bool:

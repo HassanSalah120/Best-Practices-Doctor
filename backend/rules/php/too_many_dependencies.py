@@ -250,10 +250,7 @@ class TooManyDependenciesRule(Rule):
                 return True
 
         # Check if class name ends with DTO
-        if method.class_name and method.class_name.lower().endswith("dto"):
-            return True
-
-        return False
+        return bool(method.class_name and method.class_name.lower().endswith("dto"))
 
     def _is_orchestrator(self, method: MethodInfo, facts: Facts) -> bool:
         """Check if the class is an orchestrator/coordinator - these intentionally have many dependencies."""

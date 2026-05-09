@@ -125,8 +125,7 @@ def _resolve_import_candidates(source: str, importer_file_path: str | None, proj
             candidates.extend(_candidate_module_paths((project_root / alias_root / relative).resolve()))
         candidates.extend(_candidate_module_paths((project_root / relative).resolve()))
 
-    existing = [path for path in _unique_paths(candidates) if path.is_file()]
-    return existing
+    return [path for path in _unique_paths(candidates) if path.is_file()]
 
 
 @lru_cache(maxsize=512)

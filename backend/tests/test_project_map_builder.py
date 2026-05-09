@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+from core.project_map import ProjectMapBuilder
 from schemas.facts import ClassInfo, Facts, MethodInfo, ReactComponentInfo, RouteInfo
 from schemas.report import ScanReport
-
-from core.project_map import ProjectMapBuilder
 
 
 def _class(fqcn: str, file_path: str) -> ClassInfo:
@@ -121,7 +120,7 @@ def test_project_map_builder_handles_cycles_in_deep_traversal() -> None:
             action="start",
             file_path="routes/web.php",
             line_number=10,
-        )
+        ),
     ]
 
     artifact = ProjectMapBuilder().build(facts=facts, report=_report(), signature="sig-b")
@@ -192,7 +191,7 @@ def test_project_map_builder_sets_truncation_flags_when_limits_hit() -> None:
                 name=f"m{i}",
                 line=i * 5,
                 call_sites=[call] if call else [],
-            )
+            ),
         )
     facts.methods = chain_methods
     facts.routes = [
@@ -203,7 +202,7 @@ def test_project_map_builder_sets_truncation_flags_when_limits_hit() -> None:
             action="m1",
             file_path="routes/web.php",
             line_number=8,
-        )
+        ),
     ]
 
     builder = ProjectMapBuilder()

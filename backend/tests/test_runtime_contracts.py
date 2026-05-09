@@ -61,8 +61,8 @@ def test_route_list_json_import_prefers_artisan_and_preserves_static_locations(t
                     "name": "users.index",
                     "action": "App\\Http\\Controllers\\UserController@index",
                     "middleware": ["web"],
-                }
-            ]
+                },
+            ],
         )
 
     monkeypatch.setattr("core.runtime_contracts.subprocess.run", lambda *args, **kwargs: Result())
@@ -71,7 +71,7 @@ def test_route_list_json_import_prefers_artisan_and_preserves_static_locations(t
 
     assert warning is None
     assert [(route.method, route.uri, route.name, route.file_path) for route in routes] == [
-        ("GET", "users", "users.index", "routes/web.php")
+        ("GET", "users", "users.index", "routes/web.php"),
     ]
 
 
@@ -116,7 +116,7 @@ class UserController {
                 line_number=3,
                 method_name="store",
                 rules={"name": ["required", "string"]},
-            )
+            ),
         ],
     )
 
@@ -357,7 +357,7 @@ class UserController {
                 line_number=3,
                 method_name="store",
                 rules={"name": ["required"], "subject": ["required"]},
-            )
+            ),
         ],
     )
 
@@ -393,7 +393,7 @@ class DemoController {
                 action="enter",
                 file_path="routes/web.php",
                 line_number=84,
-            )
+            ),
         ],
     )
 
@@ -436,7 +436,7 @@ class DemoController {
 """,
     )
     facts = FactsBuilder(
-        ProjectInfo(root_path=str(tmp_path), project_type=ProjectType.LARAVEL_INERTIA_REACT)
+        ProjectInfo(root_path=str(tmp_path), project_type=ProjectType.LARAVEL_INERTIA_REACT),
     ).build()
 
     parsed_routes = {(route.method, route.uri, route.action) for route in facts.routes}
@@ -489,7 +489,7 @@ class UserController {
                 line_number=3,
                 method_name="store",
                 rules={"email": ["required", "email"]},
-            )
+            ),
         ],
     )
 

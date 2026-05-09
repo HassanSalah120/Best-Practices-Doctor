@@ -183,7 +183,7 @@ def test_client_side_auth_only_skips_admin_link_with_backend_admin_route():
             file_path="routes/web.php",
             line_number=82,
             middleware=["web", "auth:sanctum", "admin"],
-        )
+        ),
     )
     content = """
 export function GamePage() {

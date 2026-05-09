@@ -6,12 +6,12 @@ and missing-props-type rules.
 """
 
 import pytest
+
 from core.ruleset import RuleConfig
 from rules.laravel.controller_returning_view_in_api import ControllerReturningViewInApiRule
 from rules.laravel.missing_api_resource import MissingApiResourceRule
 from rules.react.missing_props_type import MissingPropsTypeRule
-from schemas.facts import Facts, RouteInfo
-
+from schemas.facts import Facts
 
 # ============== Controller Returning View in API Tests ==============
 

@@ -11,9 +11,11 @@ from rules.laravel.session_fixation_regenerate_missing import SessionFixationReg
 from rules.laravel.ssrf_risk_http_client import SsrfRiskHttpClientRule
 from rules.laravel.upload_mime_extension_mismatch import UploadMimeExtensionMismatchRule
 from rules.laravel.upload_size_limit_missing import UploadSizeLimitMissingRule
-from rules.laravel.webhook_signature_missing import WebhookSignatureMissingRule
 from rules.laravel.weak_password_policy_validation import WeakPasswordPolicyValidationRule
-from rules.react.client_open_redirect_unvalidated_navigation import ClientOpenRedirectUnvalidatedNavigationRule
+from rules.laravel.webhook_signature_missing import WebhookSignatureMissingRule
+from rules.react.client_open_redirect_unvalidated_navigation import (
+    ClientOpenRedirectUnvalidatedNavigationRule,
+)
 from rules.react.insecure_postmessage_origin_wildcard import InsecurePostMessageOriginWildcardRule
 from rules.react.token_storage_insecure_localstorage import TokenStorageInsecureLocalStorageRule
 from schemas.facts import Facts, MethodInfo, QueryUsage, RouteInfo
@@ -62,7 +64,7 @@ def _method(class_name: str, name: str, call_sites: list[str] | None = None, fil
 
 def test_ssrf_risk_http_client_valid_near_invalid():
     rule = SsrfRiskHttpClientRule(
-        RuleConfig(thresholds={"require_external_integrations_capability": True, "min_confidence": 0.8})
+        RuleConfig(thresholds={"require_external_integrations_capability": True, "min_confidence": 0.8}),
     )
     facts = _facts_with_capabilities(external_integrations_heavy=True)
 
@@ -102,7 +104,7 @@ file_get_contents($full);
 
 def test_insecure_file_download_response_valid_near_invalid():
     rule = InsecureFileDownloadResponseRule(
-        RuleConfig(thresholds={"require_auth_or_ownership_guard": True, "min_confidence": 0.8})
+        RuleConfig(thresholds={"require_auth_or_ownership_guard": True, "min_confidence": 0.8}),
     )
     facts = Facts(project_path=".")
 
@@ -123,7 +125,7 @@ return response()->download($resolved);
 
 def test_webhook_signature_missing_valid_near_invalid():
     rule = WebhookSignatureMissingRule(
-        RuleConfig(thresholds={"require_external_integrations_capability": True, "min_confidence": 0.8})
+        RuleConfig(thresholds={"require_external_integrations_capability": True, "min_confidence": 0.8}),
     )
     facts = _facts_with_capabilities(external_integrations_heavy=True)
     facts.routes = [
@@ -144,7 +146,7 @@ def test_webhook_signature_missing_valid_near_invalid():
 
 def test_idor_risk_missing_ownership_check_valid_near_invalid():
     rule = IdorRiskMissingOwnershipCheckRule(
-        RuleConfig(thresholds={"require_multi_role_portal_capability": True, "min_confidence": 0.75})
+        RuleConfig(thresholds={"require_multi_role_portal_capability": True, "min_confidence": 0.75}),
     )
     facts = _facts_with_capabilities(multi_role_portal=True)
     facts.routes = [
@@ -188,7 +190,7 @@ def test_idor_risk_missing_ownership_check_valid_near_invalid():
 
 def test_sensitive_route_rate_limit_missing_valid_near_invalid():
     rule = SensitiveRouteRateLimitMissingRule(
-        RuleConfig(thresholds={"require_public_surface_capability": True, "min_confidence": 0.75})
+        RuleConfig(thresholds={"require_public_surface_capability": True, "min_confidence": 0.75}),
     )
     facts = _facts_with_capabilities(mixed_public_dashboard=True)
     facts.routes = [
@@ -209,8 +211,8 @@ def test_sanctum_token_scope_missing_valid_near_invalid():
                 "require_sanctum_signal": True,
                 "require_multi_role_portal_capability": True,
                 "min_confidence": 0.75,
-            }
-        )
+            },
+        ),
     )
     facts = _facts_with_capabilities(multi_role_portal=True)
     facts.routes = [_route("GET", "api/me", "AuthController", "me", ["auth:sanctum"])]
@@ -241,7 +243,7 @@ def test_session_fixation_regenerate_missing_valid_near_invalid():
 
 def test_weak_password_policy_validation_valid_near_invalid():
     rule = WeakPasswordPolicyValidationRule(
-        RuleConfig(thresholds={"min_required_length": 8, "min_confidence": 0.7})
+        RuleConfig(thresholds={"min_required_length": 8, "min_confidence": 0.7}),
     )
     facts = Facts(project_path=".")
     file_path = "app/Http/Controllers/Auth/RegisteredUserController.php"
@@ -257,7 +259,7 @@ def test_weak_password_policy_validation_valid_near_invalid():
 
 def test_weak_password_policy_validation_ignores_model_cast_and_current_password():
     rule = WeakPasswordPolicyValidationRule(
-        RuleConfig(thresholds={"min_required_length": 8, "min_confidence": 0.7})
+        RuleConfig(thresholds={"min_required_length": 8, "min_confidence": 0.7}),
     )
     facts = Facts(project_path=".")
 
@@ -285,7 +287,7 @@ $request->validate([
 
 def test_weak_password_policy_validation_ignores_login_request_password_field():
     rule = WeakPasswordPolicyValidationRule(
-        RuleConfig(thresholds={"min_required_length": 8, "min_confidence": 0.7})
+        RuleConfig(thresholds={"min_required_length": 8, "min_confidence": 0.7}),
     )
     facts = Facts(project_path=".")
     login_request = """
@@ -307,7 +309,7 @@ class LoginRequest extends FormRequest
 
 def test_upload_mime_extension_mismatch_valid_near_invalid():
     rule = UploadMimeExtensionMismatchRule(
-        RuleConfig(thresholds={"require_upload_capability": True, "min_confidence": 0.75})
+        RuleConfig(thresholds={"require_upload_capability": True, "min_confidence": 0.75}),
     )
     facts = _facts_with_capabilities(file_upload_storage_heavy=True)
     file_path = "app/Http/Controllers/MediaController.php"
@@ -327,7 +329,7 @@ $ext = $request->file('file')->getClientOriginalExtension();
 
 def test_archive_upload_zip_slip_risk_valid_near_invalid():
     rule = ArchiveUploadZipSlipRiskRule(
-        RuleConfig(thresholds={"require_upload_capability": True, "min_confidence": 0.8})
+        RuleConfig(thresholds={"require_upload_capability": True, "min_confidence": 0.8}),
     )
     facts = _facts_with_capabilities(file_upload_storage_heavy=True)
     file_path = "app/Services/ArchiveService.php"
@@ -350,7 +352,7 @@ if (str_starts_with($target, storage_path('imports'))) {
 
 def test_upload_size_limit_missing_valid_near_invalid():
     rule = UploadSizeLimitMissingRule(
-        RuleConfig(thresholds={"require_upload_capability": True, "min_confidence": 0.7})
+        RuleConfig(thresholds={"require_upload_capability": True, "min_confidence": 0.7}),
     )
     facts = _facts_with_capabilities(file_upload_storage_heavy=True)
     file_path = "app/Http/Controllers/ProfileController.php"
@@ -366,7 +368,7 @@ def test_upload_size_limit_missing_valid_near_invalid():
 
 def test_upload_size_limit_missing_accepts_dynamic_max_rule_in_form_request():
     rule = UploadSizeLimitMissingRule(
-        RuleConfig(thresholds={"require_upload_capability": True, "min_confidence": 0.7})
+        RuleConfig(thresholds={"require_upload_capability": True, "min_confidence": 0.7}),
     )
     facts = _facts_with_capabilities(file_upload_storage_heavy=True)
     file_path = "app/Http/Requests/Lms/UploadImageRequest.php"
@@ -389,7 +391,7 @@ class UploadImageRequest extends FormRequest
 
 def test_upload_size_limit_missing_skips_upload_config_settings():
     rule = UploadSizeLimitMissingRule(
-        RuleConfig(thresholds={"require_upload_capability": True, "min_confidence": 0.7})
+        RuleConfig(thresholds={"require_upload_capability": True, "min_confidence": 0.7}),
     )
     facts = _facts_with_capabilities(file_upload_storage_heavy=True)
     content = """
@@ -407,7 +409,7 @@ return [
 
 def test_insecure_postmessage_origin_wildcard_valid_near_invalid():
     rule = InsecurePostMessageOriginWildcardRule(
-        RuleConfig(thresholds={"require_public_surface_capability": True, "min_confidence": 0.9})
+        RuleConfig(thresholds={"require_public_surface_capability": True, "min_confidence": 0.9}),
     )
     facts = _facts_with_capabilities(mixed_public_dashboard=True)
     file_path = "resources/js/pages/Auth/EmbedBridge.tsx"
@@ -423,7 +425,7 @@ def test_insecure_postmessage_origin_wildcard_valid_near_invalid():
 
 def test_token_storage_insecure_localstorage_valid_near_invalid():
     rule = TokenStorageInsecureLocalStorageRule(
-        RuleConfig(thresholds={"require_public_surface_capability": True, "min_confidence": 0.8})
+        RuleConfig(thresholds={"require_public_surface_capability": True, "min_confidence": 0.8}),
     )
     facts = _facts_with_capabilities(mixed_public_dashboard=True)
     file_path = "resources/js/services/authStorage.ts"
@@ -439,7 +441,7 @@ def test_token_storage_insecure_localstorage_valid_near_invalid():
 
 def test_token_storage_allows_client_generated_namespaced_session_id():
     rule = TokenStorageInsecureLocalStorageRule(
-        RuleConfig(thresholds={"require_public_surface_capability": True, "min_confidence": 0.8})
+        RuleConfig(thresholds={"require_public_surface_capability": True, "min_confidence": 0.8}),
     )
     facts = _facts_with_capabilities(mixed_public_dashboard=True)
     content = """
@@ -458,7 +460,7 @@ if (!sessionId) {
 
 def test_token_storage_still_flags_exact_server_session_id_storage():
     rule = TokenStorageInsecureLocalStorageRule(
-        RuleConfig(thresholds={"require_public_surface_capability": True, "min_confidence": 0.8})
+        RuleConfig(thresholds={"require_public_surface_capability": True, "min_confidence": 0.8}),
     )
     facts = _facts_with_capabilities(mixed_public_dashboard=True)
     invalid = "localStorage.setItem('session_id', response.session_id);"
@@ -468,7 +470,7 @@ def test_token_storage_still_flags_exact_server_session_id_storage():
 
 def test_client_open_redirect_unvalidated_navigation_valid_near_invalid():
     rule = ClientOpenRedirectUnvalidatedNavigationRule(
-        RuleConfig(thresholds={"require_public_surface_capability": True, "min_confidence": 0.8})
+        RuleConfig(thresholds={"require_public_surface_capability": True, "min_confidence": 0.8}),
     )
     facts = _facts_with_capabilities(mixed_public_dashboard=True)
     file_path = "resources/js/pages/Auth/Login.tsx"

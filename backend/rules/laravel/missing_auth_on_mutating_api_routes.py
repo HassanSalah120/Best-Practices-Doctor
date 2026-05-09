@@ -85,9 +85,7 @@ class MissingAuthOnMutatingApiRoutesRule(Rule):
             return True
         if any(tok in m for tok in ("post", "put", "patch", "delete")) and ("|" in m or "," in m or "match" in m):
             return True
-        if m == "match":
-            return True
-        return False
+        return m == "match"
 
     def _is_public_uri(self, uri: str) -> bool:
         u = (uri or "").strip().strip("/")

@@ -3,14 +3,20 @@ from __future__ import annotations
 from core.ruleset import RuleConfig
 from rules.laravel.csrf_exception_wildcard_risk import CsrfExceptionWildcardRiskRule
 from rules.laravel.host_header_poisoning_risk import HostHeaderPoisoningRiskRule
-from rules.laravel.password_reset_token_hardening_missing import PasswordResetTokenHardeningMissingRule
+from rules.laravel.password_reset_token_hardening_missing import (
+    PasswordResetTokenHardeningMissingRule,
+)
 from rules.laravel.security_headers_baseline_missing import SecurityHeadersBaselineMissingRule
-from rules.laravel.sensitive_response_cache_control_missing import SensitiveResponseCacheControlMissingRule
+from rules.laravel.sensitive_response_cache_control_missing import (
+    SensitiveResponseCacheControlMissingRule,
+)
 from rules.laravel.webhook_replay_protection_missing import WebhookReplayProtectionMissingRule
 from rules.laravel.xml_xxe_risk import XmlXxeRiskRule
 from rules.laravel.zip_bomb_risk import ZipBombRiskRule
 from rules.react.dangerous_html_sink_without_sanitizer import DangerousHtmlSinkWithoutSanitizerRule
-from rules.react.postmessage_receiver_origin_not_verified import PostMessageReceiverOriginNotVerifiedRule
+from rules.react.postmessage_receiver_origin_not_verified import (
+    PostMessageReceiverOriginNotVerifiedRule,
+)
 from schemas.facts import Facts, MethodInfo, RouteInfo
 
 
@@ -196,7 +202,8 @@ def test_password_reset_token_hardening_missing_ast():
     ]
     findings = rule.run(facts, project_type="laravel_blade").findings
     assert len(findings) == 1
-    assert findings[0].related_methods and findings[0].related_methods[0].endswith("ResetController::unsafe")
+    assert findings[0].related_methods
+    assert findings[0].related_methods[0].endswith("ResetController::unsafe")
 
 
 def test_security_headers_baseline_missing_ast():
@@ -217,7 +224,7 @@ def test_webhook_replay_protection_missing_ast():
     rule = WebhookReplayProtectionMissingRule(RuleConfig())
     facts = Facts(project_path=".")
     facts.project_context.capabilities = {
-        "external_integrations_heavy": {"enabled": True, "confidence": 1.0, "source": "explicit", "evidence": ["test"]}
+        "external_integrations_heavy": {"enabled": True, "confidence": 1.0, "source": "explicit", "evidence": ["test"]},
     }
     facts.routes = [
         _route("POST", "/webhooks/stripe", "StripeWebhookController", "safe", ["api"]),
@@ -229,7 +236,8 @@ def test_webhook_replay_protection_missing_ast():
     ]
     findings = rule.run(facts, project_type="laravel_blade").findings
     assert len(findings) == 1
-    assert findings[0].related_methods and findings[0].related_methods[0].endswith("StripeWebhookController::unsafe")
+    assert findings[0].related_methods
+    assert findings[0].related_methods[0].endswith("StripeWebhookController::unsafe")
 
 
 def test_postmessage_receiver_origin_not_verified_ast():

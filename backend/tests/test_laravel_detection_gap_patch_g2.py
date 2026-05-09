@@ -13,7 +13,7 @@ from schemas.facts import AssocArrayLiteral, ClassInfo, Facts, MethodInfo
 
 
 def _ruleset_for(rule_ids: list[str], *, profile: str = "strict") -> Ruleset:
-    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES.keys()}
+    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES}
     strict_thresholds: dict[str, dict[str, object]] = {
         "controller-index-filter-duplication": {
             "max_findings_per_file": 3,
@@ -104,8 +104,8 @@ def test_controller_index_filter_duplication_g2_valid_near_invalid():
                 "min_confidence": 0.7,
                 "min_filter_keys_for_candidate": 2,
                 "single_method_min_filters": 3,
-            }
-        )
+            },
+        ),
     )
 
     valid = Facts(project_path=".")
@@ -113,7 +113,7 @@ def test_controller_index_filter_duplication_g2_valid_near_invalid():
         [
             _controller("app/Http/Controllers/Admin/TopicController.php", "TopicController"),
             _controller("app/Http/Controllers/Admin/UserController.php", "UserController"),
-        ]
+        ],
     )
     valid.methods.extend(
         [
@@ -144,13 +144,13 @@ def test_controller_index_filter_duplication_g2_valid_near_invalid():
                     "Inertia::render('Admin/Users', ['filters' => []])",
                 ],
             ),
-        ]
+        ],
     )
     assert rule.analyze(valid) == []
 
     near_miss = Facts(project_path=".")
     near_miss.controllers.append(
-        _controller("app/Http/Controllers/Admin/AuditController.php", "AuditController")
+        _controller("app/Http/Controllers/Admin/AuditController.php", "AuditController"),
     )
     near_miss.methods.append(
         _method(
@@ -166,7 +166,7 @@ def test_controller_index_filter_duplication_g2_valid_near_invalid():
                 "$request->string('q')->trim()->value()",
                 "Inertia::render('Admin/Audit', ['filters' => []])",
             ],
-        )
+        ),
     )
     assert rule.analyze(near_miss) == []
 
@@ -175,7 +175,7 @@ def test_controller_index_filter_duplication_g2_valid_near_invalid():
         [
             _controller("app/Http/Controllers/Admin/SubmissionManagementController.php", "SubmissionManagementController"),
             _controller("app/Http/Controllers/Admin/UserManagementController.php", "UserManagementController"),
-        ]
+        ],
     )
     invalid_duplicate.methods.extend(
         [
@@ -207,7 +207,7 @@ def test_controller_index_filter_duplication_g2_valid_near_invalid():
                     "Inertia::render('Admin/Users', ['filters' => []])",
                 ],
             ),
-        ]
+        ],
     )
     dup_findings = rule.analyze(invalid_duplicate)
     assert len(dup_findings) == 2
@@ -216,7 +216,7 @@ def test_controller_index_filter_duplication_g2_valid_near_invalid():
 
     invalid_single = Facts(project_path=".")
     invalid_single.controllers.append(
-        _controller("app/Http/Controllers/Admin/ActivityLogController.php", "ActivityLogController")
+        _controller("app/Http/Controllers/Admin/ActivityLogController.php", "ActivityLogController"),
     )
     invalid_single.methods.append(
         _method(
@@ -233,7 +233,7 @@ def test_controller_index_filter_duplication_g2_valid_near_invalid():
                 "$request->string('actor')->value()",
                 "Inertia::render('Admin/ActivityLogs', ['filters' => []])",
             ],
-        )
+        ),
     )
     single_findings = rule.analyze(invalid_single)
     assert len(single_findings) == 1
@@ -250,8 +250,8 @@ def test_service_extraction_g2_read_payload_valid_near_invalid():
                 "read_payload_min_array_literals": 1,
                 "serializer_helper_min_keys": 4,
                 "min_business_loc": 15,
-            }
-        )
+            },
+        ),
     )
 
     valid_delegated = Facts(project_path=".")
@@ -269,7 +269,7 @@ def test_service_extraction_g2_read_payload_valid_near_invalid():
                 "$this->topicAdminViewQuery->showTopic($topic)",
                 "Inertia::render('Admin/TopicShow', ['topic' => $payload])",
             ],
-        )
+        ),
     )
     assert rule.analyze(valid_delegated) == []
 
@@ -285,7 +285,7 @@ def test_service_extraction_g2_read_payload_valid_near_invalid():
             line_start=10,
             line_end=30,
             call_sites=["Inertia::render('Admin/TopicShow', ['topic' => $topic])"],
-        )
+        ),
     )
     near_miss.assoc_arrays.append(
         _assoc_array(
@@ -295,7 +295,7 @@ def test_service_extraction_g2_read_payload_valid_near_invalid():
             line=18,
             key_count=2,
             used_as="unknown",
-        )
+        ),
     )
     assert rule.analyze(near_miss) == []
 
@@ -314,7 +314,7 @@ def test_service_extraction_g2_read_payload_valid_near_invalid():
                 "$submission->items->sortBy('rank')->values()->map(fn($item) => ['rank' => $item->rank])",
                 "Inertia::render('Admin/SubmissionShow', ['submission' => $payload])",
             ],
-        )
+        ),
     )
     invalid_inline.assoc_arrays.extend(
         [
@@ -335,7 +335,7 @@ def test_service_extraction_g2_read_payload_valid_near_invalid():
                 key_count=7,
                 used_as="unknown",
             ),
-        ]
+        ],
     )
     inline_findings = rule.analyze(invalid_inline)
     assert len(inline_findings) == 1
@@ -371,7 +371,7 @@ def test_service_extraction_g2_read_payload_valid_near_invalid():
                 call_sites=[],
                 visibility="private",
             ),
-        ]
+        ],
     )
     invalid_helper.assoc_arrays.append(
         _assoc_array(
@@ -381,7 +381,7 @@ def test_service_extraction_g2_read_payload_valid_near_invalid():
             line=42,
             key_count=6,
             used_as="return",
-        )
+        ),
     )
     helper_findings = rule.analyze(invalid_helper)
     assert len(helper_findings) == 1

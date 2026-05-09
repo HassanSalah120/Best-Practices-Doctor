@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from schemas.facts import Facts, RouteInfo
 from rules.laravel.api_response_inconsistent_shape import ApiResponseInconsistentShapeRule
 from rules.laravel.blade_component_no_fallback_slot import BladeComponentNoFallbackSlotRule
 from rules.laravel.eloquent_raw_where_string import EloquentRawWhereStringRule
@@ -15,6 +14,7 @@ from rules.php.missing_return_type_nullable import MissingReturnTypeNullableRule
 from rules.react.console_log_in_production_code import ConsoleLogInProductionCodeRule
 from rules.react.inertia_page_missing_error_boundary import InertiaPageMissingErrorBoundaryRule
 from rules.react.useless_suspense_boundary import UselessSuspenseBoundaryRule
+from schemas.facts import Facts, RouteInfo
 
 
 def _facts(root: Path) -> Facts:
@@ -159,7 +159,7 @@ def test_useless_suspense_boundary_cases() -> None:
 def test_missing_feature_flag_pattern_cases(tmp_path: Path) -> None:
     rule = MissingFeatureFlagPatternRule()
     large = tmp_path / "large"
-    _write(large, "routes/web.php", "\n".join("Route::get('/x%s', X::class);" % i for i in range(11)))
+    _write(large, "routes/web.php", "\n".join(f"Route::get('/x{i}', X::class);" for i in range(11)))
     assert len(rule.analyze(_facts(large))) == 1
 
     small = tmp_path / "small"
@@ -167,11 +167,11 @@ def test_missing_feature_flag_pattern_cases(tmp_path: Path) -> None:
     assert rule.analyze(_facts(small)) == []
 
     pennant = tmp_path / "pennant"
-    _write(pennant, "routes/web.php", "\n".join("Route::get('/x%s', X::class);" % i for i in range(11)))
+    _write(pennant, "routes/web.php", "\n".join(f"Route::get('/x{i}', X::class);" for i in range(11)))
     _write(pennant, "composer.json", '{"require":{"laravel/pennant":"^1.0"}}')
     assert rule.analyze(_facts(pennant)) == []
 
     env_flags = tmp_path / "env_flags"
-    _write(env_flags, "routes/web.php", "\n".join("Route::get('/x%s', X::class);" % i for i in range(11)))
+    _write(env_flags, "routes/web.php", "\n".join(f"Route::get('/x{i}', X::class);" for i in range(11)))
     _write(env_flags, ".env.example", "FEATURE_NEW_DASHBOARD=false\n")
     assert rule.analyze(_facts(env_flags)) == []

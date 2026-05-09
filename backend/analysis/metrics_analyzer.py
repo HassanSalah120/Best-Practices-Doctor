@@ -38,10 +38,10 @@ class MetricsAnalyzer:
     def analyze(self, facts: Facts) -> dict[str, MethodMetrics]:
         """
         Analyze facts and return computed metrics.
-        
+
         Args:
             facts: Raw extracted facts
-            
+
         Returns:
             Dictionary mapping method_fqn to MethodMetrics
         """

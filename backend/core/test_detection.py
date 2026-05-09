@@ -115,19 +115,13 @@ def is_test_like_path(rel_path: str) -> bool:
         return True
     if name.startswith(TEST_PREFIXES):
         return True
-    if name.endswith(TEST_SUFFIXES):
-        return True
-
-    return False
+    return bool(name.endswith(TEST_SUFFIXES))
 
 
 def has_test_scaffold(project_root: str | Path) -> bool:
     """Return True when a project contains a recognizable automated test scaffold."""
     root = Path(project_root).resolve()
-    for rel_path, _ in iter_project_files(root):
-        if is_test_like_path(rel_path):
-            return True
-    return False
+    return any(is_test_like_path(rel_path) for rel_path, _ in iter_project_files(root))
 
 
 def count_test_files(project_root: str | Path, cap: int = 10_000) -> int:

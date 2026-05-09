@@ -5,7 +5,6 @@ from pathlib import Path
 from core.context_profiles import ContextProfileMatrix
 from core.ruleset import Ruleset
 
-
 S1_RULES = [
     "ssrf-risk-http-client",
     "path-traversal-file-access",

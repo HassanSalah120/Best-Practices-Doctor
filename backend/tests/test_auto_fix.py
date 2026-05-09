@@ -4,12 +4,13 @@ Test Auto-Fix Engine
 Tests for the auto-fix suggestion feature.
 """
 
-import pytest
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from core.auto_fix import AutoFixEngine, FixSuggestion
-from schemas.finding import Finding, Category, Severity
+from schemas.finding import Category, Finding, Severity
 
 
 @pytest.fixture
@@ -21,7 +22,7 @@ def auto_fix_engine():
 @pytest.fixture
 def sample_php_file():
     """Create a sample PHP file with issues."""
-    return """<?php
+    return r"""<?php
 
 namespace App\Services;
 
@@ -82,7 +83,7 @@ def test_fix_suggestion_to_diff():
         line_start=10,
         line_end=10,
     )
-    
+
     diff = fix.to_diff()
     assert "--- original" in diff
     assert "+++ fixed" in diff
@@ -93,7 +94,7 @@ def test_fix_suggestion_to_diff():
 def test_auto_fix_env_outside_config(auto_fix_engine, sample_finding_env, sample_php_file):
     """Test fix for env() outside config."""
     fix = auto_fix_engine.get_fix_suggestion(sample_finding_env, sample_php_file)
-    
+
     assert fix is not None
     assert fix.rule_id == "env-outside-config"
     assert "config('app.stripe_key')" in fix.fixed_code.lower()
@@ -107,7 +108,7 @@ def test_auto_fix_env_outside_config(auto_fix_engine, sample_finding_env, sample
 def test_auto_fix_log_debug(auto_fix_engine, sample_finding_log_debug, sample_php_file):
     """Test fix for Log::debug."""
     fix = auto_fix_engine.get_fix_suggestion(sample_finding_log_debug, sample_php_file)
-    
+
     assert fix is not None
     assert fix.rule_id == "no-log-debug-in-app"
     assert "Log::info" in fix.fixed_code
@@ -129,7 +130,7 @@ def test_auto_fix_no_fix_available(auto_fix_engine):
         category=Category.COMPLEXITY,
         severity=Severity.LOW,
     )
-    
+
     fix = auto_fix_engine.get_fix_suggestion(finding, "some code")
     assert fix is None
 
@@ -139,15 +140,15 @@ def test_auto_fix_apply_dry_run(auto_fix_engine, sample_finding_log_debug, sampl
     with tempfile.TemporaryDirectory() as tmpdir:
         file_path = Path(tmpdir) / "test.php"
         file_path.write_text(sample_php_file)
-        
+
         fix = auto_fix_engine.get_fix_suggestion(sample_finding_log_debug, sample_php_file)
         assert fix is not None
-        
+
         success, result = auto_fix_engine.apply_fix(file_path, fix, dry_run=True)
-        
+
         assert success is True
         assert "Log::info" in result
-        
+
         # File should not be modified
         content = file_path.read_text()
         assert "Log::debug" in content
@@ -158,14 +159,14 @@ def test_auto_fix_apply_real(auto_fix_engine, sample_finding_log_debug, sample_p
     with tempfile.TemporaryDirectory() as tmpdir:
         file_path = Path(tmpdir) / "test.php"
         file_path.write_text(sample_php_file)
-        
+
         fix = auto_fix_engine.get_fix_suggestion(sample_finding_log_debug, sample_php_file)
         assert fix is not None
-        
+
         success, result = auto_fix_engine.apply_fix(file_path, fix, dry_run=False)
-        
+
         assert success is True
-        
+
         # File should be modified
         content = file_path.read_text()
         assert "Log::info" in content
@@ -176,12 +177,12 @@ def test_auto_fix_get_fixes_for_findings(auto_fix_engine, sample_php_file):
     """Test getting fixes for multiple findings."""
     with tempfile.TemporaryDirectory() as tmpdir:
         project_path = Path(tmpdir)
-        
+
         # Create the file
         file_path = project_path / "app" / "Services" / "PaymentService.php"
         file_path.parent.mkdir(parents=True)
         file_path.write_text(sample_php_file)
-        
+
         findings = [
             Finding(
                 rule_id="no-log-debug-in-app",
@@ -206,9 +207,9 @@ def test_auto_fix_get_fixes_for_findings(auto_fix_engine, sample_php_file):
                 severity=Severity.MEDIUM,
             ),
         ]
-        
+
         fixes = auto_fix_engine.get_fixes_for_findings(findings, project_path)
-        
+
         assert "app/Services/PaymentService.php" in fixes
         assert len(fixes["app/Services/PaymentService.php"]) >= 1
 
@@ -226,9 +227,9 @@ def test_fix_suggestion_to_dict():
         confidence=0.8,
         auto_applicable=True,
     )
-    
+
     data = fix.to_dict()
-    
+
     assert data["rule_id"] == "test-rule"
     assert data["original_code"] == "before"
     assert data["fixed_code"] == "after"

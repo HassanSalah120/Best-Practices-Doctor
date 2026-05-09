@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from core.agent_rules import AgentRulesGenerator, MANAGED_END, MANAGED_START
+from core.agent_rules import MANAGED_END, MANAGED_START, AgentRulesGenerator
 from core.fp_feedback import FeedbackStore
 from core.job_manager import job_manager
 from core.suppression import SuppressionManager
@@ -40,7 +40,7 @@ def _sample_report(project: Path) -> ScanReport:
         why_it_matters="Tenant data can leak across scheduled jobs.",
         suggested_fix="Process invoices clinic by clinic and add a clinic_id filter.",
     )
-    report = ScanReport(
+    return ScanReport(
         id="scan-agent-rules",
         project_path=str(project),
         project_info=ProjectInfo(
@@ -65,11 +65,10 @@ def _sample_report(project: Path) -> ScanReport:
                 max_severity=Severity.HIGH,
                 finding_fingerprints=[finding.fingerprint],
                 files=[finding.file],
-            )
+            ),
         ],
         analysis_debug={"project_explainer_summary": {"architecture": "laravel layered"}},
     )
-    return report
 
 
 def _minimal_report(project: Path, findings: list[Finding] | None = None) -> ScanReport:

@@ -1,10 +1,10 @@
 from core.ruleset import RuleConfig
-from rules.php.unsafe_eval import UnsafeEvalRule
-from rules.php.unsafe_unserialize import UnsafeUnserializeRule
+from rules.laravel.blade_xss_risk import BladeXssRiskRule
 from rules.php.command_injection_risk import CommandInjectionRiskRule
 from rules.php.sql_injection_risk import SqlInjectionRiskRule
-from rules.laravel.blade_xss_risk import BladeXssRiskRule
-from schemas.facts import Facts, MethodInfo, BladeRawEcho
+from rules.php.unsafe_eval import UnsafeEvalRule
+from rules.php.unsafe_unserialize import UnsafeUnserializeRule
+from schemas.facts import BladeRawEcho, Facts, MethodInfo
 
 
 def test_unsafe_eval_flags_eval_assert_string_and_preg_replace_e():
@@ -26,7 +26,7 @@ def test_unsafe_eval_flags_eval_assert_string_and_preg_replace_e():
                 "assert('phpinfo();')",
                 "preg_replace('/.*/e', 'x', $y)",
             ],
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -40,7 +40,7 @@ def test_unsafe_eval_flags_eval_assert_string_and_preg_replace_e():
             line_end=70,
             loc=11,
             call_sites=["assert($x === 1)"],
-        )
+        ),
     )
 
     rule = UnsafeEvalRule(RuleConfig())
@@ -66,7 +66,7 @@ def test_unsafe_unserialize_flags_without_allowed_classes_and_skips_safe_usage()
             line_end=20,
             loc=20,
             call_sites=["unserialize($request->input('p'))"],
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -80,7 +80,7 @@ def test_unsafe_unserialize_flags_without_allowed_classes_and_skips_safe_usage()
             line_end=40,
             loc=11,
             call_sites=["unserialize($payload, ['allowed_classes' => false])"],
-        )
+        ),
     )
 
     rule = UnsafeUnserializeRule(RuleConfig())
@@ -106,7 +106,7 @@ def test_command_injection_risk_flags_non_literal_and_skips_literal():
             line_end=20,
             loc=20,
             call_sites=["exec($cmd)"],
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -120,7 +120,7 @@ def test_command_injection_risk_flags_non_literal_and_skips_literal():
             line_end=40,
             loc=11,
             call_sites=["exec('ls')"],
-        )
+        ),
     )
 
     rule = CommandInjectionRiskRule(RuleConfig())
@@ -149,7 +149,7 @@ def test_sql_injection_risk_flags_interpolated_sql_and_skips_parameterized_bindi
                 'DB::select("select * from users where id = $id")',
                 'User::whereRaw("id = $id")',
             ],
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -167,7 +167,7 @@ def test_sql_injection_risk_flags_interpolated_sql_and_skips_parameterized_bindi
                 "User::whereRaw('id = ?', [$id])",
                 'DB::select("select 1")',
             ],
-        )
+        ),
     )
 
     rule = SqlInjectionRiskRule(RuleConfig())
@@ -188,7 +188,7 @@ def test_blade_xss_risk_flags_only_request_sourced_raw_echoes():
             expression="request('q')",
             is_request_source=True,
             snippet="{!! request('q') !!}",
-        )
+        ),
     )
     facts.blade_raw_echos.append(
         BladeRawEcho(
@@ -197,7 +197,7 @@ def test_blade_xss_risk_flags_only_request_sourced_raw_echoes():
             expression="$user->name",
             is_request_source=False,
             snippet="{!! $user->name !!}",
-        )
+        ),
     )
 
     rule = BladeXssRiskRule(RuleConfig())

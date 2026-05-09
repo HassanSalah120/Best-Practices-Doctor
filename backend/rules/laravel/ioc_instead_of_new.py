@@ -154,10 +154,7 @@ class IocInsteadOfNewRule(Rule):
 
         if any(marker in full_lower for marker in self._SERVICE_NAMESPACE_MARKERS):
             return True
-        if any(short_lower.endswith(suffix) for suffix in self._SERVICE_SUFFIXES):
-            return True
-
-        return False
+        return bool(any(short_lower.endswith(suffix) for suffix in self._SERVICE_SUFFIXES))
 
     @staticmethod
     def _normalize_class_name(class_name: str) -> str:
@@ -166,8 +163,7 @@ class IocInsteadOfNewRule(Rule):
             return ""
         while s.startswith("\\"):
             s = s[1:]
-        s = s.replace("/", "\\")
-        return s
+        return s.replace("/", "\\")
 
     @staticmethod
     def _short_class_name(class_name: str) -> str:

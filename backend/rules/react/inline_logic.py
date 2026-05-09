@@ -30,7 +30,7 @@ class InlineLogicRule(Rule):
     tags = {'domain': 'react', 'type': 'quality', 'concern': 'inline-api-logic'}
     """
     Detects inline API calls and business logic in React components.
-    
+
     Logic should be extracted to:
     - Custom hooks for reusable state/effects
     - Service modules for API calls
@@ -331,13 +331,13 @@ class InlineLogicRule(Rule):
         return f"""// Before (API call in component)
 function {name}() {{
     const [data, setData] = useState(null);
-    
+
     useEffect(() => {{
         fetch('/api/data')
             .then(res => res.json())
             .then(setData);
     }}, []);
-    
+
     return <div>{{data?.name}}</div>;
 }}
 
@@ -346,7 +346,7 @@ function use{name}Data() {{
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    
+
     useEffect(() => {{
         fetch('/api/data')
             .then(res => res.json())
@@ -354,13 +354,13 @@ function use{name}Data() {{
             .catch(setError)
             .finally(() => setLoading(false));
     }}, []);
-    
+
     return {{ data, loading, error }};
 }}
 
 function {name}() {{
     const {{ data, loading, error }} = use{name}Data();
-    
+
     if (loading) return <Spinner />;
     if (error) return <Error error={{error}} />;
     return <div>{{data?.name}}</div>;
@@ -373,13 +373,13 @@ function {name}() {{
     const [items, setItems] = useState([]);
     const [filter, setFilter] = useState('');
     const [sortBy, setSortBy] = useState('name');
-    
+
     const filteredItems = useMemo(() => {{
         return items
             .filter(i => i.name.includes(filter))
             .sort((a, b) => a[sortBy] > b[sortBy] ? 1 : -1);
     }}, [items, filter, sortBy]);
-    
+
     // ... more logic
 }}
 
@@ -388,13 +388,13 @@ function use{name}List(initialItems) {{
     const [items, setItems] = useState(initialItems);
     const [filter, setFilter] = useState('');
     const [sortBy, setSortBy] = useState('name');
-    
+
     const filteredItems = useMemo(() => {{
         return items
             .filter(i => i.name.includes(filter))
             .sort((a, b) => a[sortBy] > b[sortBy] ? 1 : -1);
     }}, [items, filter, sortBy]);
-    
+
     return {{ filteredItems, filter, setFilter, sortBy, setSortBy }};
 }}
 

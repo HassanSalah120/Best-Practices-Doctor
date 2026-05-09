@@ -1,17 +1,21 @@
 from core.ruleset import RuleConfig
-from rules.laravel.authorization_missing_on_sensitive_reads import AuthorizationMissingOnSensitiveReadsRule
-from rules.laravel.insecure_session_cookie_config import InsecureSessionCookieConfigRule
-from rules.laravel.unsafe_csp_policy import UnsafeCspPolicyRule
-from rules.laravel.job_missing_idempotency_guard import JobMissingIdempotencyGuardRule
-from rules.laravel.composer_dependency_below_secure_version import ComposerDependencyBelowSecureVersionRule
-from rules.laravel.npm_dependency_below_secure_version import NpmDependencyBelowSecureVersionRule
-from rules.laravel.inertia_shared_props_sensitive_data import InertiaSharedPropsSensitiveDataRule
-from rules.laravel.inertia_shared_props_eager_query import InertiaSharedPropsEagerQueryRule
-from rules.laravel.job_missing_retry_policy import JobMissingRetryPolicyRule
-from rules.laravel.job_http_call_missing_timeout import JobHttpCallMissingTimeoutRule
-from rules.laravel.policy_coverage_on_mutations import PolicyCoverageOnMutationsRule
-from rules.laravel.authorization_bypass_risk import AuthorizationBypassRiskRule
 from rules.laravel._dependency_versioning import load_dependency_advisory_catalog
+from rules.laravel.authorization_bypass_risk import AuthorizationBypassRiskRule
+from rules.laravel.authorization_missing_on_sensitive_reads import (
+    AuthorizationMissingOnSensitiveReadsRule,
+)
+from rules.laravel.composer_dependency_below_secure_version import (
+    ComposerDependencyBelowSecureVersionRule,
+)
+from rules.laravel.inertia_shared_props_eager_query import InertiaSharedPropsEagerQueryRule
+from rules.laravel.inertia_shared_props_sensitive_data import InertiaSharedPropsSensitiveDataRule
+from rules.laravel.insecure_session_cookie_config import InsecureSessionCookieConfigRule
+from rules.laravel.job_http_call_missing_timeout import JobHttpCallMissingTimeoutRule
+from rules.laravel.job_missing_idempotency_guard import JobMissingIdempotencyGuardRule
+from rules.laravel.job_missing_retry_policy import JobMissingRetryPolicyRule
+from rules.laravel.npm_dependency_below_secure_version import NpmDependencyBelowSecureVersionRule
+from rules.laravel.policy_coverage_on_mutations import PolicyCoverageOnMutationsRule
+from rules.laravel.unsafe_csp_policy import UnsafeCspPolicyRule
 from schemas.facts import ClassInfo, Facts, MethodInfo, QueryUsage, RouteInfo
 
 
@@ -23,7 +27,7 @@ def test_authorization_missing_on_sensitive_reads_flags_sensitive_show_without_p
             fqcn="App\\Http\\Controllers\\Clinic\\PatientsController",
             file_path="app/Http/Controllers/Clinic/PatientsController.php",
             file_hash="deadbeef",
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -34,7 +38,7 @@ def test_authorization_missing_on_sensitive_reads_flags_sensitive_show_without_p
             file_hash="deadbeef",
             line_start=12,
             line_end=28,
-        )
+        ),
     )
     facts.queries.append(
         QueryUsage(
@@ -43,7 +47,7 @@ def test_authorization_missing_on_sensitive_reads_flags_sensitive_show_without_p
             method_name="show",
             model="Patient",
             method_chain="findOrFail",
-        )
+        ),
     )
     facts.routes.append(
         RouteInfo(
@@ -54,11 +58,11 @@ def test_authorization_missing_on_sensitive_reads_flags_sensitive_show_without_p
             middleware=["web", "auth", "verified"],
             file_path="routes/web.php",
             line_number=22,
-        )
+        ),
     )
 
     findings = AuthorizationMissingOnSensitiveReadsRule(RuleConfig()).run(
-        facts, project_type="laravel_blade"
+        facts, project_type="laravel_blade",
     ).findings
     assert len(findings) == 1
     assert findings[0].rule_id == "authorization-missing-on-sensitive-reads"
@@ -72,7 +76,7 @@ def test_authorization_missing_on_sensitive_reads_skips_when_authorize_present()
             fqcn="App\\Http\\Controllers\\Clinic\\PatientsController",
             file_path="app/Http/Controllers/Clinic/PatientsController.php",
             file_hash="deadbeef",
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -84,7 +88,7 @@ def test_authorization_missing_on_sensitive_reads_skips_when_authorize_present()
             line_start=12,
             line_end=28,
             call_sites=["$this->authorize('view', $patient);"],
-        )
+        ),
     )
     facts.queries.append(
         QueryUsage(
@@ -93,7 +97,7 @@ def test_authorization_missing_on_sensitive_reads_skips_when_authorize_present()
             method_name="show",
             model="Patient",
             method_chain="findOrFail",
-        )
+        ),
     )
     facts.routes.append(
         RouteInfo(
@@ -104,11 +108,11 @@ def test_authorization_missing_on_sensitive_reads_skips_when_authorize_present()
             middleware=["web", "auth", "verified"],
             file_path="routes/web.php",
             line_number=22,
-        )
+        ),
     )
 
     findings = AuthorizationMissingOnSensitiveReadsRule(RuleConfig()).run(
-        facts, project_type="laravel_blade"
+        facts, project_type="laravel_blade",
     ).findings
     assert findings == []
 
@@ -121,7 +125,7 @@ def test_authorization_missing_on_sensitive_reads_skips_when_controller_uses_aut
             fqcn="App\\Http\\Controllers\\Clinic\\PatientsController",
             file_path="app/Http/Controllers/Clinic/PatientsController.php",
             file_hash="deadbeef",
-        )
+        ),
     )
     facts.methods.extend(
         [
@@ -142,7 +146,7 @@ def test_authorization_missing_on_sensitive_reads_skips_when_controller_uses_aut
                 line_start=12,
                 line_end=28,
             ),
-        ]
+        ],
     )
     facts.queries.append(
         QueryUsage(
@@ -151,7 +155,7 @@ def test_authorization_missing_on_sensitive_reads_skips_when_controller_uses_aut
             method_name="show",
             model="Patient",
             method_chain="findOrFail",
-        )
+        ),
     )
     facts.routes.append(
         RouteInfo(
@@ -162,11 +166,11 @@ def test_authorization_missing_on_sensitive_reads_skips_when_controller_uses_aut
             middleware=["web", "auth", "verified"],
             file_path="routes/web.php",
             line_number=22,
-        )
+        ),
     )
 
     findings = AuthorizationMissingOnSensitiveReadsRule(RuleConfig()).run(
-        facts, project_type="laravel_blade"
+        facts, project_type="laravel_blade",
     ).findings
     assert findings == []
 
@@ -499,7 +503,7 @@ def test_policy_coverage_on_mutations_skips_authorize_resource_controller():
             fqcn="App\\Http\\Controllers\\Clinic\\PatientsController",
             file_path="app/Http/Controllers/Clinic/PatientsController.php",
             file_hash="deadbeef",
-        )
+        ),
     )
     facts.methods.extend(
         [
@@ -520,7 +524,7 @@ def test_policy_coverage_on_mutations_skips_authorize_resource_controller():
                 line_start=20,
                 line_end=40,
             ),
-        ]
+        ],
     )
     facts.queries.append(
         QueryUsage(
@@ -529,11 +533,11 @@ def test_policy_coverage_on_mutations_skips_authorize_resource_controller():
             method_name="update",
             model="Patient",
             method_chain="findOrFail->update",
-        )
+        ),
     )
 
     findings = PolicyCoverageOnMutationsRule(RuleConfig()).run(
-        facts, project_type="laravel_blade"
+        facts, project_type="laravel_blade",
     ).findings
     assert findings == []
 
@@ -546,7 +550,7 @@ def test_authorization_bypass_risk_skips_authorize_resource_controller():
             fqcn="App\\Http\\Controllers\\Clinic\\PatientsController",
             file_path="app/Http/Controllers/Clinic/PatientsController.php",
             file_hash="deadbeef",
-        )
+        ),
     )
     facts.methods.extend(
         [
@@ -567,7 +571,7 @@ def test_authorization_bypass_risk_skips_authorize_resource_controller():
                 line_start=20,
                 line_end=40,
             ),
-        ]
+        ],
     )
     facts.queries.append(
         QueryUsage(
@@ -576,11 +580,11 @@ def test_authorization_bypass_risk_skips_authorize_resource_controller():
             method_name="update",
             model="Patient",
             method_chain="findOrFail->update",
-        )
+        ),
     )
 
     findings = AuthorizationBypassRiskRule(RuleConfig()).run(
-        facts, project_type="laravel_blade"
+        facts, project_type="laravel_blade",
     ).findings
     assert findings == []
 

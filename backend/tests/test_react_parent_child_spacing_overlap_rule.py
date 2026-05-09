@@ -3,8 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from core.context_profiles import ContextProfileMatrix
-from core.ruleset import RuleConfig
-from core.ruleset import Ruleset
+from core.ruleset import RuleConfig, Ruleset
 from rules.react.react_parent_child_spacing_overlap import ReactParentChildSpacingOverlapRule
 from schemas.facts import Facts
 
@@ -102,8 +101,8 @@ def test_spacing_overlap_invalid_respects_max_findings_per_file_cap():
                 "max_findings_per_file": 1,
                 "require_same_value": True,
                 "allowed_responsive_scopes": ["base", "sm", "md", "lg", "xl", "2xl"],
-            }
-        )
+            },
+        ),
     )
     facts = Facts(project_path=".")
     content = """

@@ -342,9 +342,7 @@ class EnumSuggestionRule(Rule):
         # Prefer not to suggest enums for title-cased or sentence-like labels.
         if " " in text:
             return True
-        if text[:1].isupper() and text[1:].islower():
-            return True
-        return False
+        return bool(text[:1].isupper() and text[1:].islower())
 
     def _tokenize_enum_name(self, enum_name: str) -> set[str]:
         expanded = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", enum_name)

@@ -450,10 +450,7 @@ class TenantScopeEnforcementRule(Rule):
 
         # Check if method returns from a Data object (not database)
         call_sites = " ".join(method.call_sites or []).lower()
-        if "data->get" in call_sites or "data->all" in call_sites:
-            return True
-
-        return False
+        return bool("data->get" in call_sites or "data->all" in call_sites)
 
     def _is_scheduled_task(self, method: MethodInfo) -> bool:
         """Check if this is a system-wide scheduled task that operates across all tenants."""
@@ -468,10 +465,7 @@ class TenantScopeEnforcementRule(Rule):
 
         # Check docblock for scheduled task indicators
         doc_comment = str(getattr(method, "doc_comment", "") or "").lower()
-        if any(kw in doc_comment for kw in ["scheduled", "cron", "console", "command", "system-wide", "background"]):
-            return True
-
-        return False
+        return bool(any(kw in doc_comment for kw in ["scheduled", "cron", "console", "command", "system-wide", "background"]))
 
     def _is_global_model_allowlisted(self, model: str | None) -> bool:
         m = (model or "").strip().lower().replace("_", "").replace("\\", "")
@@ -489,9 +483,7 @@ class TenantScopeEnforcementRule(Rule):
         joined_calls = " ".join(method.call_sites or []).lower()
         if any(m in joined_calls for m in self._TENANT_MARKERS):
             return True
-        if any(k in joined_calls for k in ("currenttenant", "currentclinic", "forclinic", "fortenant", "scopebytenant")):
-            return True
-        return False
+        return bool(any(k in joined_calls for k in ("currenttenant", "currentclinic", "forclinic", "fortenant", "scopebytenant")))
 
     def _tenant_marker_score(self, text: str) -> tuple[int, int]:
         low = (text or "").lower()

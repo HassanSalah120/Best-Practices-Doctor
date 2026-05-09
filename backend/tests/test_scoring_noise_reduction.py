@@ -1,6 +1,6 @@
-from schemas.finding import Finding, Category, Severity
-from core.scoring import ScoringEngine
 from core.ruleset import Ruleset
+from core.scoring import ScoringEngine
+from schemas.finding import Category, Finding, Severity
 
 
 def _mk_finding(*, rule_id: str, file: str, severity: Severity, category: Category, score_impact: int) -> Finding:
@@ -34,7 +34,7 @@ def test_low_info_penalty_capped_once_per_file_per_rule():
                 severity=Severity.LOW,
                 category=Category.SRP,
                 score_impact=1 + (i % 10),
-            )
+            ),
         )
     # Another file should add another capped penalty for the same rule.
     for i in range(10):
@@ -45,7 +45,7 @@ def test_low_info_penalty_capped_once_per_file_per_rule():
                 severity=Severity.LOW,
                 category=Category.SRP,
                 score_impact=5,
-            )
+            ),
         )
 
     result = scorer.calculate(findings=findings, file_count=2)

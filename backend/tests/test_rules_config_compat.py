@@ -1,24 +1,23 @@
 from core.ruleset import RuleConfig
-from rules.php.long_method import LongMethodRule
-from rules.react.large_component import LargeComponentRule
-from rules.php.dry_violation import DryViolationRule
-from rules.laravel.missing_form_request import MissingFormRequestRule
-from rules.laravel.service_extraction import ServiceExtractionRule
 from rules.laravel.contract_suggestion import ContractSuggestionRule
-from rules.php.god_class import GodClassRule
 from rules.laravel.eager_loading import EagerLoadingRule
 from rules.laravel.env_usage import EnvOutsideConfigRule
 from rules.laravel.ioc_instead_of_new import IocInsteadOfNewRule
-
+from rules.laravel.missing_form_request import MissingFormRequestRule
+from rules.laravel.service_extraction import ServiceExtractionRule
+from rules.php.dry_violation import DryViolationRule
+from rules.php.god_class import GodClassRule
+from rules.php.long_method import LongMethodRule
+from rules.react.large_component import LargeComponentRule
 from schemas.facts import (
-    Facts,
     ClassInfo,
-    MethodInfo,
-    ReactComponentInfo,
     DuplicateBlock,
-    ValidationUsage,
-    QueryUsage,
     EnvUsage,
+    Facts,
+    MethodInfo,
+    QueryUsage,
+    ReactComponentInfo,
+    ValidationUsage,
 )
 from schemas.metrics import MethodMetrics
 
@@ -34,7 +33,7 @@ def test_long_method_accepts_max_loc_alias():
             line_start=1,
             line_end=100,
             loc=40,
-        )
+        ),
     )
 
     rule = LongMethodRule(RuleConfig(thresholds={"max_loc": 30}))
@@ -53,7 +52,7 @@ def test_large_component_accepts_max_loc_alias():
             line_start=1,
             line_end=400,
             loc=250,  # Must exceed threshold (200) + min_overflow_lines (20) = 220
-        )
+        ),
     )
 
     rule = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200, "min_loc_to_consider": 200, "min_overflow_lines": 20}))
@@ -90,7 +89,7 @@ def test_long_method_skips_mildly_over_threshold_simple_method_when_metrics_are_
                 validation_count=0,
                 loop_count=0,
                 has_business_logic=False,
-            )
+            ),
         },
     )
     assert res.findings == []
@@ -104,7 +103,7 @@ def test_dry_violation_accepts_min_token_count_alias():
             token_count=60,
             occurrences=[("a.php", 1, 10), ("b.php", 5, 14)],
             code_snippet="x" * 100,
-        )
+        ),
     )
 
     rule = DryViolationRule(RuleConfig(thresholds={"min_token_count": 50, "min_occurrences": 2}))
@@ -123,7 +122,7 @@ def test_dry_violation_skips_low_signal_transaction_wrapper_duplication_in_actio
                 ("app/Actions/Game/ShortenTimerAction.php", 18, 33),
             ],
             code_snippet="return DB::transaction(function () use ($dto) { $session = $this->sessionRepo->findById($dto->sessionId); });",
-        )
+        ),
     )
 
     rule = DryViolationRule(RuleConfig(thresholds={"min_token_count": 50, "min_occurrences": 2}))
@@ -141,7 +140,7 @@ def test_missing_form_request_accepts_max_validator_rules_alias():
             file_hash="deadbeef",
             line_start=1,
             line_end=200,
-        )
+        ),
     )
     facts.validations.append(
         ValidationUsage(
@@ -150,7 +149,7 @@ def test_missing_form_request_accepts_max_validator_rules_alias():
             method_name="store",
             rules={"name": ["required"], "email": ["required"]},
             validation_type="inline",
-        )
+        ),
     )
 
     rule = MissingFormRequestRule(RuleConfig(thresholds={"max_validator_rules": 2}))
@@ -168,7 +167,7 @@ def test_service_extraction_does_not_require_confidence():
             file_hash="deadbeef",
             line_start=1,
             line_end=300,
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -180,7 +179,7 @@ def test_service_extraction_does_not_require_confidence():
             line_end=80,
             loc=40,
             call_sites=["calculateTotal", "transformInput"],
-        )
+        ),
     )
 
     metrics = {
@@ -190,7 +189,7 @@ def test_service_extraction_does_not_require_confidence():
             cyclomatic_complexity=8,
             has_business_logic=True,
             business_logic_confidence=0.0,  # treated as unknown
-        )
+        ),
     }
 
     rule = ServiceExtractionRule(RuleConfig(thresholds={"min_business_loc": 15}))
@@ -208,7 +207,7 @@ def test_service_extraction_skips_controller_method_that_delegates_to_action():
             file_hash="deadbeef",
             line_start=1,
             line_end=160,
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -222,11 +221,11 @@ def test_service_extraction_skips_controller_method_that_delegates_to_action():
             loc=21,
             parameters=["CastVoteRequest $request", "CastVoteAction $action"],
             call_sites=["$dto = new CastVoteDTO(...)", "$action->execute($dto)"],
-        )
+        ),
     )
 
     res = ServiceExtractionRule(RuleConfig(thresholds={"min_business_loc": 15})).run(
-        facts, project_type="laravel_api"
+        facts, project_type="laravel_api",
     )
     assert res.findings == []
 
@@ -243,7 +242,7 @@ def test_contract_suggestion_parses_fqcn_params():
             line_end=20,
             loc=10,
             parameters=["App\\Services\\UserService $svc"],
-        )
+        ),
     )
 
     rule = ContractSuggestionRule(RuleConfig())
@@ -272,7 +271,7 @@ def test_contract_suggestion_skips_concrete_type_when_class_already_implements_c
                 line_start=1,
                 line_end=10,
             ),
-        ]
+        ],
     )
     facts.methods.append(
         MethodInfo(
@@ -284,7 +283,7 @@ def test_contract_suggestion_skips_concrete_type_when_class_already_implements_c
             line_end=20,
             loc=10,
             parameters=["App\\Services\\UserService $svc"],
-        )
+        ),
     )
 
     rule = ContractSuggestionRule(RuleConfig())
@@ -302,7 +301,7 @@ def test_god_class_triggers_on_size_and_methods():
             file_hash="deadbeef",
             line_start=1,
             line_end=400,
-        )
+        ),
     )
     # 25 public methods
     for i in range(25):
@@ -316,7 +315,7 @@ def test_god_class_triggers_on_size_and_methods():
                 line_end=10 + i * 5 + 3,
                 loc=4,
                 visibility="public",
-            )
+            ),
         )
 
     rule = GodClassRule(RuleConfig(thresholds={"max_loc": 300, "max_methods": 20}))
@@ -336,7 +335,7 @@ def test_eager_loading_triggers_on_loop_query_without_eager_loading():
             has_eager_loading=False,
             n_plus_one_risk="high",
             n_plus_one_reason="Query detected inside a loop context; consider eager loading.",
-        )
+        ),
     )
 
     rule = EagerLoadingRule(RuleConfig())
@@ -363,7 +362,7 @@ def test_ioc_instead_of_new_flags_controller_instantiation():
             file_hash="deadbeef",
             line_start=1,
             line_end=200,
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -375,7 +374,7 @@ def test_ioc_instead_of_new_flags_controller_instantiation():
             line_end=40,
             loc=31,
             instantiations=["App\\Services\\UserService"],
-        )
+        ),
     )
 
     rule = IocInsteadOfNewRule(RuleConfig(thresholds={"max_instantiations": 0}))

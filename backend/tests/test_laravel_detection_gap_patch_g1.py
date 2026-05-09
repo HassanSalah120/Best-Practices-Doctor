@@ -13,7 +13,6 @@ from rules.laravel.controller_index_filter_duplication import ControllerIndexFil
 from rules.laravel.model_cross_model_query import ModelCrossModelQueryRule
 from schemas.facts import ClassInfo, Facts, MethodInfo, QueryUsage
 
-
 G1_RULES = [
     "controller-index-filter-duplication",
     "model-cross-model-query",
@@ -22,7 +21,7 @@ G1_RULES = [
 
 
 def _ruleset_for(rule_ids: list[str]) -> Ruleset:
-    rules = {rule_id: RuleConfig(enabled=False) for rule_id in ALL_RULES.keys()}
+    rules = {rule_id: RuleConfig(enabled=False) for rule_id in ALL_RULES}
     for rule_id in rule_ids:
         rules[rule_id] = RuleConfig(enabled=True)
     return Ruleset(rules=rules, name="strict")
@@ -52,7 +51,7 @@ def _model(path: str, name: str) -> ClassInfo:
 
 def test_controller_index_filter_duplication_valid_near_invalid():
     rule = ControllerIndexFilterDuplicationRule(
-        RuleConfig(thresholds={"max_findings_per_file": 3, "min_confidence": 0.74})
+        RuleConfig(thresholds={"max_findings_per_file": 3, "min_confidence": 0.74}),
     )
 
     valid = Facts(project_path=".")
@@ -60,7 +59,7 @@ def test_controller_index_filter_duplication_valid_near_invalid():
         [
             _controller("app/Http/Controllers/Admin/TopicController.php", "TopicController"),
             _controller("app/Http/Controllers/Admin/UserController.php", "UserController"),
-        ]
+        ],
     )
     valid.methods.extend(
         [
@@ -84,7 +83,7 @@ def test_controller_index_filter_duplication_valid_near_invalid():
                 line_end=60,
                 call_sites=["$request->string('status')->value()"],
             ),
-        ]
+        ],
     )
     assert rule.analyze(valid) == []
 
@@ -93,7 +92,7 @@ def test_controller_index_filter_duplication_valid_near_invalid():
         [
             _controller("app/Http/Controllers/Admin/AuditController.php", "AuditController"),
             _controller("app/Http/Controllers/Admin/LogsController.php", "LogsController"),
-        ]
+        ],
     )
     near_miss.methods.extend(
         [
@@ -117,7 +116,7 @@ def test_controller_index_filter_duplication_valid_near_invalid():
                 line_end=38,
                 call_sites=["$filters->get('status')", "$filters->get('search')"],
             ),
-        ]
+        ],
     )
     assert rule.analyze(near_miss) == []
 
@@ -126,7 +125,7 @@ def test_controller_index_filter_duplication_valid_near_invalid():
         [
             _controller("app/Http/Controllers/Admin/SubmissionManagementController.php", "SubmissionManagementController"),
             _controller("app/Http/Controllers/Admin/UserManagementController.php", "UserManagementController"),
-        ]
+        ],
     )
     invalid.methods.extend(
         [
@@ -156,7 +155,7 @@ def test_controller_index_filter_duplication_valid_near_invalid():
                     "$request->string('q')->trim()->value()",
                 ],
             ),
-        ]
+        ],
     )
     findings = rule.analyze(invalid)
     assert len(findings) == 2
@@ -177,7 +176,7 @@ def test_model_cross_model_query_valid_near_invalid():
             file_hash="user",
             line_start=20,
             line_end=32,
-        )
+        ),
     )
     valid.queries.append(
         QueryUsage(
@@ -187,7 +186,7 @@ def test_model_cross_model_query_valid_near_invalid():
             model="User",
             method_chain="query->where->get",
             query_type="select",
-        )
+        ),
     )
     assert rule.analyze(valid) == []
 
@@ -203,7 +202,7 @@ def test_model_cross_model_query_valid_near_invalid():
             line_start=14,
             line_end=18,
             call_sites=["$this->belongsTo(AdminGrant::class)"],
-        )
+        ),
     )
     near_miss.queries.append(
         QueryUsage(
@@ -213,7 +212,7 @@ def test_model_cross_model_query_valid_near_invalid():
             model="AdminGrant",
             method_chain="belongsTo",
             query_type="select",
-        )
+        ),
     )
     assert rule.analyze(near_miss) == []
 
@@ -229,7 +228,7 @@ def test_model_cross_model_query_valid_near_invalid():
             line_start=40,
             line_end=56,
             call_sites=["AdminGrant::query()->active()->where('email', $this->email)->exists()"],
-        )
+        ),
     )
     invalid.queries.append(
         QueryUsage(
@@ -239,7 +238,7 @@ def test_model_cross_model_query_valid_near_invalid():
             model="AdminGrant",
             method_chain="query->active->where->exists",
             query_type="select",
-        )
+        ),
     )
     findings = rule.analyze(invalid)
     assert len(findings) == 1
@@ -268,7 +267,7 @@ def test_action_class_naming_consistency_valid_near_invalid():
                 line_start=1,
                 line_end=20,
             ),
-        ]
+        ],
     )
     assert rule.analyze(valid) == []
 
@@ -281,7 +280,7 @@ def test_action_class_naming_consistency_valid_near_invalid():
             file_hash="a3",
             line_start=1,
             line_end=20,
-        )
+        ),
     )
     assert rule.analyze(near_miss) == []
 
@@ -312,7 +311,7 @@ def test_action_class_naming_consistency_valid_near_invalid():
                 line_start=1,
                 line_end=20,
             ),
-        ]
+        ],
     )
     findings = rule.analyze(invalid)
     assert len(findings) == 2
@@ -366,7 +365,7 @@ def test_g1_rules_detect_rankingduel_like_fixture(fixture_path: Path):
     engine = create_engine(ruleset=_ruleset_for(G1_RULES), selected_rules=G1_RULES)
     result = engine.run(facts, metrics=metrics, project_type=info.project_type.value)
 
-    counts: dict[str, int] = {rule_id: 0 for rule_id in G1_RULES}
+    counts: dict[str, int] = dict.fromkeys(G1_RULES, 0)
     for finding in result.findings:
         if finding.rule_id in counts:
             counts[finding.rule_id] += 1

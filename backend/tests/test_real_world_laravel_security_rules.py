@@ -3,8 +3,12 @@ from __future__ import annotations
 from core.ruleset import RuleConfig
 from rules.laravel.console_command_missing_tenant_scope import ConsoleCommandMissingTenantScopeRule
 from rules.laravel.forced_login_without_authorization import ForcedLoginWithoutAuthorizationRule
-from rules.laravel.high_privilege_action_missing_authorization import HighPrivilegeActionMissingAuthorizationRule
-from rules.laravel.missing_null_guard_after_relation_load import MissingNullGuardAfterRelationLoadRule
+from rules.laravel.high_privilege_action_missing_authorization import (
+    HighPrivilegeActionMissingAuthorizationRule,
+)
+from rules.laravel.missing_null_guard_after_relation_load import (
+    MissingNullGuardAfterRelationLoadRule,
+)
 from rules.laravel.tenant_scope_enforcement import TenantScopeEnforcementRule
 from rules.laravel.unsafe_redirect import UnsafeRedirectRule
 from rules.laravel.url_validation_protocol_bypass import UrlValidationProtocolBypassRule

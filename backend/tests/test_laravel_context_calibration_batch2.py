@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from core.ruleset import RuleConfig
-from rules.laravel.authorization_missing_on_sensitive_reads import AuthorizationMissingOnSensitiveReadsRule
+from rules.laravel.authorization_missing_on_sensitive_reads import (
+    AuthorizationMissingOnSensitiveReadsRule,
+)
 from rules.laravel.controller_business_logic import ControllerBusinessLogicRule
 from rules.laravel.missing_form_request import MissingFormRequestRule
 from rules.laravel.policy_coverage_on_mutations import PolicyCoverageOnMutationsRule
@@ -77,7 +79,7 @@ def test_controller_business_logic_batch2_valid_near_invalid():
             loop_count=0,
             has_business_logic=True,
             business_logic_confidence=0.78,
-        )
+        ),
     }
     assert rule.analyze(valid, valid_metrics) == []
 
@@ -103,7 +105,7 @@ def test_controller_business_logic_batch2_valid_near_invalid():
             loop_count=1,
             has_business_logic=True,
             business_logic_confidence=0.84,
-        )
+        ),
     }
     assert len(rule.analyze(near_miss, near_metrics)) == 1
 
@@ -129,7 +131,7 @@ def test_controller_business_logic_batch2_valid_near_invalid():
             loop_count=2,
             has_business_logic=True,
             business_logic_confidence=0.9,
-        )
+        ),
     }
     assert len(rule.analyze(invalid, invalid_metrics)) == 1
 
@@ -142,8 +144,8 @@ def test_service_extraction_batch2_valid_near_invalid():
                 "min_business_confidence": 0.6,
                 "loc_only_min_loc": 42,
                 "loc_only_min_call_sites": 5,
-            }
-        )
+            },
+        ),
     )
     controller = _controller("BillingController", "app/Http/Controllers/BillingController.php")
 
@@ -174,7 +176,7 @@ def test_service_extraction_batch2_valid_near_invalid():
             conditional_count=2,
             has_business_logic=True,
             business_logic_confidence=0.75,
-        )
+        ),
     }
     assert rule.analyze(valid, valid_metrics) == []
 
@@ -197,7 +199,7 @@ def test_service_extraction_batch2_valid_near_invalid():
             conditional_count=2,
             has_business_logic=False,
             business_logic_confidence=0.0,
-        )
+        ),
     }
     assert rule.analyze(near_miss, near_metrics) == []
 
@@ -227,7 +229,7 @@ def test_service_extraction_batch2_valid_near_invalid():
             conditional_count=4,
             has_business_logic=True,
             business_logic_confidence=0.86,
-        )
+        ),
     }
     assert len(rule.analyze(invalid, invalid_metrics)) == 1
 
@@ -240,8 +242,8 @@ def test_repository_suggestion_batch2_valid_near_invalid():
                 "min_complexity": 2,
                 "min_write_queries": 1,
                 "read_only_blocked_max_queries": 1,
-            }
-        )
+            },
+        ),
     )
     controller = _controller("ReportsController", "app/Http/Controllers/ReportsController.php")
 
@@ -264,7 +266,7 @@ def test_repository_suggestion_batch2_valid_near_invalid():
             model="Report",
             method_chain="query->get",
             query_type="select",
-        )
+        ),
     )
     valid_metrics = {
         valid_method.method_fqn: MethodMetrics(
@@ -272,7 +274,7 @@ def test_repository_suggestion_batch2_valid_near_invalid():
             file_path=valid_method.file_path,
             cyclomatic_complexity=3,
             query_count=1,
-        )
+        ),
     }
     assert rule.analyze(valid, valid_metrics) == []
 
@@ -285,7 +287,7 @@ def test_repository_suggestion_batch2_valid_near_invalid():
         [
             QueryUsage(file_path=controller.file_path, line_number=24, method_name="store", model="Report", method_chain="query->first", query_type="select"),
             QueryUsage(file_path=controller.file_path, line_number=35, method_name="store", model="Report", method_chain="query->update", query_type="update"),
-        ]
+        ],
     )
     near_metrics = {
         near_method.method_fqn: MethodMetrics(
@@ -293,7 +295,7 @@ def test_repository_suggestion_batch2_valid_near_invalid():
             file_path=near_method.file_path,
             cyclomatic_complexity=3,
             query_count=2,
-        )
+        ),
     }
     assert len(rule.analyze(near_miss, near_metrics)) == 1
 
@@ -307,7 +309,7 @@ def test_repository_suggestion_batch2_valid_near_invalid():
             QueryUsage(file_path=controller.file_path, line_number=31, method_name="bulkUpdate", model="Report", method_chain="query->get", query_type="select"),
             QueryUsage(file_path=controller.file_path, line_number=44, method_name="bulkUpdate", model="Report", method_chain="query->update", query_type="update"),
             QueryUsage(file_path=controller.file_path, line_number=48, method_name="bulkUpdate", model="AuditLog", method_chain="query->insert", query_type="insert"),
-        ]
+        ],
     )
     invalid_metrics = {
         invalid_method.method_fqn: MethodMetrics(
@@ -315,7 +317,7 @@ def test_repository_suggestion_batch2_valid_near_invalid():
             file_path=invalid_method.file_path,
             cyclomatic_complexity=5,
             query_count=3,
-        )
+        ),
     }
     assert len(rule.analyze(invalid, invalid_metrics)) == 1
 
@@ -334,7 +336,7 @@ def test_missing_form_request_batch2_valid_near_invalid():
             method_name="store",
             validation_type="inline",
             rules={"email": ["required", "email"], "password": ["required"]},
-        )
+        ),
     )
     assert rule.analyze(valid) == []
 
@@ -352,7 +354,7 @@ def test_missing_form_request_batch2_valid_near_invalid():
                 "password": ["required", "string", "min:8"],
                 "otp": ["required", "string", "size:6"],
             },
-        )
+        ),
     )
     assert len(rule.analyze(near_miss)) == 1
 
@@ -371,7 +373,7 @@ def test_missing_form_request_batch2_valid_near_invalid():
                 "email": ["required", "email", "unique:users,email"],
                 "status": ["required", "in:active,inactive,pending"],
             },
-        )
+        ),
     )
     assert len(rule.analyze(invalid)) == 1
 
@@ -384,8 +386,8 @@ def test_tenant_scope_enforcement_batch2_valid_near_invalid():
                 "min_method_queries": 1,
                 "min_confidence": 0.7,
                 "require_multi_tenant_capability": True,
-            }
-        )
+            },
+        ),
     )
 
     valid = Facts(project_path=".")
@@ -400,7 +402,7 @@ def test_tenant_scope_enforcement_batch2_valid_near_invalid():
             model="Clinic",
             method_chain="query->get",
             query_type="select",
-        )
+        ),
     )
     assert rule.analyze(valid) == []
 
@@ -418,7 +420,7 @@ def test_tenant_scope_enforcement_batch2_valid_near_invalid():
             line_end=48,
             loc=39,
             call_sites=["$clinicId = auth()->user()->clinic_id", "return Report::query()->where('clinic_id', $clinicId)->get()"],
-        )
+        ),
     )
     near_miss.queries.append(
         QueryUsage(
@@ -428,7 +430,7 @@ def test_tenant_scope_enforcement_batch2_valid_near_invalid():
             model="Report",
             method_chain="query->where('clinic_id', $clinicId)->get",
             query_type="select",
-        )
+        ),
     )
     assert rule.analyze(near_miss) == []
 
@@ -446,7 +448,7 @@ def test_tenant_scope_enforcement_batch2_valid_near_invalid():
             line_end=52,
             loc=43,
             call_sites=["return Report::query()->get()"],
-        )
+        ),
     )
     invalid.queries.append(
         QueryUsage(
@@ -456,7 +458,7 @@ def test_tenant_scope_enforcement_batch2_valid_near_invalid():
             model="Report",
             method_chain="query->get",
             query_type="select",
-        )
+        ),
     )
     assert len(rule.analyze(invalid)) == 1
 
@@ -468,8 +470,8 @@ def test_tenant_access_middleware_missing_batch2_valid_near_invalid():
                 "min_project_signals": 5,
                 "min_confidence": 0.7,
                 "require_multi_tenant_capability": True,
-            }
-        )
+            },
+        ),
     )
 
     valid = Facts(project_path=".")
@@ -483,7 +485,7 @@ def test_tenant_access_middleware_missing_batch2_valid_near_invalid():
             middleware=["auth", "clinic_access"],
             file_path="routes/web.php",
             line_number=22,
-        )
+        ),
     )
     assert rule.analyze(valid) == []
 
@@ -499,7 +501,7 @@ def test_tenant_access_middleware_missing_batch2_valid_near_invalid():
             middleware=["auth", "can:view,clinic"],
             file_path="routes/web.php",
             line_number=30,
-        )
+        ),
     )
     assert rule.analyze(near_miss) == []
 
@@ -515,7 +517,7 @@ def test_tenant_access_middleware_missing_batch2_valid_near_invalid():
             middleware=["auth", "verified"],
             file_path="routes/web.php",
             line_number=37,
-        )
+        ),
     )
     assert len(rule.analyze(invalid)) == 1
 
@@ -542,7 +544,7 @@ def test_policy_coverage_on_mutations_batch2_valid_near_invalid():
             model="Invoice",
             method_chain="query->update",
             query_type="update",
-        )
+        ),
     )
     assert rule.analyze(valid) == []
 
@@ -558,7 +560,7 @@ def test_policy_coverage_on_mutations_batch2_valid_near_invalid():
             model="Invoice",
             method_chain="query->update",
             query_type="update",
-        )
+        ),
     )
     assert rule.analyze(near_miss) == []
 
@@ -575,7 +577,7 @@ def test_policy_coverage_on_mutations_batch2_valid_near_invalid():
             middleware=["web"],
             file_path="routes/web.php",
             line_number=40,
-        )
+        ),
     )
     invalid.queries.append(
         QueryUsage(
@@ -585,7 +587,7 @@ def test_policy_coverage_on_mutations_batch2_valid_near_invalid():
             model="Invoice",
             method_chain="query->delete",
             query_type="delete",
-        )
+        ),
     )
     assert len(rule.analyze(invalid)) == 1
 
@@ -612,7 +614,7 @@ def test_authorization_missing_on_sensitive_reads_batch2_valid_near_invalid():
             model="Invoice",
             method_chain="query->firstOrFail",
             query_type="select",
-        )
+        ),
     )
     assert rule.analyze(valid) == []
 
@@ -629,7 +631,7 @@ def test_authorization_missing_on_sensitive_reads_batch2_valid_near_invalid():
             middleware=["auth"],
             file_path="routes/web.php",
             line_number=22,
-        )
+        ),
     )
     near_miss.queries.append(
         QueryUsage(
@@ -639,7 +641,7 @@ def test_authorization_missing_on_sensitive_reads_batch2_valid_near_invalid():
             model="Log",
             method_chain="query->paginate",
             query_type="select",
-        )
+        ),
     )
     assert rule.analyze(near_miss) == []
 
@@ -662,7 +664,7 @@ def test_authorization_missing_on_sensitive_reads_batch2_valid_near_invalid():
             middleware=["auth", "verified"],
             file_path="routes/web.php",
             line_number=31,
-        )
+        ),
     )
     invalid.queries.append(
         QueryUsage(
@@ -672,6 +674,6 @@ def test_authorization_missing_on_sensitive_reads_batch2_valid_near_invalid():
             model="Invoice",
             method_chain="query->firstOrFail",
             query_type="select",
-        )
+        ),
     )
     assert len(rule.analyze(invalid)) == 1

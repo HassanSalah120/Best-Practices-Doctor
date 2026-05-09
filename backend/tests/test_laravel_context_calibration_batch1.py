@@ -8,7 +8,9 @@ from rules.laravel.controller_validation_inline import ControllerInlineValidatio
 from rules.laravel.enum_suggestion import EnumSuggestionRule
 from rules.laravel.fat_controller import FatControllerRule
 from rules.laravel.missing_csrf_token_verification import MissingCsrfTokenVerificationRule
-from rules.laravel.signed_routes_missing_signature_middleware import SignedRoutesMissingSignatureMiddlewareRule
+from rules.laravel.signed_routes_missing_signature_middleware import (
+    SignedRoutesMissingSignatureMiddlewareRule,
+)
 from rules.laravel.unsafe_external_redirect import UnsafeExternalRedirectRule
 from rules.laravel.unused_service_class import UnusedServiceClassRule
 from schemas.facts import (
@@ -104,7 +106,7 @@ def test_missing_csrf_token_verification_regression_valid_near_invalid():
             file_path="routes/auth-guest.php",
             line_number=16,
             middleware=["guest"],
-        )
+        ),
     )
     assert rule.analyze(valid_facts) == []
 
@@ -117,7 +119,7 @@ def test_missing_csrf_token_verification_regression_valid_near_invalid():
             file_path="routes/auth-guest.php",
             line_number=22,
             middleware=["guest"],
-        )
+        ),
     )
     assert rule.analyze(near_miss_facts) == []
 
@@ -130,7 +132,7 @@ def test_missing_csrf_token_verification_regression_valid_near_invalid():
             file_path="routes/custom.php",
             line_number=12,
             middleware=["auth"],
-        )
+        ),
     )
     assert len(rule.analyze(invalid_facts)) == 1
 
@@ -148,7 +150,7 @@ def test_unused_service_class_regression_valid_near_invalid():
             line_start=1,
             line_end=30,
             implements=["App\\Services\\Game\\Contracts\\RoleAssignmentServiceInterface"],
-        )
+        ),
     )
     valid.fqcn_references.append(
         FqcnReference(
@@ -156,7 +158,7 @@ def test_unused_service_class_regression_valid_near_invalid():
             line_number=8,
             fqcn="App\\Services\\Game\\Contracts\\RoleAssignmentServiceInterface",
             kind="type",
-        )
+        ),
     )
     assert rule.analyze(valid) == []
 
@@ -169,14 +171,14 @@ def test_unused_service_class_regression_valid_near_invalid():
             file_hash="svc",
             line_start=1,
             line_end=40,
-        )
+        ),
     )
     near_miss.class_const_accesses.append(
         ClassConstAccess(
             file_path="app/Providers/AppServiceProvider.php",
             line_number=21,
             expression="StateBroadcastContract::class, StateBroadcastService::class",
-        )
+        ),
     )
     assert rule.analyze(near_miss) == []
 
@@ -189,7 +191,7 @@ def test_unused_service_class_regression_valid_near_invalid():
             file_hash="svc",
             line_start=1,
             line_end=20,
-        )
+        ),
     )
     assert len(rule.analyze(invalid)) == 1
 
@@ -203,7 +205,7 @@ def test_enum_suggestion_regression_valid_near_invalid():
             StringLiteral(value="first_name", occurrences=[("app/Repositories/UserRepository.php", 10, "column")]),
             StringLiteral(value="last_name", occurrences=[("app/Repositories/UserRepository.php", 11, "column")]),
             StringLiteral(value="email", occurrences=[("app/Repositories/UserRepository.php", 12, "column")]),
-        ]
+        ],
     )
     assert rule.analyze(valid) == []
 
@@ -222,7 +224,7 @@ def test_enum_suggestion_regression_valid_near_invalid():
                 value="Detailed",
                 occurrences=[("resources/js/pages/Admin.tsx", 12, "labels"), ("resources/js/pages/Users.tsx", 26, "labels")],
             ),
-        ]
+        ],
     )
     assert rule.analyze(near_miss) == []
 
@@ -241,7 +243,7 @@ def test_enum_suggestion_regression_valid_near_invalid():
                 value="rejected",
                 occurrences=[("app/Services/BillingService.php", 25, "status"), ("app/Actions/InvoiceAction.php", 29, "status")],
             ),
-        ]
+        ],
     )
     assert len(rule.analyze(invalid)) >= 1
 
@@ -259,7 +261,7 @@ def test_controller_query_direct_regression_valid_near_invalid():
             controller.file_path,
             loc=24,
             call_sites=["$result = $this->reportService->execute($request)"],
-        )
+        ),
     )
     valid.queries.append(
         QueryUsage(
@@ -269,7 +271,7 @@ def test_controller_query_direct_regression_valid_near_invalid():
             model="Report",
             method_chain="query->paginate",
             query_type="select",
-        )
+        ),
     )
     assert rule.analyze(valid) == []
 
@@ -284,7 +286,7 @@ def test_controller_query_direct_regression_valid_near_invalid():
             model="Report",
             method_chain="query->get",
             query_type="select",
-        )
+        ),
     )
     assert len(rule.analyze(near_miss)) == 1
 
@@ -309,7 +311,7 @@ def test_controller_query_direct_regression_valid_near_invalid():
                 method_chain="query->get",
                 query_type="select",
             ),
-        ]
+        ],
     )
     assert len(rule.analyze(invalid)) == 1
 
@@ -335,7 +337,7 @@ def test_fat_controller_regression_valid_near_invalid():
             method_name="store",
             validation_type="inline",
             rules={"email": ["required", "email"]},
-        )
+        ),
     )
     valid.queries.append(
         QueryUsage(
@@ -345,7 +347,7 @@ def test_fat_controller_regression_valid_near_invalid():
             model="Invoice",
             method_chain="find",
             query_type="select",
-        )
+        ),
     )
     valid_metrics = {
         method_valid.method_fqn: MethodMetrics(
@@ -357,7 +359,7 @@ def test_fat_controller_regression_valid_near_invalid():
             validation_count=1,
             loop_count=0,
             has_business_logic=False,
-        )
+        ),
     }
     assert rule.analyze(valid, valid_metrics) == []
 
@@ -378,7 +380,7 @@ def test_fat_controller_regression_valid_near_invalid():
             method_name="store",
             validation_type="inline",
             rules={"email": ["required", "email"]},
-        )
+        ),
     )
     near_miss.queries.extend(
         [
@@ -398,7 +400,7 @@ def test_fat_controller_regression_valid_near_invalid():
                 method_chain="query->get",
                 query_type="select",
             ),
-        ]
+        ],
     )
     assert len(rule.analyze(near_miss, {})) == 1
 
@@ -419,7 +421,7 @@ def test_fat_controller_regression_valid_near_invalid():
             method_name="refund",
             validation_type="inline",
             rules={"reason": ["required"], "amount": ["required", "numeric"]},
-        )
+        ),
     )
     invalid.queries.extend(
         [
@@ -439,7 +441,7 @@ def test_fat_controller_regression_valid_near_invalid():
                 method_chain="query->update",
                 query_type="update",
             ),
-        ]
+        ],
     )
     invalid_metrics = {
         method_invalid.method_fqn: MethodMetrics(
@@ -452,7 +454,7 @@ def test_fat_controller_regression_valid_near_invalid():
             loop_count=1,
             has_business_logic=True,
             business_logic_confidence=0.86,
-        )
+        ),
     }
     assert len(rule.analyze(invalid, invalid_metrics)) == 1
 
@@ -471,7 +473,7 @@ def test_controller_inline_validation_regression_valid_near_invalid():
             method_name="store",
             validation_type="inline",
             rules={"email": ["required", "email"], "password": ["required"]},
-        )
+        ),
     )
     assert rule.analyze(valid) == []
 
@@ -497,7 +499,7 @@ def test_controller_inline_validation_regression_valid_near_invalid():
                 "name": ["required"],
                 "phone": ["required"],
             },
-        )
+        ),
     )
     assert len(rule.analyze(near_miss)) == 1
 
@@ -515,7 +517,7 @@ def test_controller_inline_validation_regression_valid_near_invalid():
                 "name": ["required", "string", "max:255"],
                 "status": ["required", "in:active,inactive,pending"],
             },
-        )
+        ),
     )
     assert len(rule.analyze(invalid)) == 1
 
@@ -533,7 +535,7 @@ def test_signed_routes_missing_signature_middleware_regression_valid_near_invali
             middleware=["web", "auth", "verified"],
             file_path="routes/web.php",
             line_number=16,
-        )
+        ),
     )
     assert rule.analyze(valid) == []
 
@@ -547,7 +549,7 @@ def test_signed_routes_missing_signature_middleware_regression_valid_near_invali
             middleware=["web"],
             file_path="routes/web.php",
             line_number=22,
-        )
+        ),
     )
     assert rule.analyze(near_miss) == []
 
@@ -561,6 +563,6 @@ def test_signed_routes_missing_signature_middleware_regression_valid_near_invali
             middleware=["web"],
             file_path="routes/web.php",
             line_number=32,
-        )
+        ),
     )
     assert len(rule.analyze(invalid)) == 1

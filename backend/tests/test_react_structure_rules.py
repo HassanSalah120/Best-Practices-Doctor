@@ -1,10 +1,10 @@
 from core.ruleset import RuleConfig
 from rules.react.anonymous_default_export_component import AnonymousDefaultExportComponentRule
-from rules.react.multiple_exported_components_per_file import MultipleExportedComponentsPerFileRule
 from rules.react.context_provider_inline_value import ContextProviderInlineValueRule
-from rules.react.useeffect_fetch_without_abort import UseEffectFetchWithoutAbortRule
-from rules.react.no_nested_components import NoNestedComponentsRule
+from rules.react.multiple_exported_components_per_file import MultipleExportedComponentsPerFileRule
 from rules.react.no_inline_hooks import NoInlineHooksRule
+from rules.react.no_nested_components import NoNestedComponentsRule
+from rules.react.useeffect_fetch_without_abort import UseEffectFetchWithoutAbortRule
 from schemas.facts import Facts
 
 

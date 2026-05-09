@@ -25,7 +25,7 @@ class LongMethodRule(Rule):
     tags = {'domain': 'php', 'type': 'architecture', 'concern': 'long-method'}
     """
     Detects methods that are too long.
-    
+
     Long methods typically:
     - Do too many things (SRP violation)
     - Are hard to understand

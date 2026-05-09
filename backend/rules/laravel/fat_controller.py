@@ -26,7 +26,7 @@ class FatControllerRule(Rule):
     tags = {'domain': 'laravel', 'type': 'architecture', 'concern': 'fat-controller'}
     """
     Detects "fat" controllers that do too much.
-    
+
     A controller is fat if it contains:
     - Inline validation (should use FormRequest)
     - Database queries (should use Repository/Service)
@@ -187,10 +187,7 @@ class FatControllerRule(Rule):
 
         # If all public methods are short and call service-like methods, consider it thin
         public_methods = [m for m in controller_methods if not m.name.startswith("__") and m.visibility == "public"]
-        if public_methods and all(m.loc <= 5 for m in public_methods):
-            return True
-
-        return False
+        return bool(public_methods and all(m.loc <= 5 for m in public_methods))
 
     def _analyze_method(
         self,

@@ -88,16 +88,16 @@ def test_tailwind_specific_rules_detect_text_spacing_layout_and_surface_tokens()
     )
 
     text_findings = TailwindArbitraryTextSizeRule(RuleConfig()).analyze_regex(
-        "resources/js/pages/Example.tsx", content, facts
+        "resources/js/pages/Example.tsx", content, facts,
     )
     spacing_findings = TailwindArbitrarySpacingRule(RuleConfig()).analyze_regex(
-        "resources/js/pages/Example.tsx", content, facts
+        "resources/js/pages/Example.tsx", content, facts,
     )
     layout_findings = TailwindArbitraryLayoutSizeRule(RuleConfig()).analyze_regex(
-        "resources/js/pages/Example.tsx", content, facts
+        "resources/js/pages/Example.tsx", content, facts,
     )
     surface_findings = TailwindArbitraryRadiusShadowRule(RuleConfig()).analyze_regex(
-        "resources/js/pages/Example.tsx", content, facts
+        "resources/js/pages/Example.tsx", content, facts,
     )
 
     assert len(text_findings) == 1

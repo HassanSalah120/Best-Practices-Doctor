@@ -1348,9 +1348,7 @@ class RuntimeContractAnalyzer:
         if "/vendor/" in f"/{file_path}" or file_path.startswith("vendor/"):
             return False
         controller = self._normalize_fqcn(route.controller)
-        if controller and controller.startswith(FRAMEWORK_CONTROLLER_PREFIXES):
-            return False
-        return True
+        return not (controller and controller.startswith(FRAMEWORK_CONTROLLER_PREFIXES))
 
     def _apply_scope(
         self,

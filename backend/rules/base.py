@@ -40,7 +40,7 @@ class RuleResult:
 class Rule(ABC):
     """
     Base class for all analysis rules.
-    
+
     Rules must be:
     - Independent: No dependencies on other rules
     - Pure: Only read from Facts, no side effects
@@ -135,11 +135,11 @@ class Rule(ABC):
     ) -> list[Finding]:
         """
         Analyze facts and return findings.
-        
+
         Args:
             facts: Raw facts about the codebase
             metrics: Optional derived metrics (keyed by method_fqn)
-        
+
         Returns:
             List of findings (issues detected)
         """
@@ -184,7 +184,7 @@ class Rule(ABC):
     ) -> RuleResult:
         """
         Execute the rule with proper checks and timing.
-        
+
         Returns RuleResult with findings and metadata.
         """
         import time

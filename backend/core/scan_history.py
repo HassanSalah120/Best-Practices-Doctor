@@ -160,10 +160,10 @@ class ScanHistory:
 class ScanHistoryManager:
     """
     Manages scan history for trend analysis.
-    
+
     History is stored in:
     - App data directory: scan_history/{project_hash}.json
-    
+
     Features:
     - Track multiple scans per project
     - Calculate trends (improving/regressing)
@@ -194,7 +194,7 @@ class ScanHistoryManager:
     def add_scan(self, report: ScanReport, profile: str = "startup") -> ScanSummary:
         """
         Add a scan to history.
-        
+
         Returns:
             The created ScanSummary
         """
@@ -249,7 +249,7 @@ class ScanHistoryManager:
     def get_trend(self, project_hash: str, limit: int = 10) -> dict[str, Any]:
         """
         Get trend analysis for a project.
-        
+
         Returns:
             Dict with trend data:
             - direction: "improving", "regressing", "stable"

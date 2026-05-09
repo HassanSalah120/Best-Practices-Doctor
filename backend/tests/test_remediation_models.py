@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -32,7 +32,7 @@ def test_models_reject_extra_fields():
 
 
 def test_ledger_entry_hash_reproducible():
-    ts = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    ts = datetime(2026, 1, 1, tzinfo=UTC)
     payload = {"b": 2, "a": 1}
     h1 = ledger_entry_hash(seq=1, timestamp=ts, op="run_created", payload=payload, prev_hash="genesis")
     h2 = ledger_entry_hash(seq=1, timestamp=ts, op="run_created", payload={"a": 1, "b": 2}, prev_hash="genesis")

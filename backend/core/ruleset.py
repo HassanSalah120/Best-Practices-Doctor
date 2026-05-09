@@ -400,10 +400,7 @@ class Ruleset(BaseModel):
     def should_ignore(self, path: str) -> bool:
         """Check if a path should be ignored based on patterns."""
         from fnmatch import fnmatch
-        for pattern in self.scan.ignore:
-            if fnmatch(path, pattern):
-                return True
-        return False
+        return any(fnmatch(path, pattern) for pattern in self.scan.ignore)
 
     @classmethod
     def default(cls) -> "Ruleset":

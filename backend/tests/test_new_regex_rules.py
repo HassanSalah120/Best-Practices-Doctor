@@ -1,15 +1,13 @@
-import re
 
 from core.ruleset import RuleConfig
-from schemas.facts import Facts, ClassInfo, RouteInfo
-
+from rules.laravel.api_resource_usage import ApiResourceUsageRule
+from rules.laravel.heavy_logic_in_routes import HeavyLogicInRoutesRule
+from rules.laravel.missing_auth_on_mutating_api_routes import MissingAuthOnMutatingApiRoutesRule
+from rules.laravel.missing_throttle_on_auth_api_routes import MissingThrottleOnAuthApiRoutesRule
+from rules.laravel.no_closure_routes import NoClosureRoutesRule
 from rules.laravel.no_json_encode_in_controllers import NoJsonEncodeInControllersRule
 from rules.laravel.no_log_debug_in_app import NoLogDebugInAppRule
-from rules.laravel.no_closure_routes import NoClosureRoutesRule
-from rules.laravel.heavy_logic_in_routes import HeavyLogicInRoutesRule
-from rules.laravel.api_resource_usage import ApiResourceUsageRule
-from rules.laravel.missing_throttle_on_auth_api_routes import MissingThrottleOnAuthApiRoutesRule
-from rules.laravel.missing_auth_on_mutating_api_routes import MissingAuthOnMutatingApiRoutesRule
+from schemas.facts import ClassInfo, Facts, RouteInfo
 
 
 def _facts_with_controller_file(fp: str) -> Facts:

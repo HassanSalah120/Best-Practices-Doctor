@@ -91,7 +91,7 @@ class UseMemoASTRule(Rule):
             return findings
 
         # Check if useMemo is imported
-        has_usememo_import = analyzer.has_hook_import("useMemo")
+        analyzer.has_hook_import("useMemo")
 
         # Find expensive calculations
         calculations = self._find_expensive_calculations(analyzer)
@@ -169,9 +169,8 @@ class UseMemoASTRule(Rule):
             return False
 
         for parent in ast.walk(analyzer.tree):
-            if isinstance(parent, ast.Assign) or isinstance(parent, ast.AnnAssign):
-                if parent.value is node:
-                    return True
+            if isinstance(parent, (ast.Assign, ast.AnnAssign)) and parent.value is node:
+                return True
 
         return False
 
@@ -196,13 +195,12 @@ class UseMemoASTRule(Rule):
 
         # Find parent nodes
         for parent in ast.walk(analyzer.tree):
-            if isinstance(parent, ast.Call):
-                if isinstance(parent.func, ast.Attribute):
-                    if parent.func.attr in {"map", "flatMap", "forEach"}:
-                        # Check if our node is inside this iteration
-                        for child in ast.walk(parent):
-                            if child is node:
-                                return True
+            if isinstance(parent, ast.Call) and isinstance(parent.func, ast.Attribute):
+                if parent.func.attr in {"map", "flatMap", "forEach"}:
+                    # Check if our node is inside this iteration
+                    for child in ast.walk(parent):
+                        if child is node:
+                            return True
 
         return False
 
@@ -250,13 +248,12 @@ class UseMemoASTRule(Rule):
             return True, f"Expensive method: {chain[0]}()", confidence
 
         # filter/map/find with dependencies (might process large arrays)
-        if chain and chain[0] in {"filter", "map", "find"}:
-            if dependencies:
-                # Higher confidence if in list context
-                if in_list_context:
-                    return True, f"{chain[0]}() in list context with dependencies", 0.75
-                if is_assignment:
-                    return True, f"{chain[0]}() with dependencies: {', '.join(dependencies[:3])}", 0.65
+        if chain and chain[0] in {"filter", "map", "find"} and dependencies:
+            # Higher confidence if in list context
+            if in_list_context:
+                return True, f"{chain[0]}() in list context with dependencies", 0.75
+            if is_assignment:
+                return True, f"{chain[0]}() with dependencies: {', '.join(dependencies[:3])}", 0.65
 
         # JSON.parse on potentially large strings
         if "JSON.parse" in chain:

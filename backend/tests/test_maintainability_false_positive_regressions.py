@@ -24,7 +24,7 @@ def test_missing_model_factory_detects_factories_ignored_by_file_scan(tmp_path) 
             file_hash="abc123",
             extends="Model",
             line_start=3,
-        )
+        ),
     ]
 
     assert MissingModelFactoryRule(RuleConfig()).analyze(facts) == []
@@ -82,7 +82,7 @@ def test_dry_violation_ignores_low_signal_repository_cache_wrappers() -> None:
                 ("app/Repositories/PermissionRepository.php", 18, 24),
             ],
             code_snippet="return Cache::remember('roles', 3600, fn () => Role::query()->pluck('name', 'id'));",
-        )
+        ),
     ]
 
     assert rule.analyze(facts) == []
@@ -100,7 +100,7 @@ def test_dry_violation_ignores_low_signal_repository_cache_lock_wrapper() -> Non
                 ("app/Repositories/PermissionRepository.php", 18, 24),
             ],
             code_snippet="return Cache::lock('roles.lock', 10)->get(fn () => Role::pluck('name')->all());",
-        )
+        ),
     ]
 
     assert rule.analyze(facts) == []

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -133,10 +134,8 @@ class StageCacheManager:
             return value
         except Exception:
             self._mark("invalidations", stage)
-            try:
+            with contextlib.suppress(Exception):
                 file_path.unlink(missing_ok=True)
-            except Exception:
-                pass
             return None
         finally:
             self._record_timing(stage, (time.perf_counter() - start) * 1000.0)
@@ -152,9 +151,7 @@ class StageCacheManager:
             tmp.replace(file_path)
         except Exception:
             self._mark("invalidations", stage)
-            try:
+            with contextlib.suppress(Exception):
                 tmp.unlink(missing_ok=True)
-            except Exception:
-                pass
         finally:
             self._record_timing(stage, (time.perf_counter() - start) * 1000.0)

@@ -1766,7 +1766,7 @@ def get_rules_by_category() -> dict[str, list[RuleInfo]]:
 def get_rules_grouped_for_ui() -> dict:
     """
     Get rules structured for the UI.
-    
+
     Returns:
         {
             "layers": [

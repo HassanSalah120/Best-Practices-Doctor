@@ -12,7 +12,6 @@ from rules.laravel.realtime_advisory import (
 from schemas.facts import Facts, RouteInfo
 from schemas.finding import FindingClassification, Severity
 
-
 REALTIME_COMPOSER = r'''{
   "require": {"workerman/workerman": "^5.1"},
   "autoload": {"psr-4": {"Realtime\\\\": "websocket/src/"}}

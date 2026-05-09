@@ -2,6 +2,7 @@
 API Routes
 REST endpoints with SSE progress streaming.
 """
+import contextlib
 import io
 import os
 import zipfile
@@ -1197,10 +1198,8 @@ async def add_suppression(job_id: str, request: SuppressionRequest):
 
         until = None
         if request.until:
-            try:
+            with contextlib.suppress(ValueError):
                 until = date_type.fromisoformat(request.until)
-            except ValueError:
-                pass
 
         rule = manager.add_suppression(
             rule_id=rule_id,
@@ -1582,9 +1581,8 @@ async def get_scan_trends(job_id: str, limit: int = Query(10, ge=2, le=50)):
 
         manager = ScanHistoryManager()
         history = manager.get_history_by_path(report.project_path)
-        trend = manager.get_trend(history.project_hash, limit=limit)
+        return manager.get_trend(history.project_hash, limit=limit)
 
-        return trend
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get trends: {e}")
 
@@ -1601,9 +1599,8 @@ async def get_category_trend(job_id: str, category: str, limit: int = Query(10, 
 
         manager = ScanHistoryManager()
         history = manager.get_history_by_path(report.project_path)
-        trend = manager.get_category_trend(history.project_hash, category, limit=limit)
+        return manager.get_category_trend(history.project_hash, category, limit=limit)
 
-        return trend
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get category trend: {e}")
 
@@ -1664,9 +1661,8 @@ async def get_incremental_status(job_id: str):
         from core.incremental import IncrementalScanManager
 
         manager = IncrementalScanManager(report.project_path)
-        stats = manager.get_stats()
+        return manager.get_stats()
 
-        return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get incremental status: {e}")
 
@@ -1766,9 +1762,8 @@ async def get_ast_cache_stats(job_id: str):
         from core.ast_cache import ASTCacheManager
 
         cache = ASTCacheManager(report.project_path)
-        stats = cache.get_stats()
+        return cache.get_stats()
 
-        return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get AST cache stats: {e}")
 

@@ -11,14 +11,15 @@ from core.rule_engine import ALL_RULES, create_engine
 from core.ruleset import RuleConfig, Ruleset
 from rules.react.inline_logic import InlineLogicRule
 from rules.react.large_component import LargeComponentRule
-from rules.react.missing_usecallback_for_event_handlers import MissingUseCallbackForEventHandlersRule
+from rules.react.missing_usecallback_for_event_handlers import (
+    MissingUseCallbackForEventHandlersRule,
+)
 from rules.react.missing_usememo_for_expensive_calc import MissingUseMemoForExpensiveCalcRule
 from rules.react.no_direct_useeffect import NoDirectUseEffectRule
 from rules.react.no_inline_services import NoInlineServicesRule
 from rules.react.project_structure_consistency import ReactProjectStructureConsistencyRule
 from rules.react.useeffect_cleanup_missing import UseEffectCleanupMissingRule
 from schemas.facts import Facts, ReactComponentInfo
-
 
 BATCH_R1_RULES = [
     "react-project-structure-consistency",
@@ -33,7 +34,7 @@ BATCH_R1_RULES = [
 
 
 def _ruleset_for(rule_ids: list[str]) -> Ruleset:
-    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES.keys()}
+    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES}
     for rule_id in rule_ids:
         rules[rule_id] = RuleConfig(enabled=True)
     return Ruleset(rules=rules, name="strict")
@@ -47,8 +48,8 @@ def test_react_project_structure_consistency_batch_r1_valid_near_invalid():
                 "min_placement_issues": 2,
                 "allow_context_hybrid_shared_colocation": True,
                 "suppress_when_context_pattern_matches": True,
-            }
-        )
+            },
+        ),
     )
 
     valid = Facts(project_path=".")
@@ -95,8 +96,8 @@ def test_no_inline_services_batch_r1_valid_near_invalid():
                 "min_service_like_helpers": 2,
                 "local_glue_max_helpers": 1,
                 "allow_page_shell_glue": True,
-            }
-        )
+            },
+        ),
     )
 
     valid = Facts(project_path=".")
@@ -110,7 +111,7 @@ def test_no_inline_services_batch_r1_valid_near_invalid():
             loc=210,
             has_inline_helper_fns=True,
             inline_helper_names=["submitRound"],
-        )
+        ),
     )
     valid._frontend_symbol_graph = {
         "files": {
@@ -119,9 +120,9 @@ def test_no_inline_services_batch_r1_valid_near_invalid():
                     "../../composables/usePortalScreenState",
                     "../../widgets/game/StagePanel",
                     "./lib/portalTimer",
-                ]
-            }
-        }
+                ],
+            },
+        },
     }
     valid.project_context.react_structure_mode = "hybrid"
     assert rule.analyze(valid) == []
@@ -137,14 +138,14 @@ def test_no_inline_services_batch_r1_valid_near_invalid():
             loc=180,
             has_inline_helper_fns=True,
             inline_helper_names=["saveDraft"],
-        )
+        ),
     )
     near._frontend_symbol_graph = {
         "files": {
             "resources/js/pages/Settings/Edit.tsx": {
-                "imports": ["../../hooks/useSettings", "../../components/FormSection"]
-            }
-        }
+                "imports": ["../../hooks/useSettings", "../../components/FormSection"],
+            },
+        },
     }
     near.project_context.react_structure_mode = "hybrid"
     assert rule.analyze(near) == []
@@ -160,7 +161,7 @@ def test_no_inline_services_batch_r1_valid_near_invalid():
             loc=200,
             has_inline_helper_fns=True,
             inline_helper_names=["fetchInvoices", "saveInvoice"],
-        )
+        ),
     )
     findings = rule.analyze(invalid)
     assert len(findings) == 1
@@ -173,8 +174,8 @@ def test_inline_api_logic_batch_r1_valid_near_invalid():
                 "min_state_hook_count": 4,
                 "suppress_query_hook_usage": True,
                 "require_fetch_or_axios_for_api_finding": True,
-            }
-        )
+            },
+        ),
     )
 
     tmp_root = Path("backend/tests/.tmp_react_batch_r1_inline") / str(uuid4())
@@ -201,7 +202,7 @@ export function ReportPage() {
             loc=5,
             has_api_calls=True,
             hooks_used=["useQuery"],
-        )
+        ),
     )
     assert rule.analyze(valid) == []
 
@@ -225,7 +226,7 @@ export function ReportPage() {
             loc=3,
             has_api_calls=True,
             hooks_used=["usePortalState"],
-        )
+        ),
     )
     near._frontend_symbol_graph = {
         "files": {
@@ -234,9 +235,9 @@ export function ReportPage() {
                     "../../hooks/usePortalState",
                     "../../services/liveService",
                     "../../components/LivePanel",
-                ]
-            }
-        }
+                ],
+            },
+        },
     }
     assert rule.analyze(near) == []
 
@@ -261,7 +262,7 @@ export function ReportPage() {
             loc=4,
             has_api_calls=True,
             hooks_used=["useState"],
-        )
+        ),
     )
     findings = rule.analyze(invalid)
     assert len(findings) == 1
@@ -278,8 +279,8 @@ def test_large_react_component_batch_r1_valid_near_invalid():
                 "max_lines_feature_shell": 520,
                 "max_lines_composed_shell": 700,
                 "max_lines_static_page": 420,
-            }
-        )
+            },
+        ),
     )
 
     valid = Facts(project_path=".")
@@ -293,7 +294,7 @@ def test_large_react_component_batch_r1_valid_near_invalid():
             line_start=1,
             line_end=620,
             loc=620,
-        )
+        ),
     )
     valid._frontend_symbol_graph = {
         "files": {
@@ -302,9 +303,9 @@ def test_large_react_component_batch_r1_valid_near_invalid():
                     "../../composables/usePortalScreenState",
                     "../../widgets/game/StagePanel",
                     "../../widgets/game/ResultsDrawer",
-                ]
-            }
-        }
+                ],
+            },
+        },
     }
     assert rule.analyze(valid) == []
 
@@ -317,7 +318,7 @@ def test_large_react_component_batch_r1_valid_near_invalid():
             line_start=1,
             line_end=430,
             loc=430,
-        )
+        ),
     )
     near._frontend_symbol_graph = {"files": {"resources/js/pages/Welcome.tsx": {"imports": ["../../components/Hero"]}}}
     assert rule.analyze(near) == []
@@ -331,7 +332,7 @@ def test_large_react_component_batch_r1_valid_near_invalid():
             line_start=1,
             line_end=480,
             loc=480,
-        )
+        ),
     )
     findings = rule.analyze(invalid)
     assert len(findings) == 1
@@ -359,7 +360,7 @@ export function useSocketSync() {
 }
 """
     near_findings = NoDirectUseEffectRule(
-        RuleConfig(thresholds={"suppress_external_sync": True})
+        RuleConfig(thresholds={"suppress_external_sync": True}),
     ).analyze_ast("resources/js/hooks/useSocketSync.ts", near, facts)
     assert near_findings == []
 
@@ -379,7 +380,7 @@ export function ProductPage({ productId }) {
 
 def test_useeffect_cleanup_missing_batch_r1_valid_near_invalid():
     rule = UseEffectCleanupMissingRule(
-        RuleConfig(thresholds={"include_fetch_effects": False, "min_side_effect_signals": 1})
+        RuleConfig(thresholds={"include_fetch_effects": False, "min_side_effect_signals": 1}),
     )
     facts = Facts(project_path=".")
 
@@ -426,8 +427,8 @@ def test_missing_usememo_for_expensive_calc_batch_r1_valid_near_invalid():
                 "min_complexity_score": 3,
                 "min_chain_ops": 2,
                 "require_assignment_or_return_context": True,
-            }
-        )
+            },
+        ),
     )
     facts = Facts(project_path=".")
 
@@ -468,8 +469,8 @@ def test_missing_usecallback_for_event_handlers_batch_r1_valid_near_invalid():
                 "require_memoized_child_context": True,
                 "require_nontrivial_handler": True,
                 "min_handler_complexity_score": 2,
-            }
-        )
+            },
+        ),
     )
     facts = Facts(project_path=".")
 

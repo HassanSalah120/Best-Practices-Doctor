@@ -6,13 +6,15 @@ and missing-usecallback-for-event-handlers rules.
 """
 
 import pytest
+
 from core.ruleset import RuleConfig
 from rules.laravel.missing_cache_for_reference_data import MissingCacheForReferenceDataRule
 from rules.laravel.missing_pagination import MissingPaginationRule
+from rules.react.missing_usecallback_for_event_handlers import (
+    MissingUseCallbackForEventHandlersRule,
+)
 from rules.react.missing_usememo_for_expensive_calc import MissingUseMemoForExpensiveCalcRule
-from rules.react.missing_usecallback_for_event_handlers import MissingUseCallbackForEventHandlersRule
 from schemas.facts import Facts, MethodInfo, QueryUsage, RouteInfo
-
 
 # ============== Missing Pagination Tests ==============
 
@@ -43,7 +45,7 @@ class SpecialtyRepository
             file_path="app/Repositories/SpecialtyRepository.php",
             file_hash="deadbeef",
             call_sites=["Cache::remember('specialties.all', 3600, fn() => Specialty::all())"],
-        )
+        ),
     )
     facts.queries.append(
         QueryUsage(
@@ -53,7 +55,7 @@ class SpecialtyRepository
             file_path="app/Repositories/SpecialtyRepository.php",
             line_number=8,
             method_name="all",
-        )
+        ),
     )
 
     findings = MissingCacheForReferenceDataRule(RuleConfig()).analyze(facts)
@@ -87,7 +89,7 @@ class DataRetentionService
             file_path="app/Services/DataRetentionService.php",
             file_hash="deadbeef",
             call_sites=["Cache::remember('retention.periods', 3600, fn() => [])"],
-        )
+        ),
     )
     facts.queries.append(
         QueryUsage(
@@ -97,7 +99,7 @@ class DataRetentionService
             file_path="app/Services/DataRetentionService.php",
             line_number=8,
             method_name="__construct",
-        )
+        ),
     )
 
     findings = MissingCacheForReferenceDataRule(RuleConfig()).analyze(facts)
@@ -114,7 +116,7 @@ def test_missing_pagination_on_large_model():
             action="PatientController@index",
             file_path="routes/api.php",
             line_number=7,
-        )
+        ),
     )
     facts.queries.append(
         QueryUsage(
@@ -124,7 +126,7 @@ def test_missing_pagination_on_large_model():
             file_path="app/Http/Controllers/PatientController.php",
             line_number=15,
             method_name="index",
-        )
+        ),
     )
 
     rule = MissingPaginationRule(RuleConfig())
@@ -145,7 +147,7 @@ def test_missing_pagination_with_get():
             action="UserController@index",
             file_path="routes/api.php",
             line_number=11,
-        )
+        ),
     )
     facts.queries.append(
         QueryUsage(
@@ -155,7 +157,7 @@ def test_missing_pagination_with_get():
             file_path="app/Http/Controllers/UserController.php",
             line_number=20,
             method_name="index",
-        )
+        ),
     )
 
     rule = MissingPaginationRule(RuleConfig())
@@ -175,7 +177,7 @@ def test_pagination_present_safe():
             file_path="app/Http/Controllers/PatientController.php",
             line_number=15,
             method_name="index",
-        )
+        ),
     )
 
     rule = MissingPaginationRule(RuleConfig())
@@ -195,7 +197,7 @@ def test_limit_present_safe():
             file_path="app/Http/Controllers/UserController.php",
             line_number=20,
             method_name="index",
-        )
+        ),
     )
 
     rule = MissingPaginationRule(RuleConfig())
@@ -215,7 +217,7 @@ def test_non_controller_skipped():
             file_path="app/Services/PatientService.php",
             line_number=15,
             method_name="getAll",
-        )
+        ),
     )
 
     rule = MissingPaginationRule(RuleConfig())
@@ -235,7 +237,7 @@ def test_test_file_skipped():
             file_path="tests/Feature/PatientControllerTest.php",
             line_number=15,
             method_name="test_index",
-        )
+        ),
     )
 
     rule = MissingPaginationRule(RuleConfig())
@@ -254,9 +256,9 @@ import { useState } from 'react';
 
 function UserList({ users }) {
     const [filter, setFilter] = useState('');
-    
+
     const filteredUsers = users.filter(u => u.active).map(u => ({ ...u, display: u.name }));
-    
+
     return <div>{filteredUsers.map(u => <span key={u.id}>{u.display}</span>)}</div>;
 }
 """
@@ -300,7 +302,7 @@ function UserList({ users }) {
     const filteredUsers = useMemo(() => {
         return users.filter(u => u.active);
     }, [users]);
-    
+
     return <div>{filteredUsers.map(u => <span key={u.id}>{u.name}</span>)}</div>;
 }
 """
@@ -466,7 +468,7 @@ function Button({ id, onSelect }) {
     const handleClick = useCallback(() => {
         onSelect(id);
     }, [id, onSelect]);
-    
+
     return <button onClick={handleClick}>Click me</button>;
 }
 """

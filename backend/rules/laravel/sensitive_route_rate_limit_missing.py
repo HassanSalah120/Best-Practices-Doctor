@@ -126,9 +126,7 @@ class SensitiveRouteRateLimitMissingRule(Rule):
         middleware_text = " ".join(str(item or "").lower() for item in (route.middleware or []))
         # Public or semi-public auth routes are highest risk; authenticated-only sensitive
         # flows can be ignored here to reduce false positives.
-        if "auth" in middleware_text and "guest" not in middleware_text:
-            return False
-        return True
+        return not ("auth" in middleware_text and "guest" not in middleware_text)
 
     def _has_rate_limit(self, route: RouteInfo) -> bool:
         middleware_text = " ".join(str(item or "").lower() for item in (route.middleware or []))

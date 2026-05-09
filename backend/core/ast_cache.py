@@ -7,6 +7,7 @@ Uses Tree-sitter for parsing and stores results in a persistent cache.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import pickle
 from dataclasses import dataclass, field
@@ -64,19 +65,19 @@ class CachedAST:
 class ASTCacheManager:
     """
     Manages AST parsing cache for improved performance.
-    
+
     Features:
     - Cache parsed AST trees by content hash
     - Skip re-parsing unchanged files
     - Support for Python, PHP, JavaScript, TypeScript
     - Persistent cache storage
-    
+
     Usage:
         cache = ASTCacheManager(project_path)
-        
+
         # Get or parse AST
         tree, cached = cache.get_or_parse(file_path, content, language)
-        
+
         # Clear cache
         cache.clear_cache()
     """
@@ -205,12 +206,12 @@ class ASTCacheManager:
     ) -> tuple[Any | None, bool]:
         """
         Get cached AST or parse the file.
-        
+
         Args:
             file_path: Relative file path
             content: File content
             language: Language override (auto-detected if None)
-        
+
         Returns:
             (tree, was_cached) - tree is None if parsing failed
         """
@@ -337,10 +338,8 @@ class ASTCacheManager:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._save_cache()
         if self._disk_cache is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self._disk_cache.close()
-            except Exception:
-                pass
         return False
 
 
@@ -352,12 +351,12 @@ def parse_file(
 ) -> tuple[Any | None, bool]:
     """
     Parse a file with optional caching.
-    
+
     Args:
         file_path: Path to the file
         content: File content
         cache: Optional cache manager
-    
+
     Returns:
         (tree, was_cached)
     """

@@ -3,6 +3,7 @@ Job Manager with Real Cancellation and SSE Progress
 Manages scan jobs with proper cancellation tokens and streaming updates.
 """
 import asyncio
+import contextlib
 import uuid
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from datetime import datetime
@@ -181,10 +182,8 @@ class JobManager:
                 # Keep only the freshest state per subscriber to avoid long
                 # backlogs when progress updates are very frequent.
                 if queue.full():
-                    try:
+                    with contextlib.suppress(asyncio.QueueEmpty):
                         queue.get_nowait()
-                    except asyncio.QueueEmpty:
-                        pass
                 queue.put_nowait(payload)
             except Exception:
                 pass  # Ignore failed subscribers

@@ -26,7 +26,7 @@ class CustomExceptionSuggestionRule(Rule):
     tags = {'domain': 'laravel', 'type': 'architecture', 'concern': 'custom-exception-suggestion'}
     """
     Suggests using custom exceptions.
-    
+
     Triggers when:
     - Code throws generic `\\Exception` or `Exception`
     - Code catches generic `\\Exception` or `Exception` (maybe separately)

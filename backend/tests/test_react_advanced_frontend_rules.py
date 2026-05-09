@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from schemas.facts import Facts
 from rules.react.advanced_frontend_props import (
     InlinePropObjectArrayRule,
     LooseDefaultObjectPropRule,
@@ -9,6 +8,7 @@ from rules.react.advanced_frontend_props import (
 from rules.react.missing_empty_state import MissingEmptyStateRule
 from rules.react.missing_loading_state import MissingLoadingStateRule
 from rules.react.use_memo_overuse import UseMemoOveruseRule
+from schemas.facts import Facts
 
 
 def _facts() -> Facts:

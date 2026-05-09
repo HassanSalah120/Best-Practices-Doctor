@@ -9,32 +9,31 @@ from core.ruleset import RuleConfig, Ruleset
 from rules.react.jsx_tree_sitter import JsxTreeSitterHelper
 from rules.react.react_gap_expansion_rules import (
     AvoidPropsToStateCopyRule,
-    PropsStateSyncEffectSmellRule,
-    ControlledUncontrolledInputMismatchRule,
-    UseMemoOveruseRule,
-    UseCallbackOveruseRule,
     ContextOversizedProviderRule,
-    LazyWithoutSuspenseRule,
-    SuspenseFallbackMissingRule,
-    StaleClosureInTimerRule,
-    StaleClosureInListenerRule,
+    ControlledUncontrolledInputMismatchRule,
     DuplicateKeySourceRule,
-    MissingLoadingStateRule,
+    LazyWithoutSuspenseRule,
     MissingEmptyStateRule,
+    MissingLoadingStateRule,
+    PropsStateSyncEffectSmellRule,
     RefAccessDuringRenderRule,
     RefUsedAsReactiveStateRule,
+    StaleClosureInListenerRule,
+    StaleClosureInTimerRule,
+    SuspenseFallbackMissingRule,
+    UseCallbackOveruseRule,
+    UseMemoOveruseRule,
 )
 from rules.react.react_seo_expansion_rules import (
-    MetaDescriptionMissingOrGenericRule,
     CanonicalMissingOrInvalidRule,
-    RobotsDirectiveRiskRule,
     CrawlableInternalNavigationRequiredRule,
-    JsonLdStructuredDataInvalidOrMismatchedRule,
     H1SingletonViolationRule,
+    JsonLdStructuredDataInvalidOrMismatchedRule,
+    MetaDescriptionMissingOrGenericRule,
     PageIndexabilityConflictRule,
+    RobotsDirectiveRiskRule,
 )
 from schemas.facts import Facts, ProjectContext
-
 
 AST_READY = JsxTreeSitterHelper().is_ready()
 
@@ -176,7 +175,7 @@ GAP_CASES = [
 ]
 
 
-@pytest.mark.parametrize("rule_id,rule_cls,file_path,valid,near,invalid", GAP_CASES)
+@pytest.mark.parametrize(("rule_id", "rule_cls", "file_path", "valid", "near", "invalid"), GAP_CASES)
 def test_react_gap_rules_valid_near_invalid(rule_id, rule_cls, file_path, valid, near, invalid):
     if rule_id == "controlled-uncontrolled-input-mismatch" and not AST_READY:
         pytest.skip("Tree-sitter JSX parser is unavailable")
@@ -281,7 +280,7 @@ SEO_CASES = [
 ]
 
 
-@pytest.mark.parametrize("rule_id,rule_cls,file_path,valid,near,invalid", SEO_CASES)
+@pytest.mark.parametrize(("rule_id", "rule_cls", "file_path", "valid", "near", "invalid"), SEO_CASES)
 def test_react_seo_rules_valid_near_invalid(rule_id, rule_cls, file_path, valid, near, invalid):
     rule = rule_cls(RuleConfig())
     internal_facts = Facts(project_path=".")
@@ -492,8 +491,8 @@ def test_h1_singleton_multi_signal_classification():
 
     # Case 1: Section component with sibling Index.tsx + h2 only → NO violation (score >= 2)
     # This requires creating a temp directory with both files
-    import tempfile
     import os
+    import tempfile
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create Index.tsx (route entry)
@@ -546,26 +545,16 @@ export default function BadPage() {
     assert "multiple" in findings[0].evidence_signals[0]
 
     # Case 5: Named export + h2 only → should NOT auto-skip unless combined with other signals
-    named_export_h2 = """
-export function SectionComponent() {
-  return <div><h2>Title</h2></div>;
-}
-"""
     # section_score = 1 (named export only), not enough to skip
 
     # Case 6: Default export + no h1 → violation (page likely missing h1)
-    default_export_no_h1 = """
-export default function SomePage() {
-  return <main><h2>Content</h2></main>;
-}
-"""
     # page_score = 1 (default export), section_score = 1 (h2-h6) → not enough to skip
 
 
 def test_h1_singleton_ignores_section_with_sibling_index():
     """Section component alongside Index.tsx with h2 only → NOT flagged."""
-    import tempfile
     import os
+    import tempfile
 
     rule = H1SingletonViolationRule(RuleConfig())
     facts = _public_facts()

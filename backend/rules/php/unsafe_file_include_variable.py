@@ -118,6 +118,4 @@ class UnsafeFileIncludeVariableRule(Rule):
         )
         if resolver_assign.search(window):
             return True
-        if self._SAFE_RESOLVER_CALL.search(window) and "__dir__" in window.lower():
-            return True
-        return False
+        return bool(self._SAFE_RESOLVER_CALL.search(window) and "__dir__" in window.lower())

@@ -26,7 +26,7 @@ class ContractSuggestionRule(Rule):
     tags = {'domain': 'laravel', 'type': 'architecture', 'concern': 'contract-suggestion'}
     """
     Suggests using interfaces for dependency injection.
-    
+
     Triggers when:
     - Concrete classes are type-hinted in constructors
     - Especially for Service or Repository classes

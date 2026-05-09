@@ -1,4 +1,10 @@
-from core.rule_engine import INTERNAL_RULE_WRAPPERS, LEGACY_RULE_ALIASES, RUNTIME_RULES, RULE_ALIASES, resolve_rule_alias
+from core.rule_engine import (
+    INTERNAL_RULE_WRAPPERS,
+    LEGACY_RULE_ALIASES,
+    RULE_ALIASES,
+    RUNTIME_RULES,
+    resolve_rule_alias,
+)
 
 
 def test_rule_aliases_resolve_to_unified_ids():

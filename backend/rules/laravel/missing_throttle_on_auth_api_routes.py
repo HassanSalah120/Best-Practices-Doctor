@@ -144,9 +144,7 @@ class MissingThrottleOnAuthApiRoutesRule(Rule):
             return True
         if "match" in m and any(tok in m for tok in ("post", "put", "patch", "delete")):
             return True
-        if any(tok in m for tok in ("post", "put", "patch", "delete")) and ("|" in m or "," in m):
-            return True
-        return False
+        return bool(any(tok in m for tok in ("post", "put", "patch", "delete")) and ("|" in m or "," in m))
 
     def _is_sensitive_route(self, route: RouteInfo) -> bool:
         uri = (route.uri or "").strip().strip("/")

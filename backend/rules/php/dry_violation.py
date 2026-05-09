@@ -29,7 +29,7 @@ class DryViolationRule(Rule):
     tags = {'domain': 'php', 'type': 'quality', 'concern': 'dry-violation'}
     """
     Detects duplicate code that violates DRY principle.
-    
+
     Duplication is detected by the FactsBuilder using token hashing.
     This rule reports significant duplications.
     """
@@ -95,7 +95,6 @@ class DryViolationRule(Rule):
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
-        findings = []
 
         # Backwards/forwards compatible threshold keys.
         min_tokens = int(self.get_threshold("min_tokens", self.get_threshold("min_token_count", 50)) or 50)
@@ -349,10 +348,7 @@ class DryViolationRule(Rule):
         if not unique_files:
             return False
 
-        if not all(path.startswith(self._LOW_SIGNAL_DATA_MAPPING_PATH_PREFIXES) for path in unique_files):
-            return False
-
-        return True
+        return all(path.startswith(self._LOW_SIGNAL_DATA_MAPPING_PATH_PREFIXES) for path in unique_files)
 
     def _is_action_extraction_duplicate(
         self,

@@ -19,7 +19,7 @@ def debug():
     def verbose_find(pattern):
         import os
         print(f"Searching for {pattern}...")
-        for root, dirs, files in os.walk(fixture_root):
+        for root, _dirs, files in os.walk(fixture_root):
             for f in files:
                 if f.endswith(pattern.replace("**/*", "").replace("*", "")):
                     print(f"  Found file: {f}")
@@ -46,7 +46,7 @@ def debug():
             print(f"Root Node Type: {tree.root_node.type}")
 
             query = tree_sitter.Query(lang, """
-                (class_declaration 
+                (class_declaration
                     name: (name) @class_name
                 )
             """)

@@ -1,9 +1,8 @@
-from core.ruleset import RuleConfig
-from core.rule_engine import create_engine, ALL_RULES
-from core.ruleset import Ruleset
-from rules.php.unused_private_method import UnusedPrivateMethodRule
+from core.rule_engine import ALL_RULES, create_engine
+from core.ruleset import RuleConfig, Ruleset
 from rules.laravel.unused_service_class import UnusedServiceClassRule
-from schemas.facts import Facts, ClassInfo, MethodInfo, ClassConstAccess
+from rules.php.unused_private_method import UnusedPrivateMethodRule
+from schemas.facts import ClassConstAccess, ClassInfo, Facts, MethodInfo
 
 
 def test_unused_private_method_flags_only_unreferenced_private_methods():
@@ -17,7 +16,7 @@ def test_unused_private_method_flags_only_unreferenced_private_methods():
             file_hash="a",
             line_start=1,
             line_end=80,
-        )
+        ),
     )
 
     # Public entrypoint calls the helper.
@@ -33,7 +32,7 @@ def test_unused_private_method_flags_only_unreferenced_private_methods():
             line_end=20,
             loc=11,
             call_sites=["$this->usedHelper()"],
-        )
+        ),
     )
 
     facts.methods.append(
@@ -47,7 +46,7 @@ def test_unused_private_method_flags_only_unreferenced_private_methods():
             line_start=30,
             line_end=35,
             loc=6,
-        )
+        ),
     )
 
     facts.methods.append(
@@ -61,7 +60,7 @@ def test_unused_private_method_flags_only_unreferenced_private_methods():
             line_start=40,
             line_end=45,
             loc=6,
-        )
+        ),
     )
 
     # Magic methods should never be flagged.
@@ -76,7 +75,7 @@ def test_unused_private_method_flags_only_unreferenced_private_methods():
             line_start=5,
             line_end=8,
             loc=4,
-        )
+        ),
     )
 
     rule = UnusedPrivateMethodRule(RuleConfig())
@@ -98,7 +97,7 @@ def test_unused_private_method_detects_calls_embedded_in_assignments_and_scoped_
             file_hash="svc",
             line_start=1,
             line_end=180,
-        )
+        ),
     )
 
     facts.methods.append(
@@ -117,7 +116,7 @@ def test_unused_private_method_detects_calls_embedded_in_assignments_and_scoped_
                 "$this->validateParticipantCount($participants);",
                 "$seriesId = self::ensureActiveSeries();",
             ],
-        )
+        ),
     )
 
     for line, name in [(70, "fetchCategory"), (80, "validateParticipantCount"), (90, "ensureActiveSeries"), (100, "unusedHelper")]:
@@ -132,7 +131,7 @@ def test_unused_private_method_detects_calls_embedded_in_assignments_and_scoped_
                 line_start=line,
                 line_end=line + 5,
                 loc=6,
-            )
+            ),
         )
 
     findings = UnusedPrivateMethodRule(RuleConfig()).run(facts, project_type="laravel_blade").findings
@@ -154,7 +153,7 @@ def test_unused_service_class_is_not_flagged_when_referenced_via_type_hint():
             file_hash="a",
             line_start=1,
             line_end=40,
-        )
+        ),
     )
     facts.classes.append(
         ClassInfo(
@@ -164,7 +163,7 @@ def test_unused_service_class_is_not_flagged_when_referenced_via_type_hint():
             file_hash="b",
             line_start=1,
             line_end=40,
-        )
+        ),
     )
 
     facts.classes.append(
@@ -175,7 +174,7 @@ def test_unused_service_class_is_not_flagged_when_referenced_via_type_hint():
             file_hash="c",
             line_start=1,
             line_end=60,
-        )
+        ),
     )
 
     # DI type hint should count as a reference.
@@ -191,7 +190,7 @@ def test_unused_service_class_is_not_flagged_when_referenced_via_type_hint():
             line_end=20,
             loc=11,
             parameters=["FooService $svc"],
-        )
+        ),
     )
 
     rule = UnusedServiceClassRule(RuleConfig())
@@ -212,7 +211,7 @@ def test_unused_service_class_is_not_flagged_when_referenced_via_class_const_acc
             file_hash="a",
             line_start=1,
             line_end=40,
-        )
+        ),
     )
     facts.classes.append(
         ClassInfo(
@@ -222,7 +221,7 @@ def test_unused_service_class_is_not_flagged_when_referenced_via_class_const_acc
             file_hash="b",
             line_start=1,
             line_end=40,
-        )
+        ),
     )
 
     facts.classes.append(
@@ -233,7 +232,7 @@ def test_unused_service_class_is_not_flagged_when_referenced_via_class_const_acc
             file_hash="c",
             line_start=1,
             line_end=80,
-        )
+        ),
     )
 
     # Container binding map uses `Service::class` outside method bodies (class constant/properties).
@@ -242,14 +241,14 @@ def test_unused_service_class_is_not_flagged_when_referenced_via_class_const_acc
             file_path="app/Providers/BindingOnlyServiceProvider.php",
             line_number=10,
             expression="BoundViaProviderOnly::class",
-        )
+        ),
     )
     facts.class_const_accesses.append(
         ClassConstAccess(
             file_path="app/Providers/BindingOnlyServiceProvider.php",
             line_number=11,
             expression="BoundViaProviderOnlyInterface::class",
-        )
+        ),
     )
 
     rule = UnusedServiceClassRule(RuleConfig())
@@ -281,7 +280,7 @@ def test_unused_service_class_is_not_flagged_when_referenced_via_interface_type_
                 line_start=1,
                 line_end=40,
             ),
-        ]
+        ],
     )
 
     facts.methods.append(
@@ -296,7 +295,7 @@ def test_unused_service_class_is_not_flagged_when_referenced_via_interface_type_
             line_end=18,
             loc=9,
             parameters=["RoleAssignmentServiceInterface $roleAssignmentService"],
-        )
+        ),
     )
 
     findings = UnusedServiceClassRule(RuleConfig()).run(facts, project_type="laravel_blade").findings
@@ -313,10 +312,10 @@ def test_unused_service_class_survives_strict_confidence_filter():
             file_hash="svc",
             line_start=1,
             line_end=40,
-        )
+        ),
     )
 
-    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES.keys()}
+    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES}
     rules["unused-service-class"] = RuleConfig(enabled=True)
     ruleset = Ruleset(rules=rules, name="strict")
     engine = create_engine(ruleset=ruleset, selected_rules=["unused-service-class"])

@@ -1,7 +1,6 @@
 from core.rule_engine import ALL_RULES, INTERNAL_RULE_WRAPPERS
 from core.rule_metadata import get_rule_ids, get_rules_grouped_for_ui
 
-
 VALID_CONFIDENCE = {"high", "medium", "low"}
 VALID_PRIORITY = {1, 2, 3, 4}
 VALID_GROUPS = {

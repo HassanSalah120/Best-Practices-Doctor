@@ -16,7 +16,6 @@ from rules.react.token_storage_insecure_localstorage import TokenStorageInsecure
 from rules.react.wcag_apg_ast_rules import DialogFocusRestoreMissingRule
 from schemas.facts import Facts, RouteInfo
 
-
 AST_READY = JsxTreeSitterHelper().is_ready()
 
 
@@ -175,7 +174,7 @@ export function Profile({ user }) {
             name="admin",
             action="AdminController@index",
             middleware=["auth:sanctum", "admin"],
-        )
+        ),
     ]
 
     assert ClientSideAuthOnlyRule(RuleConfig()).analyze_regex("frontend/src/pages/Profile.tsx", content, facts) == []

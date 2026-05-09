@@ -159,9 +159,7 @@ def is_simple_string_literal(expr: str) -> bool:
     s = (expr or "").strip()
     if len(s) < 2:
         return False
-    if (s[0] == s[-1] == "'") or (s[0] == s[-1] == '"'):
-        return True
-    return False
+    return bool(s[0] == s[-1] == "'" or s[0] == s[-1] == '"')
 
 
 def string_literal_is_interpolated(expr: str) -> bool:

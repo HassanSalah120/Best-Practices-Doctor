@@ -76,7 +76,7 @@ class FixSuggestion:
 class AutoFixEngine:
     """
     Generates fix suggestions for common code issues.
-    
+
     Supports auto-fix for:
     - Missing imports
     - Simple refactoring patterns
@@ -155,11 +155,11 @@ class AutoFixEngine:
     def get_fix_suggestion(self, finding: Finding, file_content: str) -> FixSuggestion | None:
         """
         Generate a fix suggestion for a finding.
-        
+
         Args:
             finding: The finding to fix
             file_content: The content of the file containing the issue
-        
+
         Returns:
             FixSuggestion or None if no fix is available
         """
@@ -273,7 +273,7 @@ class AutoFixEngine:
     ) -> dict[str, list[FixSuggestion]]:
         """
         Get fix suggestions for multiple findings.
-        
+
         Returns:
             Dict mapping file path to list of fix suggestions
         """
@@ -309,12 +309,12 @@ class AutoFixEngine:
     ) -> tuple[bool, str]:
         """
         Apply a fix to a file.
-        
+
         Args:
             file_path: Path to the file
             fix: The fix to apply
             dry_run: If True, don't actually modify the file
-        
+
         Returns:
             (success, new_content_or_error_message)
         """

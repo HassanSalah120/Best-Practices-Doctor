@@ -194,9 +194,7 @@ class InteractiveElementA11yRule(Rule):
         static = getattr(attr, "static_value", None)
         if raw in {'"true"', "'true'", "{true}"}:
             return True
-        if isinstance(static, str) and static.lower() == "true":
-            return True
-        return False
+        return bool(isinstance(static, str) and static.lower() == "true")
 
     def _has_visible_text_label(self, jsx_node, content_bytes: bytes) -> bool:
         if jsx_node.type != "jsx_element":

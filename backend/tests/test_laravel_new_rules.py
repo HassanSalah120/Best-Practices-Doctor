@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from schemas.facts import ClassInfo, Facts, RouteInfo
 from rules.laravel.business_logic_in_migration import BusinessLogicInMigrationRule
 from rules.laravel.cache_stampede_risk import CacheStampedeRiskRule
 from rules.laravel.chunk_missing_for_large_datasets import ChunkMissingForLargeDatasetsRule
@@ -14,6 +13,7 @@ from rules.laravel.missing_model_factory import MissingModelFactoryRule
 from rules.laravel.service_provider_heavy_boot import ServiceProviderHeavyBootRule
 from rules.laravel.synchronous_mail_in_request import SynchronousMailInRequestRule
 from rules.laravel.test_no_database_trait import TestNoDatabaseTraitRule
+from schemas.facts import ClassInfo, Facts, RouteInfo
 
 
 def _facts() -> Facts:

@@ -1,6 +1,6 @@
 from core.ruleset import RuleConfig
 from rules.laravel.ioc_instead_of_new import IocInsteadOfNewRule
-from schemas.facts import Facts, ClassInfo, MethodInfo
+from schemas.facts import ClassInfo, Facts, MethodInfo
 
 
 def _controller_class(name: str, file_path: str = "app/Http/Controllers/A.php") -> ClassInfo:
@@ -45,7 +45,7 @@ def test_ioc_rule_ignores_controller_dto_and_view_model_instantiations():
                 "\\App\\DTOs\\Partials\\DateRangeDTO",
                 "ClinicBrandingViewDTO",
             ],
-        )
+        ),
     )
 
     rule = IocInsteadOfNewRule(RuleConfig())
@@ -62,7 +62,7 @@ def test_ioc_rule_ignores_event_instantiation_and_flags_service_instantiation():
             "RegisteredUserController",
             "store",
             ["Registered", "App\\Services\\UserService"],
-        )
+        ),
     )
 
     rule = IocInsteadOfNewRule(RuleConfig())
@@ -81,7 +81,7 @@ def test_ioc_rule_flags_repository_like_instantiation():
             "OrdersController",
             "index",
             ["OrderRepository", "OrdersFiltersDTO"],
-        )
+        ),
     )
 
     rule = IocInsteadOfNewRule(RuleConfig())

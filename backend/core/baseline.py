@@ -13,6 +13,7 @@ Phase 3 design:
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import re
@@ -114,7 +115,7 @@ def _baseline_path(project_path: str, profile: str | None = None) -> Path:
 
 
 def _compute_report_hash(fingerprints: list[str]) -> str:
-    joined = "\n".join(sorted(set([str(x) for x in (fingerprints or []) if x])))
+    joined = "\n".join(sorted({str(x) for x in (fingerprints or []) if x}))
     return hashlib.sha1(joined.encode("utf-8", errors="ignore")).hexdigest()[:12]
 
 
@@ -258,7 +259,7 @@ def _snapshot_from_json_dict(project_path: str, profile: str, data: dict[str, An
                 line_start=1,
                 confidence=0.0,
             )
-            for fp in sorted(set([x for x in fps if x]))
+            for fp in sorted({x for x in fps if x})
         ]
 
     findings.sort(key=lambda x: x.fingerprint)
@@ -415,10 +416,8 @@ def update_report_baseline_metadata(report, profile: str | None = None, *, save_
         pass
 
     if save_snapshot:
-        try:
+        with contextlib.suppress(Exception):
             save_baseline_snapshot(project_path, findings, profile=diff.baseline_profile)
-        except Exception:
-            pass
 
     return diff
 
@@ -432,10 +431,8 @@ def reset_baseline_to_report(report, profile: str | None = None) -> None:
         return
 
     prof = _resolve_profile(profile)
-    try:
+    with contextlib.suppress(Exception):
         save_baseline_snapshot(project_path, findings, profile=prof)
-    except Exception:
-        pass
 
     try:
         report.new_finding_fingerprints = []
@@ -457,9 +454,9 @@ def baseline_diff_from_report(report, profile: str | None = None) -> BaselineDif
     try:
         has_prev = bool(getattr(report, "baseline_has_previous", False))
         baseline_path = str(getattr(report, "baseline_path", "") or "")
-        new_fps = sorted(set([str(x) for x in (getattr(report, "new_finding_fingerprints", []) or []) if x]))
-        resolved_fps = sorted(set([str(x) for x in (getattr(report, "resolved_finding_fingerprints", []) or []) if x]))
-        unchanged_fps = sorted(set([str(x) for x in (getattr(report, "unchanged_finding_fingerprints", []) or []) if x]))
+        new_fps = sorted({str(x) for x in (getattr(report, "new_finding_fingerprints", []) or []) if x})
+        resolved_fps = sorted({str(x) for x in (getattr(report, "resolved_finding_fingerprints", []) or []) if x})
+        unchanged_fps = sorted({str(x) for x in (getattr(report, "unchanged_finding_fingerprints", []) or []) if x})
         new_by_sev = dict(getattr(report, "baseline_new_counts_by_severity", {}) or {})
         resolved_by_sev = dict(getattr(report, "baseline_resolved_counts_by_severity", {}) or {})
         unchanged_by_sev = dict(getattr(report, "baseline_unchanged_counts_by_severity", {}) or {})
@@ -503,7 +500,7 @@ def load_baseline(project_path: str, profile: str | None = None) -> BaselineStat
 def save_baseline(project_path: str, fingerprints: list[str], profile: str | None = None) -> BaselineState:
     # Legacy helper that only has fingerprints (no finding metadata).
     pseudo_findings: list[Finding] = []
-    for idx, fp in enumerate(sorted(set([str(x) for x in (fingerprints or []) if x]))):
+    for idx, fp in enumerate(sorted({str(x) for x in (fingerprints or []) if x})):
         pseudo_findings.append(
             Finding(
                 rule_id="legacy-baseline",
@@ -536,7 +533,7 @@ def compute_new_issues_since_last_scan(
     profile: str | None = None,
 ) -> tuple[list[str], BaselineState | None]:
     prev = load_baseline(project_path, profile=profile)
-    cur_set = set([str(x) for x in (current_fingerprints or []) if x])
+    cur_set = {str(x) for x in (current_fingerprints or []) if x}
     prev_set = set(prev.fingerprints) if prev else set()
 
     # Keep previous behavior for first-run UX: no baseline => no "new issues yet".

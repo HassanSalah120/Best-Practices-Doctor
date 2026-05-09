@@ -222,10 +222,7 @@ class NPlusOneRiskRule(Rule):
             return True
 
         # Common scalar/date column access on models.
-        if self._looks_scalar_member(rel):
-            return True
-
-        return False
+        return bool(self._looks_scalar_member(rel))
 
     def _is_eager_loaded_in_queries(self, rel: str, qs: list[QueryUsage]) -> bool:
         """Check if a relation name is present in any eager-loading calls in the queries."""

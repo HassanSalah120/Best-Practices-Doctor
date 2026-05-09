@@ -3,6 +3,7 @@ Rule Engine
 
 Orchestrates rule loading, execution, and result collection.
 """
+import contextlib
 import logging
 import os
 import pkgutil
@@ -920,7 +921,7 @@ for _rule_id in UNACCOUNTED_DISCOVERED_RULE_IDS:
 class RuleEngine:
     """
     Orchestrates rule execution.
-    
+
     Loads rules based on ruleset configuration and executes
     them against the Facts/Metrics to produce Findings.
     """
@@ -934,14 +935,10 @@ class RuleEngine:
             else None
         )
         self._context_matrices: dict[str, ContextProfileMatrix] = {}
-        try:
+        with contextlib.suppress(Exception):
             self._context_matrices["laravel"] = ContextProfileMatrix.load_default()
-        except Exception:
-            pass
-        try:
+        with contextlib.suppress(Exception):
             self._context_matrices["react"] = load_react_context_matrix()
-        except Exception:
-            pass
         self._load_rules()
 
     def _load_rules(self) -> None:
@@ -990,13 +987,13 @@ class RuleEngine:
     ) -> EngineResult:
         """
         Execute all applicable rules against the codebase facts.
-        
+
         Args:
             facts: Raw facts about the codebase
             metrics: Derived metrics (keyed by method_fqn)
             project_type: Detected project type for filtering
             cancellation_check: Optional callback to check for cancellation
-        
+
         Returns:
             EngineResult with all findings and execution metadata
         """
@@ -1311,10 +1308,8 @@ class RuleEngine:
                 continue
             severity_raw = str(calibration.get("severity", "") or "").strip().lower()
             if severity_raw:
-                try:
+                with contextlib.suppress(Exception):
                     rule.severity = Severity(severity_raw)
-                except Exception:
-                    pass
             thresholds = calibration.get("thresholds")
             if isinstance(thresholds, dict) and thresholds:
                 merged = dict(getattr(rule.config, "thresholds", {}) or {})
@@ -1753,11 +1748,11 @@ def create_engine(
 ) -> RuleEngine:
     """
     Factory function to create a RuleEngine.
-    
+
     Args:
         ruleset_path: Optional path to custom ruleset.yaml
         selected_rules: Optional list of rule IDs to run (for advanced profile)
-    
+
     Returns:
         Configured RuleEngine instance
     """

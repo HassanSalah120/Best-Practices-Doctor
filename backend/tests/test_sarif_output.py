@@ -1,5 +1,5 @@
 from core.sarif import findings_to_sarif
-from schemas.finding import Finding, Category, Severity
+from schemas.finding import Category, Finding, Severity
 
 
 def test_findings_to_sarif_produces_valid_run_structure():

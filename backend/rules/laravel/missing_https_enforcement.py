@@ -87,7 +87,7 @@ class MissingHttpsEnforcementRule(Rule):
                 break
 
         # Check for TrustProxies middleware (Laravel 7+)
-        has_trust_proxies = any(
+        any(
             "TrustProxies" in (c.name or "") or "TrustHosts" in (c.name or "")
             for c in facts.middleware
         )

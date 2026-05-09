@@ -132,6 +132,4 @@ class ForcedLoginWithoutAuthorizationRule(Rule):
             return True
         if "event(new Registered" in body:
             return True
-        if low.endswith("democontroller.php") and "Auth::check()" in body and "isDemo()" in body:
-            return True
-        return False
+        return bool(low.endswith("democontroller.php") and "Auth::check()" in body and "isDemo()" in body)

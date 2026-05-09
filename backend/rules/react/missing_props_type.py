@@ -102,7 +102,6 @@ class MissingPropsTypeRule(Rule):
         text = content or ""
 
         # Check if this is a React component file
-        has_jsx = "return <" in text or "return (" in text
         has_component = any(pattern.search(text) for pattern in self._COMPONENT_PROPS_PATTERNS)
 
         if not has_component:

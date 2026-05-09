@@ -119,7 +119,7 @@ export function useSmallHook() {
         ["export function useBigHook() {"]
         + ["  const [a, setA] = useState(0);", "  useEffect(() => {}, []);", "  const b = useMemo(() => a + 1, [a]);"]
         + [f"  const v{i} = fetch('/api/{i}');" for i in range(150)]
-        + ["  return { a, b };", "}"]
+        + ["  return { a, b };", "}"],
     )
     findings = rule.analyze_regex("resources/js/hooks/useBigHook.ts", invalid, facts)
     assert len(findings) == 1

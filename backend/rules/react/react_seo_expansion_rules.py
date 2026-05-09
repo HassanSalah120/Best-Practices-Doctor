@@ -278,9 +278,7 @@ class _SeoRuleBase(Rule):
         if "auth" in segments:
             # Skip highly sensitive or intermediate auth states that don't need SEO
             sensitive_auth = {"confirmpassword", "twofactorchallenge", "verifyemail", "roleselection", "onboarding"}
-            if any(s in segments for s in sensitive_auth):
-                return True
-            return False
+            return bool(any(s in segments for s in sensitive_auth))
 
         if "portal" in segments or "patientportal" in segments:
             return False
@@ -873,9 +871,7 @@ class H1SingletonViolationRule(_SeoRuleBase):
             return True
 
         basename = Path(file_path).name
-        if self._HOOK_FILE_PATTERN.match(basename):
-            return True
-        return False
+        return bool(self._HOOK_FILE_PATTERN.match(basename))
 
     def _is_route_entry_file(self, file_path: str) -> bool:
         """Check if this file itself is a route entry (Index, Show, Edit, Create)."""
@@ -891,10 +887,7 @@ class H1SingletonViolationRule(_SeoRuleBase):
             return False
 
         parent_dir = str(Path(file_path).parent).replace("\\", "/")
-        if parent_dir == ".":
-            parent_dir = ""
-        else:
-            parent_dir = parent_dir.rstrip("/") + "/"
+        parent_dir = "" if parent_dir == "." else parent_dir.rstrip("/") + "/"
 
         route_entries = ("index.tsx", "index.jsx", "show.tsx", "show.jsx",
                         "edit.tsx", "edit.jsx", "create.tsx", "create.jsx")

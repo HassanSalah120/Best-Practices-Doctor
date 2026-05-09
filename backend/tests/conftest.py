@@ -1,10 +1,13 @@
-import pytest
 import os
 import shutil
 from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
-from main import app
+
 from config import settings
+from main import app
+
 
 @pytest.fixture(scope="session", autouse=True)
 def test_setup():
@@ -13,21 +16,21 @@ def test_setup():
     if test_data_dir.exists():
         shutil.rmtree(test_data_dir)
     test_data_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Override settings
     settings.app_data_dir = test_data_dir
     os.environ["BPD_APP_DATA_DIR"] = str(test_data_dir)
     os.environ["APP_AUTH_TOKEN"] = "test-token"
     os.environ["BPD_DISABLE_AGENT_RULES_AUTO_WRITE"] = "1"
-    
+
     # Initialize app state for tests
     app.state.port = 8000
     app.state.token = "test-token"
     app.state.run_id = "test-run"
     app.state.discovery_path = test_data_dir / "test-discovery.json"
-    
+
     yield
-    
+
     # Cleanup
     if test_data_dir.exists():
         shutil.rmtree(test_data_dir)
@@ -36,11 +39,11 @@ def test_setup():
 def client():
     """FastAPI test client fixture with auth bypass."""
     from api.auth import verify_token
-    
+
     # Directly bypass token check for testing endpoints
     async def bypass_verify():
         return
-    
+
     app.dependency_overrides[verify_token] = bypass_verify
     with TestClient(app) as c:
         yield c

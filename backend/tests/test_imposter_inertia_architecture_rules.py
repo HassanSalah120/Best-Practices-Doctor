@@ -17,7 +17,7 @@ from schemas.metrics import MethodMetrics
 
 
 def _ruleset_for(rule_ids: list[str]) -> Ruleset:
-    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES.keys()}
+    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES}
     for rule_id in rule_ids:
         rules[rule_id] = RuleConfig(enabled=True)
     return Ruleset(rules=rules, name="balanced")
@@ -103,7 +103,7 @@ def test_controller_business_logic_still_flags_real_logic_in_layered_controller(
                 parameters=["RoundService $roundService", "GameSessionRepository $sessions"],
             ),
             method,
-        ]
+        ],
     )
     metrics = {
         method.method_fqn: MethodMetrics(
@@ -116,7 +116,7 @@ def test_controller_business_logic_still_flags_real_logic_in_layered_controller(
             loop_count=1,
             has_business_logic=True,
             business_logic_confidence=0.88,
-        )
+        ),
     }
 
     findings = ControllerBusinessLogicRule(RuleConfig()).analyze(facts, metrics)
@@ -134,7 +134,7 @@ def test_service_extraction_still_flags_real_logic_in_layered_controller():
             file_hash="ctrl",
             line_start=1,
             line_end=140,
-        )
+        ),
     )
     facts.methods.extend(
         [
@@ -167,7 +167,7 @@ def test_service_extraction_still_flags_real_logic_in_layered_controller():
                     "return back()->with('success', 'saved')",
                 ],
             ),
-        ]
+        ],
     )
     metrics = {
         "App\\Http\\Controllers\\AdminRoundController::store": MethodMetrics(
@@ -178,7 +178,7 @@ def test_service_extraction_still_flags_real_logic_in_layered_controller():
             loop_count=1,
             has_business_logic=True,
             business_logic_confidence=0.82,
-        )
+        ),
     }
 
     findings = ServiceExtractionRule(RuleConfig(thresholds={"min_business_loc": 15})).analyze(facts, metrics)
@@ -225,7 +225,7 @@ def test_god_class_still_flags_large_non_coordinator_service_in_layered_backend(
             file_hash="svc",
             line_start=1,
             line_end=260,
-        )
+        ),
     )
     for index in range(22):
         facts.methods.append(
@@ -240,7 +240,7 @@ def test_god_class_still_flags_large_non_coordinator_service_in_layered_backend(
                 line_end=13 + (index * 5),
                 loc=4,
                 visibility="public",
-            )
+            ),
         )
 
     findings = GodClassRule(RuleConfig(thresholds={"max_loc": 200, "max_methods": 20})).analyze(facts)
@@ -259,11 +259,11 @@ def test_large_component_still_flags_uncomposed_large_page():
             line_end=420,
             loc=420,
             imports=[],
-        )
+        ),
     )
 
     findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
-        facts, project_type="laravel_inertia_react"
+        facts, project_type="laravel_inertia_react",
     ).findings
     assert any(f.rule_id == "large-react-component" for f in findings)
 
@@ -280,14 +280,14 @@ def test_no_inline_services_still_flags_multiple_strong_helpers_even_with_extrac
             loc=180,
             has_inline_helper_fns=True,
             inline_helper_names=["fetchCategories", "saveCategory", "persistWord"],
-        )
+        ),
     )
     facts._frontend_symbol_graph = {
         "files": {
             "resources/js/Pages/Admin/Management.tsx": {
-                "imports": ["./utils/formatTimer", "@/hooks/useAdminDashboardState", "@/Components/Game/ScorePanel"]
-            }
-        }
+                "imports": ["./utils/formatTimer", "@/hooks/useAdminDashboardState", "@/Components/Game/ScorePanel"],
+            },
+        },
     }
 
     findings = NoInlineServicesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings

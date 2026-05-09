@@ -277,10 +277,7 @@ class PolicyCoverageOnMutationsRule(Rule):
 
     def _method_has_auth_guard(self, method: MethodInfo) -> bool:
         joined = "\n".join(method.call_sites or [])
-        for pat in self._AUTH_PATTERNS:
-            if pat.search(joined):
-                return True
-        return False
+        return any(pat.search(joined) for pat in self._AUTH_PATTERNS)
 
     def _is_write_chain(self, chain: str) -> bool:
         tokens = [t.strip().lower() for t in chain.split("->") if t.strip()]

@@ -1,6 +1,6 @@
-from schemas.facts import Facts, StringLiteral, ClassInfo
 from core.ruleset import RuleConfig
 from rules.laravel.enum_suggestion import EnumSuggestionRule
+from schemas.facts import ClassInfo, Facts, StringLiteral
 
 
 def test_enum_suggestion_is_conservative_for_infra_tokens():
@@ -19,10 +19,11 @@ def test_enum_suggestion_is_conservative_for_infra_tokens():
 
 def test_string_literal_collection_skips_array_keys():
     # Guardrail: the facts builder should not treat array keys as enum candidates.
-    from analysis.facts_builder import FactsBuilder
-    from core.detector import ProjectDetector
     import tempfile
     from pathlib import Path
+
+    from analysis.facts_builder import FactsBuilder
+    from core.detector import ProjectDetector
 
     with tempfile.TemporaryDirectory() as d:
         root = Path(d)
@@ -153,7 +154,7 @@ def test_enum_suggestion_skips_when_matching_enum_already_exists():
             file_hash="deadbeef",
             line_start=1,
             line_end=20,
-        )
+        ),
     )
     facts.string_literals = [
         StringLiteral(value="pending", occurrences=[("a.php", 10), ("b.php", 20)]),
@@ -179,10 +180,11 @@ def test_enum_suggestion_skips_when_matching_enum_file_exists_in_facts_files():
 
 
 def test_string_literal_collection_extracts_comparison_context_for_enum_detection():
-    from analysis.facts_builder import FactsBuilder
-    from core.detector import ProjectDetector
     import tempfile
     from pathlib import Path
+
+    from analysis.facts_builder import FactsBuilder
+    from core.detector import ProjectDetector
 
     with tempfile.TemporaryDirectory() as d:
         root = Path(d)
@@ -226,7 +228,7 @@ def test_enum_suggestion_skips_pattern_fallback_when_more_specific_enum_context_
             file_hash="timer",
             line_start=1,
             line_end=20,
-        )
+        ),
     )
     facts.string_literals = [
         StringLiteral(value="discussion", occurrences=[("app/DTO/ExtendTimerDTO.php", 10, "timer_type"), ("app/Actions/Game/A.php", 12, "timer_type")]),

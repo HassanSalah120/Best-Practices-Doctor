@@ -61,7 +61,7 @@ class ImageAltMissingRule(Rule):
     ) -> list[Finding]:
         findings = []
 
-        for start, end, attrs in self._iter_img_tags(content):
+        for start, _end, attrs in self._iter_img_tags(content):
 
             # Check for alt attribute
             # We want to catch:

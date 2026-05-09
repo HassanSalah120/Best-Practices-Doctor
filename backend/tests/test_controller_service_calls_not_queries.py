@@ -1,8 +1,8 @@
 import tempfile
 from pathlib import Path
 
-from core.detector import ProjectDetector
 from analysis.facts_builder import FactsBuilder
+from core.detector import ProjectDetector
 from core.ruleset import RuleConfig
 from rules.laravel.fat_controller import FatControllerRule
 

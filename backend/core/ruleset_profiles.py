@@ -11,6 +11,7 @@ This module is intentionally small and filesystem-only:
 
 from __future__ import annotations
 
+import contextlib
 import re
 from pathlib import Path
 
@@ -23,10 +24,8 @@ def _profile_dirs() -> list[Path]:
     # Prefer workspace-local rulesets/ if present (repo root or backend/ as cwd),
     # then fallback to packaged backend/rulesets/.
     dirs: list[Path] = []
-    try:
+    with contextlib.suppress(Exception):
         dirs.append(Path.cwd() / "rulesets")
-    except Exception:
-        pass
     try:
         backend_root = Path(__file__).resolve().parents[1]
         dirs.append(backend_root / "rulesets")

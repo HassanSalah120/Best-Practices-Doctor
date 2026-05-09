@@ -290,16 +290,12 @@ class MissingUseCallbackForEventHandlersRule(Rule):
                     # Determine confidence based on complexity and element type
                     if is_async or has_complex_logic:
                         confidence = 0.92  # High priority - async/API handlers must be memoized
-                        severity = Severity.HIGH
                     elif memoization_sensitive_context and is_in_list_context:
                         confidence = 0.88
-                        severity = Severity.MEDIUM
                     elif is_simple or is_trivial:
                         confidence = 0.60
-                        severity = Severity.LOW
                     else:
                         confidence = 0.70  # Medium priority - has body but not complex
-                        severity = Severity.MEDIUM
 
                     findings.append(
                         self.create_finding(

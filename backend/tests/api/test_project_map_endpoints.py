@@ -26,11 +26,16 @@ def test_project_map_endpoints_return_expected_shape(client, auth_headers, fixtu
     map_resp = client.get(f"/api/scan/{job_id}/project-map", headers=auth_headers)
     assert map_resp.status_code == 200
     map_payload = map_resp.json()
-    assert "nodes" in map_payload and isinstance(map_payload["nodes"], list)
-    assert "edges" in map_payload and isinstance(map_payload["edges"], list)
-    assert "hierarchy" in map_payload and isinstance(map_payload["hierarchy"], dict)
-    assert "insights" in map_payload and isinstance(map_payload["insights"], dict)
-    assert "explainer" in map_payload and isinstance(map_payload["explainer"], dict)
+    assert "nodes" in map_payload
+    assert isinstance(map_payload["nodes"], list)
+    assert "edges" in map_payload
+    assert isinstance(map_payload["edges"], list)
+    assert "hierarchy" in map_payload
+    assert isinstance(map_payload["hierarchy"], dict)
+    assert "insights" in map_payload
+    assert isinstance(map_payload["insights"], dict)
+    assert "explainer" in map_payload
+    assert isinstance(map_payload["explainer"], dict)
 
     latest_map_resp = client.get("/api/project-map", headers=auth_headers)
     assert latest_map_resp.status_code == 200

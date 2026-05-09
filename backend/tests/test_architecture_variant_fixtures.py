@@ -17,7 +17,7 @@ from schemas.metrics import MethodMetrics
 
 
 def _ruleset_for(rule_ids: list[str]) -> Ruleset:
-    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES.keys()}
+    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES}
     for rule_id in rule_ids:
         rules[rule_id] = RuleConfig(enabled=True)
     return Ruleset(rules=rules, name="balanced")
@@ -138,7 +138,7 @@ def test_hybrid_frontend_near_miss_fixture_still_flags_structure_drift(fixture_p
 
     # Verify the fixture is detected correctly
     assert facts.project_context.react_structure_mode == "hybrid"
-    
+
     # The rule may or may not flag findings depending on threshold changes
     # If it does flag, verify the metadata structure
     if any(f.rule_id == "react-project-structure-consistency" for f in result.findings):
@@ -191,7 +191,7 @@ def test_controller_business_logic_accepts_boundary_thin_orchestration():
         validation_count=1,
         has_business_logic=True,
         business_logic_confidence=0.78,
-    )
+    ),
     }
 
     rule = ControllerBusinessLogicRule(RuleConfig())
@@ -268,7 +268,7 @@ def test_service_extraction_accepts_boundary_layered_orchestration():
             conditional_count=2,
             has_business_logic=True,
             business_logic_confidence=0.7,
-        )
+        ),
     }
 
     rule = ServiceExtractionRule(RuleConfig())
@@ -402,7 +402,7 @@ def test_god_class_accepts_bounded_coordinator_near_threshold():
                 line_end=34 + (index * 10),
                 loc=5,
                 visibility="public",
-            )
+            ),
         )
 
     rule = GodClassRule(RuleConfig())
@@ -444,7 +444,7 @@ def test_god_class_accepts_large_service_that_delegates_through_coordinator():
                 "BoardManagementServiceInterface $boardService",
                 "GameCommandCoordinator $coordinator",
             ],
-        )
+        ),
     )
     for index, name in enumerate(["startCategory", "advanceTurn", "processWrong", "processUndo", "adjustHearts", "getGameStatus"]):
         facts.methods.append(
@@ -460,7 +460,7 @@ def test_god_class_accepts_large_service_that_delegates_through_coordinator():
                 loc=11,
                 visibility="public",
                 call_sites=["$this->coordinator->execute($payload)", "$this->turnService->currentState($sessionId)"],
-            )
+            ),
         )
 
     rule = GodClassRule(RuleConfig(thresholds={"max_loc": 300, "max_methods": 20}))
@@ -558,7 +558,7 @@ def test_god_class_finding_includes_profile_explainability():
                 line_end=24 + (index * 5),
                 loc=5,
                 visibility="public",
-            )
+            ),
         )
 
     findings = GodClassRule(RuleConfig()).analyze(facts, metrics={})
@@ -593,9 +593,9 @@ def test_large_component_accepts_composed_screen_outside_pages_root():
                     "../../widgets/game/StagePanel",
                     "../../widgets/game/ResultsDrawer",
                     "./lib/portalTimer",
-                ]
-            }
-        }
+                ],
+            },
+        },
     }
 
     rule = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200}))
@@ -626,9 +626,9 @@ def test_no_inline_services_accepts_single_local_glue_helper_in_screen_shell():
                     "../../composables/usePortalScreenState",
                     "../../widgets/game/StagePanel",
                     "./lib/portalTimer",
-                ]
-            }
-        }
+                ],
+            },
+        },
     }
 
     rule = NoInlineServicesRule(RuleConfig())

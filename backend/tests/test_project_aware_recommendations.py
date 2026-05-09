@@ -68,7 +68,7 @@ def test_controller_business_logic_adds_project_aware_saas_guidance():
             validation_count=1,
             has_business_logic=True,
             business_logic_confidence=0.9,
-        )
+        ),
     }
 
     findings = ControllerBusinessLogicRule(RuleConfig()).analyze(facts, metrics)
@@ -124,7 +124,7 @@ def test_service_extraction_adds_project_aware_realtime_guidance():
             conditional_count=4,
             has_business_logic=True,
             business_logic_confidence=0.82,
-        )
+        ),
     }
 
     findings = ServiceExtractionRule(RuleConfig()).analyze(facts, metrics)

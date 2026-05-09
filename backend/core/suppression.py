@@ -7,6 +7,7 @@ by rule ID, file pattern, or line number with optional expiration dates.
 
 from __future__ import annotations
 
+import contextlib
 import json
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -52,10 +53,7 @@ class SuppressionRule:
                     return False
 
         # Check expiration
-        if self.until and date.today() > self.until:
-            return False
-
-        return True
+        return not (self.until and date.today() > self.until)
 
     def _matches_pattern(self, path: str, pattern: str) -> bool:
         """Check if path matches glob pattern."""
@@ -84,17 +82,13 @@ class SuppressionRule:
         """Create from dictionary."""
         until = None
         if data.get("until"):
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 until = date.fromisoformat(data["until"])
-            except (ValueError, TypeError):
-                pass
 
         created_at = datetime.now()
         if data.get("created_at"):
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 created_at = datetime.fromisoformat(data["created_at"])
-            except (ValueError, TypeError):
-                pass
 
         return cls(
             id=data.get("id", ""),
@@ -138,11 +132,11 @@ class SuppressionFile:
 class SuppressionManager:
     """
     Manages finding suppressions for a project.
-    
+
     Suppressions are stored in:
     - Project root: .bpd-suppressions.json
     - App data: suppressions/{project_hash}.json (global suppressions)
-    
+
     Suppression file format:
     {
         "version": "1.0",
@@ -193,7 +187,7 @@ class SuppressionManager:
     def is_suppressed(self, finding: Finding) -> tuple[bool, SuppressionRule | None]:
         """
         Check if a finding is suppressed.
-        
+
         Returns:
             (is_suppressed, matching_rule or None)
         """
@@ -279,7 +273,7 @@ class SuppressionManager:
     def apply_to_findings(self, findings: list[Finding]) -> tuple[list[Finding], list[Finding]]:
         """
         Apply suppressions to a list of findings.
-        
+
         Returns:
             (active_findings, suppressed_findings)
         """

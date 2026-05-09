@@ -172,7 +172,7 @@ class HardcodedUserFacingStringsRule(Rule):
             if not matches:
                 continue
 
-            for txt, ev in zip(matches, evidence):
+            for txt, ev in zip(matches, evidence, strict=False):
                 sample = txt
                 if len(sample) > 80:
                     sample = sample[:77] + "..."
@@ -207,7 +207,7 @@ class HardcodedUserFacingStringsRule(Rule):
             return []
 
         # Aggregate into a single finding for the file to reduce noise
-        first = findings[0]
+        findings[0]
         count = len(findings)
 
         # Collect distinct bad strings for the description

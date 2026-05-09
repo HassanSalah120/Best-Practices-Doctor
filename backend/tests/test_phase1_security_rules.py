@@ -1,19 +1,19 @@
 """
 Test Phase 1 Security Rules
 
-Tests for cors-misconfiguration, missing-csrf-token-verification, 
+Tests for cors-misconfiguration, missing-csrf-token-verification,
 insecure-deserialization, and useeffect-cleanup-missing rules.
 """
 
 import pytest
+
 from core.ruleset import RuleConfig
 from rules.laravel.cors_misconfiguration import CorsMisconfigurationRule
-from rules.laravel.missing_csrf_token_verification import MissingCsrfTokenVerificationRule
-from rules.laravel.insecure_deserialization import InsecureDeserializationRule
 from rules.laravel.hardcoded_secrets import HardcodedSecretsRule
+from rules.laravel.insecure_deserialization import InsecureDeserializationRule
+from rules.laravel.missing_csrf_token_verification import MissingCsrfTokenVerificationRule
 from rules.react.useeffect_cleanup_missing import UseEffectCleanupMissingRule
 from schemas.facts import Facts, RouteInfo
-
 
 # ============== CORS Misconfiguration Tests ==============
 
@@ -114,7 +114,7 @@ def test_csrf_missing_on_mutating_route():
             file_path="routes/custom.php",
             line_number=10,
             middleware=["auth"],  # Missing 'web' middleware
-        )
+        ),
     )
 
     rule = MissingCsrfTokenVerificationRule(RuleConfig())
@@ -141,7 +141,7 @@ def test_csrf_routes_web_php_keeps_group_level_csrf_with_explicit_route_middlewa
                 file_path="routes/web.php",
                 line_number=line_number,
                 middleware=middleware,
-            )
+            ),
         )
 
     findings = MissingCsrfTokenVerificationRule(RuleConfig()).analyze(facts)
@@ -160,7 +160,7 @@ def test_csrf_present_with_web_middleware():
             file_path="routes/web.php",
             line_number=10,
             middleware=["web", "auth"],  # Has 'web' middleware
-        )
+        ),
     )
 
     rule = MissingCsrfTokenVerificationRule(RuleConfig())
@@ -180,7 +180,7 @@ def test_csrf_api_route_exempt():
             file_path="routes/api.php",
             line_number=10,
             middleware=["api", "auth:sanctum"],
-        )
+        ),
     )
 
     rule = MissingCsrfTokenVerificationRule(RuleConfig())
@@ -200,7 +200,7 @@ def test_csrf_webhook_route_exempt():
             file_path="routes/web.php",
             line_number=10,
             middleware=[],
-        )
+        ),
     )
 
     rule = MissingCsrfTokenVerificationRule(RuleConfig())
@@ -226,7 +226,7 @@ def test_csrf_skips_route_files_grouped_under_web_php(tmp_path):
             file_path="routes/campaigns.php",
             line_number=10,
             middleware=["auth"],
-        )
+        ),
     )
 
     findings = MissingCsrfTokenVerificationRule(RuleConfig()).analyze(facts)
@@ -254,7 +254,7 @@ def test_csrf_skips_nested_route_files_grouped_under_web_php(tmp_path):
             file_path="routes/auth-guest.php",
             line_number=16,
             middleware=["guest"],
-        )
+        ),
     )
 
     findings = MissingCsrfTokenVerificationRule(RuleConfig()).analyze(facts)
@@ -282,7 +282,7 @@ def test_csrf_skips_included_route_files_even_with_absolute_route_path(tmp_path)
             file_path=str(routes_dir / "auth-auth.php"),
             line_number=24,
             middleware=["auth"],
-        )
+        ),
     )
 
     findings = MissingCsrfTokenVerificationRule(RuleConfig()).analyze(facts)
@@ -306,7 +306,7 @@ def test_csrf_skips_bootstrap_exempt_webhook_patterns(tmp_path):
             file_path="routes/webhooks.php",
             line_number=8,
             middleware=["throttle:webhooks"],
-        )
+        ),
     )
 
     findings = MissingCsrfTokenVerificationRule(RuleConfig()).analyze(facts)
@@ -451,11 +451,11 @@ import { useEffect, useState } from 'react';
 
 function Counter() {
     const [count, setCount] = useState(0);
-    
+
     useEffect(() => {
         setInterval(() => setCount(c => c + 1), 1000);
     }, []);
-    
+
     return <div>{count}</div>;
 }
 """
@@ -479,12 +479,12 @@ import { useEffect, useState } from 'react';
 
 function Counter() {
     const [count, setCount] = useState(0);
-    
+
     useEffect(() => {
         const timer = setInterval(() => setCount(c => c + 1), 1000);
         return () => clearInterval(timer);
     }, []);
-    
+
     return <div>{count}</div>;
 }
 """

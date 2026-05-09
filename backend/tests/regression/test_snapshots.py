@@ -7,8 +7,8 @@ from analysis.facts_builder import FactsBuilder
 from analysis.metrics_analyzer import MetricsAnalyzer
 from core.detector import ProjectDetector
 from core.rule_engine import create_engine
-from core.scoring import ScoringEngine
 from core.ruleset import Ruleset
+from core.scoring import ScoringEngine
 
 
 def _normalize_report(report_dict: dict) -> dict:
@@ -45,7 +45,7 @@ def _normalize_report(report_dict: dict) -> dict:
     report_dict.pop("top_5_first", None)
     report_dict.pop("triage_plan", None)
     report_dict.pop("action_plan", None)
-    
+
     # analysis_debug contains project_memory with timestamps - normalize it
     analysis_debug = report_dict.pop("analysis_debug", None)
     if isinstance(analysis_debug, dict):
@@ -71,7 +71,7 @@ def _normalize_report(report_dict: dict) -> dict:
             f.get("rule_id", ""),
             f.get("file", ""),
             f.get("context", ""),
-        )
+        ),
     )
     for f in findings:
         # Assert stable identity is present; do not overwrite it.
@@ -130,7 +130,7 @@ def _normalize_report(report_dict: dict) -> dict:
 
 
 @pytest.mark.parametrize(
-    "fixture_name,snapshot_name",
+    ("fixture_name", "snapshot_name"),
     [
         ("sample-lara", "sample-lara-report.json"),
         ("laravel-blade-mini", "laravel-blade-mini-report.json"),

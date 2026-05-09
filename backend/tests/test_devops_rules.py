@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from schemas.facts import Facts
 from rules.devops import (
     AppDebugNotFalseInProductionRule,
     AppEnvNotSetToProductionRule,
@@ -12,6 +11,7 @@ from rules.devops import (
     NoLoggingStrategyConfiguredRule,
     StoragePathsNotInGitignoreRule,
 )
+from schemas.facts import Facts
 
 
 def _facts(root: Path) -> Facts:

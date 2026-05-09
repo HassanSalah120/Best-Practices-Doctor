@@ -4,14 +4,20 @@ from pathlib import Path
 
 from analysis.facts_builder import FactsBuilder
 from core.ruleset import RuleConfig
-from rules.laravel.broadcast_channel_authorization_missing import BroadcastChannelAuthorizationMissingRule
-from rules.laravel.destructive_migration_without_safety_guard import DestructiveMigrationWithoutSafetyGuardRule
+from rules.laravel.broadcast_channel_authorization_missing import (
+    BroadcastChannelAuthorizationMissingRule,
+)
+from rules.laravel.destructive_migration_without_safety_guard import (
+    DestructiveMigrationWithoutSafetyGuardRule,
+)
 from rules.laravel.listener_shouldqueue_missing_for_io_bound_handler import (
     ListenerShouldQueueMissingForIoBoundHandlerRule,
 )
 from rules.laravel.missing_foreign_key_in_migration import MissingForeignKeyInMigrationRule
 from rules.laravel.missing_index_on_lookup_columns import MissingIndexOnLookupColumnsRule
-from rules.laravel.model_hidden_sensitive_attributes_missing import ModelHiddenSensitiveAttributesMissingRule
+from rules.laravel.model_hidden_sensitive_attributes_missing import (
+    ModelHiddenSensitiveAttributesMissingRule,
+)
 from rules.laravel.notification_shouldqueue_missing import NotificationShouldQueueMissingRule
 from rules.laravel.observer_heavy_logic import ObserverHeavyLogicRule
 from rules.laravel.public_api_versioning_missing import PublicApiVersioningMissingRule
@@ -68,7 +74,7 @@ def test_missing_foreign_key_in_migration_rule():
             operation="add_column",
             column_name="user_id",
             column_type="foreignId",
-        )
+        ),
     ]
 
     findings = rule.run(facts, project_type="laravel_blade").findings
@@ -87,7 +93,7 @@ def test_missing_foreign_key_in_migration_rule_skips_constrained_column():
             operation="add_column",
             column_name="user_id",
             column_type="foreignId",
-        )
+        ),
     ]
     facts.migration_foreign_keys = [
         MigrationForeignKeyDefinition(
@@ -98,7 +104,7 @@ def test_missing_foreign_key_in_migration_rule_skips_constrained_column():
             referenced_table="users",
             referenced_columns=["id"],
             via_constrained=True,
-        )
+        ),
     ]
 
     assert rule.run(facts, project_type="laravel_blade").findings == []
@@ -115,7 +121,7 @@ def test_missing_index_on_lookup_columns_rule():
             operation="add_column",
             column_name="slug",
             column_type="string",
-        )
+        ),
     ]
 
     findings = rule.run(facts, project_type="laravel_blade").findings
@@ -134,7 +140,7 @@ def test_missing_index_on_lookup_columns_rule_skips_indexed_column():
             operation="add_column",
             column_name="slug",
             column_type="string",
-        )
+        ),
     ]
     facts.migration_indexes = [
         MigrationIndexDefinition(
@@ -143,7 +149,7 @@ def test_missing_index_on_lookup_columns_rule_skips_indexed_column():
             table_name="posts",
             columns=["slug"],
             kind="unique",
-        )
+        ),
     ]
     assert rule.run(facts, project_type="laravel_blade").findings == []
 
@@ -159,7 +165,7 @@ def test_destructive_migration_without_safety_guard_rule():
             operation="drop_column",
             column_name="legacy_token",
             guard_signals=[],
-        )
+        ),
     ]
 
     findings = rule.run(facts, project_type="laravel_blade").findings
@@ -178,7 +184,7 @@ def test_destructive_migration_without_safety_guard_rule_skips_guarded_change():
             operation="drop_column",
             column_name="legacy_token",
             guard_signals=["schema_has_column"],
-        )
+        ),
     ]
     assert rule.run(facts, project_type="laravel_blade").findings == []
 
@@ -247,7 +253,7 @@ def test_sensitive_model_appends_risk_rule():
             model_fqcn="App\\Models\\User",
             property_name="appends",
             values=["two_factor_secret_hint", "avatar_url"],
-        )
+        ),
     ]
 
     findings = rule.run(facts, project_type="laravel_blade").findings
@@ -311,7 +317,7 @@ def test_broadcast_channel_authorization_missing_rule():
             authorization_kind="allow_all",
             has_user_parameter=True,
             has_authorization_logic=False,
-        )
+        ),
     ]
 
     findings = rule.run(facts, project_type="laravel_blade").findings
@@ -330,7 +336,7 @@ def test_observer_heavy_logic_rule():
             "updated",
             calls=["Mail::to($user)->send($mail)", "Notification::send($admins, $notification)"] * 4,
             loc=42,
-        )
+        ),
     ]
 
     findings = rule.run(facts, project_type="laravel_blade").findings

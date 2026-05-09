@@ -217,10 +217,7 @@ class InertiaSharedPropsEagerQueryRule(Rule):
         return str(match.group(1) or "").lower().strip()
 
     def _line_in_ranges(self, line_no: int, ranges: list[tuple[int, int]]) -> bool:
-        for start, end in ranges:
-            if start <= line_no <= end:
-                return True
-        return False
+        return any(start <= line_no <= end for start, end in ranges)
 
     def _find_block_end_by_braces(self, lines: list[str], start_line: int) -> int:
         depth = 0

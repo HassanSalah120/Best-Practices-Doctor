@@ -308,7 +308,7 @@ class ControllerIndexFilterDuplicationRule(Rule):
         for key_name in keys:
             state = by_key[key_name]
             sources_raw = state.get("sources", set())
-            sources = sorted(list(sources_raw)) if isinstance(sources_raw, set) else []
+            sources = sorted(sources_raw) if isinstance(sources_raw, set) else []
             source_key = sources[0] if sources else "unknown"
             has_trim = int(bool(state.get("trim", False)))
             has_value = int(bool(state.get("value", False)))

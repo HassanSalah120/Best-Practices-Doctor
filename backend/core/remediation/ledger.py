@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import tempfile
@@ -129,10 +130,8 @@ class RemediationLedger:
                 os.fsync(tmp.fileno())
             os.replace(tmp_name, self.path)
         except BaseException:
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(tmp_name)
-            except OSError:
-                pass
             raise
 
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -23,8 +23,8 @@ def _run_payload(tmp_path: Path) -> dict:
         verification_results=[],
         rescan_comparison=None,
         warnings=[],
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
     return run.model_dump(mode="json")
 

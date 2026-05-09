@@ -13,8 +13,8 @@ from rules.laravel.model_hidden_sensitive_attributes_missing import (
 )
 from rules.laravel.notification_shouldqueue_missing import NotificationShouldQueueMissingRule
 from rules.laravel.plain_text_sensitive_config import PlainTextSensitiveConfigRule
-from rules.laravel.service_extraction import ServiceExtractionRule
 from rules.laravel.sensitive_model_appends_risk import SensitiveModelAppendsRiskRule
+from rules.laravel.service_extraction import ServiceExtractionRule
 from rules.laravel.upload_size_limit_missing import UploadSizeLimitMissingRule
 from rules.laravel.webhook_replay_protection_missing import WebhookReplayProtectionMissingRule
 from rules.php.unsafe_file_include_variable import UnsafeFileIncludeVariableRule
@@ -91,7 +91,7 @@ def test_notification_shouldqueue_missing_skips_when_parent_chain_implements_int
             name="toMail",
             file_path="app/Notifications/BillingDebtNudgeNotification.php",
             call_sites=["MailMessage::make();"],
-        )
+        ),
     ]
 
     assert rule.analyze(facts) == []
@@ -109,7 +109,7 @@ def test_missing_index_on_lookup_columns_skips_change_operation_snippet():
             column_name="invoice_id",
             column_type="uuid",
             snippet="$table->uuid('invoice_id')->nullable()->change();",
-        )
+        ),
     ]
 
     assert rule.analyze(facts) == []
@@ -167,7 +167,7 @@ def test_webhook_replay_protection_missing_skips_replay_guard_middleware():
             middleware=["webhook_replay_guard"],
             file_path="routes/webhooks.php",
             line_number=8,
-        )
+        ),
     ]
     facts.methods = [
         _method(
@@ -176,7 +176,7 @@ def test_webhook_replay_protection_missing_skips_replay_guard_middleware():
             name="handlePaymobWebhook",
             file_path="app/Http/Controllers/PaymentCallbackController.php",
             call_sites=["$this->validateSignature($payload);"],
-        )
+        ),
     ]
 
     assert rule.analyze(facts) == []
@@ -215,7 +215,7 @@ def test_sensitive_model_appends_risk_skips_boolean_status_flags():
             model_name="User",
             property_name="appends",
             values=["profile_photo_url", "two_factor_enabled"],
-        )
+        ),
     ]
 
     assert rule.analyze(facts) == []
@@ -297,7 +297,7 @@ def test_service_extraction_skips_thin_controller_when_service_property_is_used(
                 "session()->flash('status', 'Webhook retried');",
                 "return redirect()->back();",
             ],
-        )
+        ),
     ]
 
     assert rule.analyze(facts) == []
@@ -327,7 +327,7 @@ def test_controller_business_logic_skips_delegated_service_orchestration():
             name="InvoiceController",
             fqcn="App\\Http\\Controllers\\InvoiceController",
             file_path="app/Http/Controllers/InvoiceController.php",
-        )
+        ),
     ]
     facts.methods = [method]
     metrics = {
@@ -343,7 +343,7 @@ def test_controller_business_logic_skips_delegated_service_orchestration():
             loop_count=0,
             has_external_api_calls=False,
             has_file_operations=False,
-        )
+        ),
     }
 
     assert rule.analyze(facts, metrics=metrics) == []
@@ -357,7 +357,7 @@ def test_dto_suggestion_skips_actions_already_importing_dto_contracts():
             file_path="app/Actions/Billing/GetBillingLedgerAction.php",
             line_number=6,
             fqcn="App\\DTOs\\Billing\\BillingLedgerFiltersDTO",
-        )
+        ),
     ]
     facts.assoc_arrays = [
         AssocArrayLiteral(
@@ -369,7 +369,7 @@ def test_dto_suggestion_skips_actions_already_importing_dto_contracts():
             used_as="assignment",
             target="payload",
             snippet="['clinic_id' => $clinicId, ...]",
-        )
+        ),
     ]
 
     assert rule.analyze(facts) == []

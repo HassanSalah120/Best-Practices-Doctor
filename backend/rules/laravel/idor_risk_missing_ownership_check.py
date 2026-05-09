@@ -156,9 +156,7 @@ class IdorRiskMissingOwnershipCheckRule(Rule):
         uri = str(route.uri or "").lower()
         if "{" not in uri:
             return False
-        if any(f"{{{marker}" in uri for marker in self._PARAM_EXCLUSIONS):
-            return False
-        return True
+        return not any(f"{{{marker}" in uri for marker in self._PARAM_EXCLUSIONS)
 
     def _looks_like_resource_fetch(self, query: QueryUsage) -> bool:
         chain = str(query.method_chain or "").lower()

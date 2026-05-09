@@ -181,7 +181,7 @@ class MultipleExportedComponentsPerFileRule(Rule):
 
         tokenized = [cls._split_tokens(name) for name in names]
         shared_prefix: list[str] = []
-        for parts in zip(*tokenized):
+        for parts in zip(*tokenized, strict=False):
             if len(set(parts)) != 1:
                 break
             shared_prefix.append(parts[0])
@@ -198,7 +198,7 @@ class MultipleExportedComponentsPerFileRule(Rule):
 
         tokenized = [cls._split_tokens(name) for name in names]
         shared_suffix: list[str] = []
-        for parts in zip(*(list(reversed(tokens)) for tokens in tokenized)):
+        for parts in zip(*(list(reversed(tokens)) for tokens in tokenized), strict=False):
             if len(set(parts)) != 1:
                 break
             shared_suffix.append(parts[0])

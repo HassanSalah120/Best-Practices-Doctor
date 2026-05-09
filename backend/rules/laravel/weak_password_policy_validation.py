@@ -181,9 +181,7 @@ class WeakPasswordPolicyValidationRule(Rule):
 
     def _is_non_validation_password_mapping(self, rules_low: str) -> bool:
         compact = rules_low.strip().strip("'\"")
-        if compact in self._NON_VALIDATION_RULE_TOKENS:
-            return True
-        return False
+        return compact in self._NON_VALIDATION_RULE_TOKENS
 
     def _is_likely_validation_rules_string(self, rules_low: str, low_path: str) -> bool:
         auth_request_path = (

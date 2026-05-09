@@ -1,7 +1,7 @@
 from core.ruleset import RuleConfig
 from rules.php.circular_dependency import CircularDependencyRule
 from rules.php.high_coupling_class import HighCouplingClassRule
-from schemas.facts import Facts, ClassInfo, MethodInfo
+from schemas.facts import ClassInfo, Facts, MethodInfo
 
 
 def test_circular_dependency_detects_cycle_in_app_namespace():
@@ -16,7 +16,7 @@ def test_circular_dependency_detects_cycle_in_app_namespace():
             file_hash="a",
             line_start=1,
             line_end=30,
-        )
+        ),
     )
     facts.classes.append(
         ClassInfo(
@@ -26,7 +26,7 @@ def test_circular_dependency_detects_cycle_in_app_namespace():
             file_hash="b",
             line_start=1,
             line_end=30,
-        )
+        ),
     )
 
     facts.methods.append(
@@ -41,7 +41,7 @@ def test_circular_dependency_detects_cycle_in_app_namespace():
             line_end=10,
             loc=6,
             parameters=["\\App\\Services\\B $b"],
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -55,7 +55,7 @@ def test_circular_dependency_detects_cycle_in_app_namespace():
             line_end=10,
             loc=6,
             parameters=["\\App\\Services\\A $a"],
-        )
+        ),
     )
 
     rule = CircularDependencyRule(RuleConfig())
@@ -78,7 +78,7 @@ def test_circular_dependency_no_findings_when_acyclic():
             file_hash="a",
             line_start=1,
             line_end=30,
-        )
+        ),
     )
     facts.classes.append(
         ClassInfo(
@@ -88,7 +88,7 @@ def test_circular_dependency_no_findings_when_acyclic():
             file_hash="b",
             line_start=1,
             line_end=30,
-        )
+        ),
     )
 
     facts.methods.append(
@@ -103,7 +103,7 @@ def test_circular_dependency_no_findings_when_acyclic():
             line_end=10,
             loc=6,
             parameters=["\\App\\Services\\B $b"],
-        )
+        ),
     )
 
     rule = CircularDependencyRule(RuleConfig())
@@ -120,7 +120,7 @@ def test_circular_dependency_skips_standard_bidirectional_eloquent_relationships
             file_hash="email",
             line_start=1,
             line_end=30,
-        )
+        ),
     )
     facts.classes.append(
         ClassInfo(
@@ -130,7 +130,7 @@ def test_circular_dependency_skips_standard_bidirectional_eloquent_relationships
             file_hash="recipient",
             line_start=1,
             line_end=30,
-        )
+        ),
     )
 
     facts.methods.append(
@@ -145,7 +145,7 @@ def test_circular_dependency_skips_standard_bidirectional_eloquent_relationships
             line_end=13,
             loc=4,
             call_sites=["return $this->hasMany(CampaignRecipient::class, 'campaign_id');"],
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -159,7 +159,7 @@ def test_circular_dependency_skips_standard_bidirectional_eloquent_relationships
             line_end=13,
             loc=4,
             call_sites=["return $this->belongsTo(EmailCampaign::class, 'campaign_id');"],
-        )
+        ),
     )
 
     rule = CircularDependencyRule(RuleConfig())
@@ -186,7 +186,7 @@ def test_circular_dependency_skips_abstraction_only_handler_cycles():
                 line_start=1,
                 line_end=20,
             ),
-        ]
+        ],
     )
     facts.methods.extend(
         [
@@ -212,7 +212,7 @@ def test_circular_dependency_skips_abstraction_only_handler_cycles():
                 loc=4,
                 parameters=["CommandHandler $handler"],
             ),
-        ]
+        ],
     )
 
     rule = CircularDependencyRule(RuleConfig())
@@ -230,7 +230,7 @@ def test_high_coupling_class_flags_when_outgoing_dependencies_exceed_threshold()
             file_hash="c",
             line_start=1,
             line_end=40,
-        )
+        ),
     )
     # Dependencies (App namespace)
     for i in range(5):
@@ -242,7 +242,7 @@ def test_high_coupling_class_flags_when_outgoing_dependencies_exceed_threshold()
                 file_hash=str(i),
                 line_start=1,
                 line_end=10,
-            )
+            ),
         )
 
     facts.methods.append(
@@ -257,7 +257,7 @@ def test_high_coupling_class_flags_when_outgoing_dependencies_exceed_threshold()
             line_end=20,
             loc=11,
             instantiations=[f"\\App\\Services\\D{i}" for i in range(5)],
-        )
+        ),
     )
 
     rule = HighCouplingClassRule(RuleConfig(thresholds={"max_outgoing": 3}))
@@ -275,7 +275,7 @@ def test_high_coupling_class_no_findings_under_threshold():
             file_hash="s",
             line_start=1,
             line_end=10,
-        )
+        ),
     )
     facts.classes.append(
         ClassInfo(
@@ -285,7 +285,7 @@ def test_high_coupling_class_no_findings_under_threshold():
             file_hash="d",
             line_start=1,
             line_end=10,
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -299,7 +299,7 @@ def test_high_coupling_class_no_findings_under_threshold():
             line_end=4,
             loc=3,
             instantiations=["\\App\\Services\\D0"],
-        )
+        ),
     )
 
     rule = HighCouplingClassRule(RuleConfig(thresholds={"max_outgoing": 3}))

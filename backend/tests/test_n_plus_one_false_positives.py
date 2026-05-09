@@ -1,6 +1,6 @@
 from core.ruleset import RuleConfig
-from schemas.facts import Facts, RelationAccess, ClassInfo, MethodInfo, QueryUsage
 from rules.laravel.n_plus_one_risk import NPlusOneRiskRule
+from schemas.facts import ClassInfo, Facts, MethodInfo, QueryUsage, RelationAccess
 
 
 def test_n_plus_one_ignores_dto_iteration_access():
@@ -15,7 +15,7 @@ def test_n_plus_one_ignores_dto_iteration_access():
             relation="procedures",
             loop_kind="collection_flatMap",
             access_type="property",
-        )
+        ),
     ]
 
     rule = NPlusOneRiskRule(RuleConfig())
@@ -65,7 +65,7 @@ def test_n_plus_one_ignores_enum_value_iteration():
             relation="value",
             loop_kind="collection_map",
             access_type="property",
-        )
+        ),
     ]
 
     rule = NPlusOneRiskRule(RuleConfig())
@@ -81,7 +81,7 @@ def test_n_plus_one_still_flags_real_relation_access():
             fqcn="App\\Models\\User",
             file_path="app/Models/User.php",
             file_hash="h1",
-        )
+        ),
     ]
     facts.methods = [
         MethodInfo(
@@ -91,7 +91,7 @@ def test_n_plus_one_still_flags_real_relation_access():
             file_path="app/Models/User.php",
             file_hash="h1",
             call_sites=["$this->hasMany(Post::class)"],
-        )
+        ),
     ]
     facts.queries = [
         QueryUsage(
@@ -102,7 +102,7 @@ def test_n_plus_one_still_flags_real_relation_access():
             method_chain="all",
             has_eager_loading=False,
             n_plus_one_risk="high",
-        )
+        ),
     ]
     facts.relation_accesses = [
         RelationAccess(
@@ -114,7 +114,7 @@ def test_n_plus_one_still_flags_real_relation_access():
             relation="posts",
             loop_kind="foreach",
             access_type="property",
-        )
+        ),
     ]
 
     rule = NPlusOneRiskRule(RuleConfig())
@@ -134,7 +134,7 @@ def test_n_plus_one_ignores_collection_mapper_without_query_context():
             relation="doctor",
             loop_kind="collection_map",
             access_type="property",
-        )
+        ),
     ]
 
     rule = NPlusOneRiskRule(RuleConfig())
@@ -150,7 +150,7 @@ def test_n_plus_one_ignores_known_model_non_relation_property_even_with_query():
             fqcn="App\\Models\\Appointment",
             file_path="app/Models/Appointment.php",
             file_hash="h2",
-        )
+        ),
     ]
     facts.methods = [
         MethodInfo(
@@ -160,7 +160,7 @@ def test_n_plus_one_ignores_known_model_non_relation_property_even_with_query():
             file_path="app/Models/Appointment.php",
             file_hash="h2",
             call_sites=["$this->belongsTo(User::class)"],
-        )
+        ),
     ]
     facts.queries = [
         QueryUsage(
@@ -171,7 +171,7 @@ def test_n_plus_one_ignores_known_model_non_relation_property_even_with_query():
             method_chain="where->get",
             has_eager_loading=False,
             n_plus_one_risk="high",
-        )
+        ),
     ]
     facts.relation_accesses = [
         RelationAccess(
@@ -183,7 +183,7 @@ def test_n_plus_one_ignores_known_model_non_relation_property_even_with_query():
             relation="notes",
             loop_kind="foreach",
             access_type="property",
-        )
+        ),
     ]
 
     rule = NPlusOneRiskRule(RuleConfig())
@@ -199,7 +199,7 @@ def test_n_plus_one_uses_query_model_context_for_generic_loop_variable():
             fqcn="App\\Models\\InventoryItem",
             file_path="app/Models/InventoryItem.php",
             file_hash="h3",
-        )
+        ),
     ]
     facts.methods = [
         MethodInfo(
@@ -209,7 +209,7 @@ def test_n_plus_one_uses_query_model_context_for_generic_loop_variable():
             file_path="app/Models/InventoryItem.php",
             file_hash="h3",
             call_sites=["$this->hasMany(InventoryBatch::class)"],
-        )
+        ),
     ]
     facts.queries = [
         QueryUsage(
@@ -220,7 +220,7 @@ def test_n_plus_one_uses_query_model_context_for_generic_loop_variable():
             method_chain="where->get",
             has_eager_loading=False,
             n_plus_one_risk="high",
-        )
+        ),
     ]
     facts.relation_accesses = [
         RelationAccess(
@@ -232,7 +232,7 @@ def test_n_plus_one_uses_query_model_context_for_generic_loop_variable():
             relation="category",  # scalar field, not declared relation on InventoryItem
             loop_kind="collection_map",
             access_type="property",
-        )
+        ),
     ]
 
     rule = NPlusOneRiskRule(RuleConfig())
@@ -308,7 +308,7 @@ def test_n_plus_one_ignores_layered_service_loop_backed_by_repository_boundary()
             fqcn="App\\Models\\Vote",
             file_path="app/Models/Vote.php",
             file_hash="h4",
-        )
+        ),
     ]
     facts.methods = [
         MethodInfo(
@@ -339,7 +339,7 @@ def test_n_plus_one_ignores_layered_service_loop_backed_by_repository_boundary()
             relation="voter",
             loop_kind="foreach",
             access_type="property",
-        )
+        ),
     ]
 
     rule = NPlusOneRiskRule(RuleConfig())
@@ -391,7 +391,7 @@ def test_n_plus_one_still_flags_collection_mapper_with_local_query_context():
             method_chain="where->get",
             has_eager_loading=False,
             n_plus_one_risk="high",
-        )
+        ),
     ]
     facts.relation_accesses = [
         RelationAccess(
@@ -403,7 +403,7 @@ def test_n_plus_one_still_flags_collection_mapper_with_local_query_context():
             relation="voter",
             loop_kind="foreach",
             access_type="property",
-        )
+        ),
     ]
 
     rule = NPlusOneRiskRule(RuleConfig())

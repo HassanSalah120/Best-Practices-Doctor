@@ -1,6 +1,6 @@
 from core.ruleset import RuleConfig
-from schemas.facts import Facts, RouteInfo
 from rules.laravel.duplicate_route_definition import DuplicateRouteDefinitionRule
+from schemas.facts import Facts, RouteInfo
 
 
 def test_duplicate_route_definition_finds_same_method_and_uri():

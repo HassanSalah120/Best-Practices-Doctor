@@ -56,7 +56,6 @@ class MissingKeyOnListRenderRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings: list[Finding] = []
-        seen_lines: set[int] = set()
 
         for m in self._MAP_CALL.finditer(content):
             idx = m.start()

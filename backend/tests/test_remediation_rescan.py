@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from core.remediation.rescan import compare_scans
 from schemas.finding import Category, Finding, Severity
 from schemas.report import ScanReport, ScanScore
-from core.remediation.rescan import compare_scans
 
 
 def _finding(fp: str, severity: Severity = Severity.HIGH) -> Finding:

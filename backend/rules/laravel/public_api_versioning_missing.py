@@ -94,6 +94,4 @@ class PublicApiVersioningMissingRule(Rule):
         is_api_surface = uri.startswith("api/") or file_path.endswith("routes/api.php") or " api " in f" {middleware} "
         if not is_api_surface:
             return False
-        if any(token in middleware for token in self._AUTH_TOKENS):
-            return False
-        return True
+        return not any(token in middleware for token in self._AUTH_TOKENS)

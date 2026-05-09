@@ -74,10 +74,4 @@ class MissingHealthCheckEndpointRule(Rule):
             flags=re.IGNORECASE,
         ):
             return True
-        if "health" in normalized_path and re.search(
-            r"\b(?:app|router)\.(?:get|head)\s*\(\s*['\"]/?['\"]",
-            content,
-            flags=re.IGNORECASE,
-        ):
-            return True
-        return False
+        return bool("health" in normalized_path and re.search(r"\b(?:app|router)\.(?:get|head)\s*\(\s*['\"]/?['\"]", content, flags=re.IGNORECASE))

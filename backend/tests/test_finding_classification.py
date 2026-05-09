@@ -55,7 +55,7 @@ def test_multiple_high_advisory_findings_do_not_dominate_v2_score():
                 "fingerprint": f"advisory-{idx}",
                 "file": f"app/Http/Controllers/Demo{idx}.php",
                 "severity": Severity.HIGH,
-            }
+            },
         )
         for idx in range(5)
     ]
@@ -93,12 +93,12 @@ def test_report_prioritizes_risk_actions_before_advisory_actions():
                 "fingerprint": f"advisory-{idx}",
                 "file": f"app/Http/Controllers/Demo{idx}.php",
                 "severity": Severity.HIGH,
-            }
+            },
         )
         for idx in range(6)
     ]
     risk = _finding(FindingClassification.RISK, rule_id="missing-csrf-token-verification").model_copy(
-        update={"fingerprint": "risk-1", "severity": Severity.MEDIUM}
+        update={"fingerprint": "risk-1", "severity": Severity.MEDIUM},
     )
 
     report = engine.generate_report(

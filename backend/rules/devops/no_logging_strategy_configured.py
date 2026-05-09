@@ -79,6 +79,4 @@ class NoLoggingStrategyConfiguredRule(Rule):
 
     def _has_external_channel(self, content: str) -> bool:
         low = (content or "").lower()
-        if any(token in low for token in ("slack", "papertrail", "loggly", "sentry", "bugsnag", "datadog", "webhook_url")):
-            return True
-        return False
+        return bool(any(token in low for token in ("slack", "papertrail", "loggly", "sentry", "bugsnag", "datadog", "webhook_url")))

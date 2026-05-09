@@ -32,7 +32,7 @@ class RepositorySuggestionRule(Rule):
     tags = {'domain': 'laravel', 'type': 'architecture', 'concern': 'repository-suggestion'}
     """
     Suggests using Repositories for database logic.
-    
+
     Triggers when:
     - Controller methods use Eloquent directly (::where, ::find, etc)
     - Controller methods have high query counts
@@ -252,10 +252,7 @@ public function index()
         call_sites_lower = " ".join(method.call_sites or []).lower()
         if "->" in call_sites_lower and "service->" in call_sites_lower:
             return True
-        if "this->" in call_sites_lower and any(s in call_sites_lower for s in ["service->", "services->"]):
-            return True
-
-        return False
+        return bool("this->" in call_sites_lower and any(s in call_sites_lower for s in ["service->", "services->"]))
 
     def _is_orchestrated_read_method(self, method) -> bool:
         method_name = str(getattr(method, "name", "") or "").lower()
@@ -269,5 +266,4 @@ public function index()
         )
         if not has_delegation:
             return False
-        has_response = any(marker in call for call in call_sites for marker in ("return ", "response()->", "inertia::render", "view("))
-        return has_response
+        return any(marker in call for call in call_sites for marker in ("return ", "response()->", "inertia::render", "view("))

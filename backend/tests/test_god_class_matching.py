@@ -1,6 +1,6 @@
 from core.ruleset import RuleConfig
 from rules.php.god_class import GodClassRule
-from schemas.facts import Facts, ClassInfo, MethodInfo
+from schemas.facts import ClassInfo, Facts, MethodInfo
 
 
 def test_god_class_does_not_mix_methods_across_same_class_name_different_namespaces():
@@ -15,7 +15,7 @@ def test_god_class_does_not_mix_methods_across_same_class_name_different_namespa
             file_hash="a",
             line_start=1,
             line_end=120,
-        )
+        ),
     )
     facts.classes.append(
         ClassInfo(
@@ -25,7 +25,7 @@ def test_god_class_does_not_mix_methods_across_same_class_name_different_namespa
             file_hash="b",
             line_start=1,
             line_end=120,
-        )
+        ),
     )
 
     # Each class has 2 public methods; if we mixed by class_name only, we'd count 4.
@@ -41,7 +41,7 @@ def test_god_class_does_not_mix_methods_across_same_class_name_different_namespa
                 line_end=15 + i * 10,
                 loc=6,
                 visibility="public",
-            )
+            ),
         )
         facts.methods.append(
             MethodInfo(
@@ -54,7 +54,7 @@ def test_god_class_does_not_mix_methods_across_same_class_name_different_namespa
                 line_end=15 + i * 10,
                 loc=6,
                 visibility="public",
-            )
+            ),
         )
 
     rule = GodClassRule(RuleConfig(thresholds={"max_methods": 3, "max_loc": 500}))
@@ -74,7 +74,7 @@ def test_god_class_skips_service_coordinator_facade():
             file_hash="server",
             line_start=1,
             line_end=450,
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -95,7 +95,7 @@ def test_god_class_skips_service_coordinator_facade():
                 "GameServerEventHandler $eventHandler",
                 "GameServerConnectionManager $connectionManager",
             ],
-        )
+        ),
     )
     for idx in range(8):
         facts.methods.append(
@@ -109,7 +109,7 @@ def test_god_class_skips_service_coordinator_facade():
                 line_end=60 + (idx * 20),
                 loc=21,
                 visibility="public",
-            )
+            ),
         )
 
     rule = GodClassRule(RuleConfig(thresholds={"max_methods": 20, "max_loc": 300}))
@@ -128,7 +128,7 @@ def test_god_class_skips_interface_backed_service_facade_with_many_thin_methods(
             line_start=1,
             line_end=420,
             implements=["App\\Services\\Lms\\Contracts\\LmsAdminServiceInterface"],
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -144,7 +144,7 @@ def test_god_class_skips_interface_backed_service_facade_with_many_thin_methods(
                 "AdminServiceCoordinator $coordinator",
                 "SettingsServiceInterface $settings",
             ],
-        )
+        ),
     )
     for idx in range(24):
         facts.methods.append(
@@ -159,7 +159,7 @@ def test_god_class_skips_interface_backed_service_facade_with_many_thin_methods(
                 loc=4,
                 visibility="public",
                 call_sites=["$this->coordinator->users()->createUser($data)"],
-            )
+            ),
         )
 
     rule = GodClassRule(RuleConfig(thresholds={"max_methods": 20, "max_loc": 300}))
@@ -178,7 +178,7 @@ def test_god_class_skips_command_dispatch_service_facade():
             line_start=1,
             line_end=538,
             implements=["App\\Services\\Lms\\Contracts\\LmsGameServiceInterface"],
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -198,7 +198,7 @@ def test_god_class_skips_command_dispatch_service_facade():
                 "GameCommandCoordinator $coordinator",
                 "GameOperationsServiceInterface $operations",
             ],
-        )
+        ),
     )
     facts.methods.extend(
         [
@@ -243,10 +243,10 @@ def test_god_class_skips_command_dispatch_service_facade():
                 visibility="public",
                 call_sites=["$this->operations->applySeriesPointsIfNeeded($sessionId);"],
             ),
-        ]
+        ],
     )
     for idx, name in enumerate(
-        ["startCategory", "advanceTurn", "processWrong", "revealTile", "undoAction", "gameStatus"]
+        ["startCategory", "advanceTurn", "processWrong", "revealTile", "undoAction", "gameStatus"],
     ):
         facts.methods.append(
             MethodInfo(
@@ -260,7 +260,7 @@ def test_god_class_skips_command_dispatch_service_facade():
                 loc=11,
                 visibility="private",
                 call_sites=["$this->coordinator->execute($payload);"],
-            )
+            ),
         )
 
     rule = GodClassRule(RuleConfig(thresholds={"max_methods": 20, "max_loc": 300}))

@@ -59,7 +59,7 @@ def test_react_project_structure_flags_shared_logic_buried_in_feature_folder():
             "src/features/auth/Login.tsx": {"imports": ["./hooks/useSession"]},
             "src/features/appointments/Book.tsx": {"imports": ["../auth/hooks/useSession"]},
             "src/features/profile/Profile.tsx": {"imports": ["../auth/hooks/useSession"]},
-        }
+        },
     }
 
     findings = rule.run(facts).findings
@@ -105,7 +105,7 @@ def test_react_project_structure_skips_global_utils_used_by_single_domain_when_i
             "resources/js/pages/Patients/Create.tsx": {"imports": ["./Create.utils", "@/utils/scheduleUtils"]},
             "resources/js/pages/Patients/Index.tsx": {"imports": ["@/utils/scheduleUtils"]},
             "resources/js/layouts/PatientPortalLayout.tsx": {"imports": ["./PatientPortalLayout.utils"]},
-        }
+        },
     }
 
     findings = rule.run(facts).findings
@@ -128,7 +128,7 @@ def test_react_project_structure_accepts_shared_top_level_hooks_in_feature_proje
             "resources/js/pages/Bookings/Index.tsx": {"imports": ["@/hooks/useEmailBooking"]},
             "resources/js/pages/Patients/Create.tsx": {"imports": ["./Create.utils"]},
             "resources/js/layouts/PatientPortalLayout.tsx": {"imports": ["./PatientPortalLayout.utils"]},
-        }
+        },
     }
 
     findings = rule.run(facts).findings
@@ -151,7 +151,7 @@ def test_react_project_structure_accepts_shared_hook_and_component_types_in_hybr
         "files": {
             "resources/js/components/UI/Button.tsx": {"imports": ["./Button.types"]},
             "resources/js/pages/Clinic/Insurance/Carriers/Index.tsx": {"imports": ["@/hooks/useInsuranceCarrierFilters", "@/components/UI/Button"]},
-        }
+        },
     }
 
     findings = rule.run(facts).findings
@@ -173,12 +173,12 @@ def test_react_project_structure_accepts_feature_utils_nested_under_page_umbrell
     facts._frontend_symbol_graph = {
         "files": {
             "resources/js/pages/Portal/FeatureMatrix/Index.tsx": {
-                "imports": ["./utils/featureMatrixHelpers", "./components/FeatureMatrixBoard", "@/hooks/useFeatureFlags"]
+                "imports": ["./utils/featureMatrixHelpers", "./components/FeatureMatrixBoard", "@/hooks/useFeatureFlags"],
             },
             "resources/js/pages/Portal/FeatureMatrix/components/FeatureMatrixBoard.tsx": {
-                "imports": ["../utils/featureMatrixHelpers", "@/components/UI/Button"]
+                "imports": ["../utils/featureMatrixHelpers", "@/components/UI/Button"],
             },
-        }
+        },
     }
 
     findings = rule.run(facts).findings
@@ -200,12 +200,12 @@ def test_react_project_structure_accepts_shared_hook_and_feature_local_utils_in_
     facts._frontend_symbol_graph = {
         "files": {
             "resources/js/components/Portal/AuditLogList.tsx": {
-                "imports": ["./utils/auditLogUtils", "@/hooks/useNav"]
+                "imports": ["./utils/auditLogUtils", "@/hooks/useNav"],
             },
             "resources/js/pages/Portal/SeoSettings/Index.tsx": {
-                "imports": ["./components/utils/seoHelpers", "@/hooks/useNav"]
+                "imports": ["./components/utils/seoHelpers", "@/hooks/useNav"],
             },
-        }
+        },
     }
 
     findings = rule.run(facts).findings
@@ -232,12 +232,12 @@ def test_react_project_structure_accepts_scaled_hybrid_shared_and_feature_hooks(
     facts._frontend_symbol_graph = {
         "files": {
             "resources/js/pages/Clinic/Insurance/Index.tsx": {
-                "imports": ["./hooks/useCarrierDetails", "./hooks/useCarrierCreate", "@/hooks/useInsuranceCarrierFilters", "@/hooks/useTheme"]
+                "imports": ["./hooks/useCarrierDetails", "./hooks/useCarrierCreate", "@/hooks/useInsuranceCarrierFilters", "@/hooks/useTheme"],
             },
             "resources/js/pages/Portal/FeatureMatrix/Index.tsx": {
-                "imports": ["./hooks/useFeatureFlags", "@/hooks/useNav", "@/components/UI/Button"]
+                "imports": ["./hooks/useFeatureFlags", "@/hooks/useNav", "@/components/UI/Button"],
             },
-        }
+        },
     }
 
     findings = rule.run(facts).findings
@@ -245,7 +245,7 @@ def test_react_project_structure_accepts_scaled_hybrid_shared_and_feature_hooks(
 
 
 def test_rule_engine_runs_facts_based_react_rules():
-    rules = {rule_id: RuleConfig(enabled=False) for rule_id in ALL_RULES.keys()}
+    rules = {rule_id: RuleConfig(enabled=False) for rule_id in ALL_RULES}
     rules["large-react-component"] = RuleConfig(enabled=True)
     engine = RuleEngine(Ruleset(rules=rules))
 
@@ -258,7 +258,7 @@ def test_rule_engine_runs_facts_based_react_rules():
             line_start=1,
             line_end=320,
             loc=320,
-        )
+        ),
     )
 
     findings = engine.run(facts, project_type="laravel_inertia_react").findings
@@ -282,7 +282,7 @@ function persistPatientDraft(name) {
         encoding="utf-8",
     )
 
-    rules = {rule_id: RuleConfig(enabled=False) for rule_id in ALL_RULES.keys()}
+    rules = {rule_id: RuleConfig(enabled=False) for rule_id in ALL_RULES}
     rules["no-inline-services"] = RuleConfig(enabled=True)
     engine = RuleEngine(Ruleset(rules=rules))
 

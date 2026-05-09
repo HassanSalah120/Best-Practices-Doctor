@@ -109,7 +109,7 @@ Route::middleware('auth:sanctum')->group(function () {
             file_hash="deadbeef",
             line_start=1,
             line_end=100,
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -122,7 +122,7 @@ Route::middleware('auth:sanctum')->group(function () {
             line_end=80,
             loc=71,
             call_sites=[],
-        )
+        ),
     )
     facts.queries.append(
         QueryUsage(
@@ -131,7 +131,7 @@ Route::middleware('auth:sanctum')->group(function () {
             method_name="store",
             model="Patient",
             method_chain="create",
-        )
+        ),
     )
 
     findings = PolicyCoverageOnMutationsRule(RuleConfig()).run(facts, project_type="laravel_api").findings

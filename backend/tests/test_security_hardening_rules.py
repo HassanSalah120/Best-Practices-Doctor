@@ -1,10 +1,16 @@
 from core.ruleset import RuleConfig
-from rules.laravel.user_model_missing_must_verify_email import UserModelMissingMustVerifyEmailRule
-from rules.laravel.registration_missing_registered_event import RegistrationMissingRegisteredEventRule
-from rules.laravel.sensitive_routes_missing_verified_middleware import SensitiveRoutesMissingVerifiedMiddlewareRule
+from rules.laravel.registration_missing_registered_event import (
+    RegistrationMissingRegisteredEventRule,
+)
+from rules.laravel.sensitive_routes_missing_verified_middleware import (
+    SensitiveRoutesMissingVerifiedMiddlewareRule,
+)
+from rules.laravel.signed_routes_missing_signature_middleware import (
+    SignedRoutesMissingSignatureMiddlewareRule,
+)
 from rules.laravel.tenant_access_middleware_missing import TenantAccessMiddlewareMissingRule
-from rules.laravel.signed_routes_missing_signature_middleware import SignedRoutesMissingSignatureMiddlewareRule
 from rules.laravel.unsafe_external_redirect import UnsafeExternalRedirectRule
+from rules.laravel.user_model_missing_must_verify_email import UserModelMissingMustVerifyEmailRule
 from schemas.facts import Facts, RouteInfo
 
 
@@ -108,11 +114,11 @@ def test_sensitive_routes_missing_verified_middleware_flags_sensitive_web_route(
             middleware=["web", "auth"],
             file_path="routes/web.php",
             line_number=12,
-        )
+        ),
     )
 
     findings = SensitiveRoutesMissingVerifiedMiddlewareRule(RuleConfig()).run(
-        facts, project_type="laravel_blade"
+        facts, project_type="laravel_blade",
     ).findings
     assert len(findings) == 1
     assert findings[0].rule_id == "sensitive-routes-missing-verified-middleware"
@@ -129,11 +135,11 @@ def test_sensitive_routes_missing_verified_middleware_skips_verified_route():
             middleware=["web", "auth", "verified"],
             file_path="routes/web.php",
             line_number=12,
-        )
+        ),
     )
 
     findings = SensitiveRoutesMissingVerifiedMiddlewareRule(RuleConfig()).run(
-        facts, project_type="laravel_blade"
+        facts, project_type="laravel_blade",
     ).findings
     assert findings == []
 
@@ -149,11 +155,11 @@ def test_tenant_access_middleware_missing_flags_clinic_route_without_access_guar
             middleware=["web", "auth", "verified"],
             file_path="routes/web.php",
             line_number=20,
-        )
+        ),
     )
 
     findings = TenantAccessMiddlewareMissingRule(RuleConfig()).run(
-        facts, project_type="laravel_blade"
+        facts, project_type="laravel_blade",
     ).findings
     assert len(findings) == 1
     assert findings[0].rule_id == "tenant-access-middleware-missing"
@@ -170,11 +176,11 @@ def test_tenant_access_middleware_missing_skips_clinic_route_with_access_guard()
             middleware=["web", "auth", "verified", "clinic_access"],
             file_path="routes/web.php",
             line_number=20,
-        )
+        ),
     )
 
     findings = TenantAccessMiddlewareMissingRule(RuleConfig()).run(
-        facts, project_type="laravel_blade"
+        facts, project_type="laravel_blade",
     ).findings
     assert findings == []
 
@@ -194,11 +200,11 @@ def test_tenant_access_middleware_missing_skips_non_tenant_account_routes():
             middleware=["web", "auth", "verified"],
             file_path="routes/web.php",
             line_number=20,
-        )
+        ),
     )
 
     findings = TenantAccessMiddlewareMissingRule(RuleConfig()).run(
-        facts, project_type="laravel_blade"
+        facts, project_type="laravel_blade",
     ).findings
     assert findings == []
 
@@ -214,11 +220,11 @@ def test_signed_routes_missing_signature_middleware_flags_track_route():
             middleware=["web"],
             file_path="routes/web.php",
             line_number=32,
-        )
+        ),
     )
 
     findings = SignedRoutesMissingSignatureMiddlewareRule(RuleConfig()).run(
-        facts, project_type="laravel_blade"
+        facts, project_type="laravel_blade",
     ).findings
     assert len(findings) == 1
     assert findings[0].rule_id == "signed-routes-missing-signature-middleware"
@@ -235,11 +241,11 @@ def test_signed_routes_missing_signature_middleware_skips_signed_route():
             middleware=["web", "signed"],
             file_path="routes/web.php",
             line_number=32,
-        )
+        ),
     )
 
     findings = SignedRoutesMissingSignatureMiddlewareRule(RuleConfig()).run(
-        facts, project_type="laravel_blade"
+        facts, project_type="laravel_blade",
     ).findings
     assert findings == []
 
@@ -255,11 +261,11 @@ def test_signed_routes_missing_signature_middleware_skips_internal_verified_flow
             middleware=["web", "auth", "verified"],
             file_path="routes/web.php",
             line_number=32,
-        )
+        ),
     )
 
     findings = SignedRoutesMissingSignatureMiddlewareRule(RuleConfig()).run(
-        facts, project_type="laravel_blade"
+        facts, project_type="laravel_blade",
     ).findings
     assert findings == []
 

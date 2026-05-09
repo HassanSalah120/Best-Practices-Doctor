@@ -1,6 +1,6 @@
 from core.ruleset import RuleConfig
 from rules.php.dry_violation import DryViolationRule
-from schemas.facts import Facts, DuplicateBlock
+from schemas.facts import DuplicateBlock, Facts
 
 
 def test_dry_violation_collapses_repeated_hash_blocks():
@@ -19,7 +19,7 @@ def test_dry_violation_collapses_repeated_hash_blocks():
                 occurrences=[("app/Foo.php", 18, 28), ("app/Baz.php", 50, 62)],
                 code_snippet="if ($x) { return 1; }",
             ),
-        ]
+        ],
     )
 
     rule = DryViolationRule(RuleConfig())
@@ -45,7 +45,7 @@ def test_dry_violation_ignores_route_registrar_boilerplate_by_default():
                 ("app/Http/RouteRegistrars/Admin/B.php", 12, 37),
             ],
             code_snippet="Route::middleware(['auth'])->prefix('admin')->group(function () {});",
-        )
+        ),
     )
 
     rule = DryViolationRule(RuleConfig())
@@ -62,7 +62,7 @@ def test_dry_violation_ignores_provider_binding_boilerplate_by_default():
             token_count=180,
             occurrences=[("app/Providers/A.php", 10, 30), ("app/Providers/B.php", 12, 32)],
             code_snippet="$this->app->bind(Foo::class, FooImpl::class);",
-        )
+        ),
     )
 
     rule = DryViolationRule(RuleConfig())
@@ -78,7 +78,7 @@ def test_dry_violation_filters_short_span_blocks_unless_token_count_is_large():
             token_count=75,
             occurrences=[("app/Services/A.php", 10, 12), ("app/Services/B.php", 20, 22)],
             code_snippet="$value = trim($value);",
-        )
+        ),
     )
 
     rule = DryViolationRule(RuleConfig())
@@ -98,7 +98,7 @@ def test_dry_violation_ignores_same_file_only_duplicates_by_default():
             token_count=180,
             occurrences=[("app/Services/A.php", 10, 30), ("app/Services/A.php", 40, 60)],
             code_snippet="if ($a && $b) { $sum += 1; }",
-        )
+        ),
     )
 
     rule = DryViolationRule(RuleConfig())
@@ -130,7 +130,7 @@ def test_dry_violation_ignores_low_signal_data_mapping_duplicates():
                 "  'closed_at' => optional($topic->closed_at)?->toIso8601String(),\n"
                 "];"
             ),
-        )
+        ),
     )
 
     rule = DryViolationRule(RuleConfig())
@@ -153,7 +153,7 @@ def test_dry_violation_ignores_action_extraction_duplicates_within_same_domain()
                 "$this->activityLog->record($sessionId, 'advance_turn', $actorId);\n"
                 "return ['current_player_id' => $nextPlayer->id, 'session_id' => $sessionId];"
             ),
-        )
+        ),
     )
 
     rule = DryViolationRule(RuleConfig())

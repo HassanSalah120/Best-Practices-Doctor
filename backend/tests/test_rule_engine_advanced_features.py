@@ -2,19 +2,19 @@ from pathlib import Path
 
 from core.rule_engine import ALL_RULES, RuleEngine
 from core.ruleset import RuleConfig, Ruleset
+from schemas.facts import ClassInfo, Facts, MethodInfo, QueryUsage, ValidationUsage
 from schemas.finding import Category, Finding, FindingClassification, Severity
-from schemas.facts import Facts, ClassInfo, MethodInfo, QueryUsage, ValidationUsage
 from schemas.metrics import MethodMetrics
 
 
 def _ruleset_with_only(rule_id: str, config: RuleConfig | None = None) -> Ruleset:
-    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES.keys()}
+    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES}
     rules[rule_id] = config or RuleConfig(enabled=True)
     return Ruleset(rules=rules, name="balanced")
 
 
 def _ruleset_with_enabled(rule_ids: list[str]) -> Ruleset:
-    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES.keys()}
+    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES}
     for rule_id in rule_ids:
         rules[rule_id] = RuleConfig(enabled=True)
     return Ruleset(rules=rules, name="balanced")
@@ -60,7 +60,7 @@ def test_rule_engine_startup_profile_filters_low_confidence_ast_advisory():
             line_end=16,
             loc=7,
             throws=["Exception"],
-        )
+        ),
     )
 
     rs = _ruleset_with_only(
@@ -179,7 +179,7 @@ def test_rule_engine_dedupes_overlapping_controller_findings():
             file_hash="deadbeef",
             line_start=1,
             line_end=200,
-        )
+        ),
     )
     facts.methods.append(
         MethodInfo(
@@ -192,7 +192,7 @@ def test_rule_engine_dedupes_overlapping_controller_findings():
             line_end=120,
             loc=111,
             call_sites=["$request->validate([...])", "Patient::query()->create($data)"],
-        )
+        ),
     )
     facts.validations.append(
         ValidationUsage(
@@ -201,7 +201,7 @@ def test_rule_engine_dedupes_overlapping_controller_findings():
             method_name="store",
             rules={"name": ["required", "string"], "email": ["required", "email"]},
             validation_type="inline",
-        )
+        ),
     )
     facts.queries.append(
         QueryUsage(
@@ -211,7 +211,7 @@ def test_rule_engine_dedupes_overlapping_controller_findings():
             model="Patient",
             method_chain="query->create",
             query_type="insert",
-        )
+        ),
     )
 
     metrics = {
@@ -230,7 +230,7 @@ def test_rule_engine_dedupes_overlapping_controller_findings():
             call_count=2,
             has_business_logic=True,
             business_logic_confidence=0.84,
-        )
+        ),
     }
 
     engine = RuleEngine(
@@ -240,8 +240,8 @@ def test_rule_engine_dedupes_overlapping_controller_findings():
                 "controller-query-direct",
                 "controller-business-logic",
                 "controller-inline-validation",
-            ]
-        )
+            ],
+        ),
     )
     result = engine.run(facts, metrics=metrics, project_type="laravel_api")
 

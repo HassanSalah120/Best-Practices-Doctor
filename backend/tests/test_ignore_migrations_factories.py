@@ -1,4 +1,3 @@
-from pathlib import Path
 
 from analysis.facts_builder import FactsBuilder
 from schemas.project_type import ProjectInfo

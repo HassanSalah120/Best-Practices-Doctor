@@ -1,5 +1,5 @@
-from schemas.finding import Category, Finding, FindingClassification, Severity
 from core.trust import enrich_findings_with_trust
+from schemas.finding import Category, Finding, FindingClassification, Severity
 
 
 def _sample_finding() -> Finding:

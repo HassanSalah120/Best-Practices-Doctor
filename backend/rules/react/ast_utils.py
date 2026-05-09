@@ -125,9 +125,7 @@ class ReactASTAnalyzer:
         if hook_name in self.imports:
             return True
         # Check if imported from React
-        if self.imports.get(hook_name, "").startswith("react"):
-            return True
-        return False
+        return bool(self.imports.get(hook_name, "").startswith("react"))
 
     def find_components(self) -> list[ComponentInfo]:
         """Find all React components in the AST."""
@@ -155,10 +153,9 @@ class ReactASTAnalyzer:
         # Must return JSX
         returns_jsx = False
         for child in ast.walk(node):
-            if isinstance(child, ast.Return):
-                if self._returns_jsx(child.value):
-                    returns_jsx = True
-                    break
+            if isinstance(child, ast.Return) and self._returns_jsx(child.value):
+                returns_jsx = True
+                break
 
         # Name should be PascalCase
         name = node.name
@@ -208,15 +205,11 @@ class ReactASTAnalyzer:
                 if node.func.id in ("createElement", "jsx", "jsxs"):
                     return True
             # Component instantiation
-            if isinstance(node.func, ast.Name):
-                if node.func.id[0].isupper():
-                    return True
+            if isinstance(node.func, ast.Name) and node.func.id[0].isupper():
+                return True
 
         # Check for dict that looks like JSX props
-        if isinstance(node, ast.Dict):
-            return True
-
-        return False
+        return bool(isinstance(node, ast.Dict))
 
     def _analyze_component(self, node: ast.FunctionDef) -> ComponentInfo:
         """Analyze a function component."""
@@ -270,10 +263,9 @@ class ReactASTAnalyzer:
 
     def _extract_destructured_props(self, arg: ast.arg) -> list[str]:
         """Extract prop names from destructured parameter."""
-        props = []
+        return []
         # This would need proper TypeScript AST handling
         # For now, return empty - would use ts-python or tree-sitter for real impl
-        return props
 
     def _analyze_hook_call(self, node: ast.Call) -> HookCall | None:
         """Analyze a hook call."""
@@ -380,10 +372,9 @@ class ReactASTAnalyzer:
     def _has_state_setter(self, node: ast.Node) -> bool:
         """Check if node contains state setter calls."""
         for child in ast.walk(node):
-            if isinstance(child, ast.Call):
-                if isinstance(child.func, ast.Name):
-                    if self.STATE_SETTER_PATTERN.match(child.func.id):
-                        return True
+            if isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
+                if self.STATE_SETTER_PATTERN.match(child.func.id):
+                    return True
 
         return False
 
@@ -394,7 +385,6 @@ class ReactASTAnalyzer:
 
     def _find_captured_variables(self, func_node: ast.Node) -> list[str]:
         """Find variables captured from outer scope."""
-        captured = []
 
         # Get all names used in the function
         used_names = set()
@@ -415,8 +405,7 @@ class ReactASTAnalyzer:
             params = {arg.arg for arg in func_node.args.args}
 
         # Captured = used - defined - params
-        captured = list(used_names - defined_names - params)
-        return captured
+        return list(used_names - defined_names - params)
 
     def find_memoized_components(self) -> list[str]:
         """Find components wrapped with React.memo."""

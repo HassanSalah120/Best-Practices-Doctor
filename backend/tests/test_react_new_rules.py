@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from schemas.facts import Facts
 from rules.react.animation_no_pause_control import AnimationNoPauseControlRule
 from rules.react.focus_lost_on_route_change import FocusLostOnRouteChangeRule
 from rules.react.form_double_submit import FormDoubleSubmitRule
@@ -13,6 +12,7 @@ from rules.react.table_missing_headers import TableMissingHeadersRule
 from rules.react.unhandled_promise_in_handler import UnhandledPromiseInHandlerRule
 from rules.react.unthrottled_scroll_resize_handler import UnthrottledScrollResizeHandlerRule
 from rules.react.video_missing_captions import VideoMissingCaptionsRule
+from schemas.facts import Facts
 
 
 def _facts() -> Facts:

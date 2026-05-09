@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from schemas.facts import Facts
 from rules.php.array_unpacking_in_loop import ArrayUnpackingInLoopRule
 from rules.php.bulk_insert_missing import BulkInsertMissingRule
 from rules.php.exception_swallowing import ExceptionSwallowingRule
@@ -8,6 +7,7 @@ from rules.php.missing_strict_types import MissingStrictTypesRule
 from rules.php.missing_type_declarations import MissingTypeDeclarationsRule
 from rules.php.mutable_global_state import MutableGlobalStateRule
 from rules.php.string_concat_in_loop import StringConcatInLoopRule
+from schemas.facts import Facts
 
 
 def _facts() -> Facts:

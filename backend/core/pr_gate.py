@@ -6,6 +6,7 @@ Evaluates baseline regressions against policy presets for CI/PR workflows.
 
 from __future__ import annotations
 
+import contextlib
 import fnmatch
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -161,10 +162,8 @@ def _default_presets() -> dict[str, PrGatePreset]:
 
 def _candidate_preset_files() -> list[Path]:
     out: list[Path] = []
-    try:
+    with contextlib.suppress(Exception):
         out.append(Path.cwd() / "pr-gates.yaml")
-    except Exception:
-        pass
     try:
         backend_root = Path(__file__).resolve().parents[1]
         out.append(backend_root / "pr-gates.yaml")
@@ -178,7 +177,7 @@ def _coerce_preset(name: str, raw: dict[str, Any]) -> PrGatePreset:
     if not isinstance(fail_sev, list):
         fail_sev = []
     fail_sev = [_normalize_severity(x) for x in fail_sev]
-    fail_sev = sorted(set([s for s in fail_sev if s in _SEVERITY_RANK]), key=lambda x: _SEVERITY_RANK[x], reverse=True)
+    fail_sev = sorted({s for s in fail_sev if s in _SEVERITY_RANK}, key=lambda x: _SEVERITY_RANK[x], reverse=True)
 
     allow_paths = raw.get("allowlisted_paths", [])
     if not isinstance(allow_paths, list):
@@ -256,9 +255,7 @@ def _is_allowlisted(f: Finding, preset: PrGatePreset) -> bool:
             return True
 
     ext = Path(rel).suffix.lower()
-    if ext and ext in {e.lower() for e in preset.allowlisted_extensions}:
-        return True
-    return False
+    return bool(ext and ext in {e.lower() for e in preset.allowlisted_extensions})
 
 
 def evaluate_pr_gate(

@@ -15,10 +15,11 @@ from rules.laravel.missing_cache_for_reference_data import MissingCacheForRefere
 from rules.laravel.missing_pagination import MissingPaginationRule
 from rules.laravel.n_plus_one_risk import NPlusOneRiskRule
 from rules.laravel.no_json_encode_in_controllers import NoJsonEncodeInControllersRule
-from rules.laravel.registration_missing_registered_event import RegistrationMissingRegisteredEventRule
+from rules.laravel.registration_missing_registered_event import (
+    RegistrationMissingRegisteredEventRule,
+)
 from rules.laravel.user_model_missing_must_verify_email import UserModelMissingMustVerifyEmailRule
 from schemas.facts import ClassInfo, Facts, MethodInfo, QueryUsage, RelationAccess, RouteInfo
-
 
 BATCH4_RULES = [
     "missing-pagination",
@@ -44,7 +45,7 @@ def _controller(path: str, name: str) -> ClassInfo:
 
 
 def _ruleset_for(rule_ids: list[str]) -> Ruleset:
-    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES.keys()}
+    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES}
     for rule_id in rule_ids:
         rules[rule_id] = RuleConfig(enabled=True)
     return Ruleset(rules=rules, name="strict")
@@ -60,8 +61,8 @@ def test_missing_pagination_batch4_valid_near_invalid():
                 "large_model_only": True,
                 "suppress_export_flows": True,
                 "min_confidence": 0.7,
-            }
-        )
+            },
+        ),
     )
 
     valid = Facts(project_path=".")
@@ -72,7 +73,7 @@ def test_missing_pagination_batch4_valid_near_invalid():
             action="UserController@index",
             file_path="routes/api.php",
             line_number=7,
-        )
+        ),
     )
     valid.queries.append(
         QueryUsage(
@@ -82,7 +83,7 @@ def test_missing_pagination_batch4_valid_near_invalid():
             model="User",
             method_chain="query->paginate(15)",
             query_type="select",
-        )
+        ),
     )
     assert rule.analyze(valid) == []
 
@@ -94,7 +95,7 @@ def test_missing_pagination_batch4_valid_near_invalid():
             action="UserController@exportCsv",
             file_path="routes/api.php",
             line_number=12,
-        )
+        ),
     )
     near_miss.queries.append(
         QueryUsage(
@@ -104,7 +105,7 @@ def test_missing_pagination_batch4_valid_near_invalid():
             model="User",
             method_chain="query->get()",
             query_type="select",
-        )
+        ),
     )
     assert rule.analyze(near_miss) == []
 
@@ -116,7 +117,7 @@ def test_missing_pagination_batch4_valid_near_invalid():
             action="PatientController@index",
             file_path="routes/api.php",
             line_number=18,
-        )
+        ),
     )
     invalid.queries.append(
         QueryUsage(
@@ -126,7 +127,7 @@ def test_missing_pagination_batch4_valid_near_invalid():
             model="Patient",
             method_chain="query->get()",
             query_type="select",
-        )
+        ),
     )
     assert len(rule.analyze(invalid)) == 1
 
@@ -138,8 +139,8 @@ def test_no_json_encode_in_controllers_batch4_valid_near_invalid():
                 "require_api_context": True,
                 "require_return_context": True,
                 "min_confidence": 0.7,
-            }
-        )
+            },
+        ),
     )
 
     facts = Facts(project_path=".")
@@ -152,7 +153,7 @@ def test_no_json_encode_in_controllers_batch4_valid_near_invalid():
             action="TokenController@issue",
             file_path="routes/api.php",
             line_number=9,
-        )
+        ),
     )
 
     valid = """
@@ -197,8 +198,8 @@ def test_registration_missing_registered_event_batch4_valid_near_invalid():
                 "min_self_service_signals": 1,
                 "require_self_service_context": True,
                 "suppress_admin_only_flows": True,
-            }
-        )
+            },
+        ),
     )
 
     valid_facts = Facts(project_path=".")
@@ -211,7 +212,7 @@ def test_registration_missing_registered_event_batch4_valid_near_invalid():
             middleware=["guest"],
             file_path="routes/web.php",
             line_number=14,
-        )
+        ),
     )
     valid = """
 <?php
@@ -237,7 +238,7 @@ class RegisteredUserController {
             middleware=["auth", "admin"],
             file_path="routes/web.php",
             line_number=20,
-        )
+        ),
     )
     near_miss = """
 <?php
@@ -261,7 +262,7 @@ class AdminUsersController {
             middleware=["guest"],
             file_path="routes/web.php",
             line_number=14,
-        )
+        ),
     )
     invalid = """
 <?php
@@ -282,8 +283,8 @@ def test_user_model_missing_must_verify_email_batch4_valid_near_invalid():
             thresholds={
                 "min_confidence": 0.78,
                 "skip_for_token_api_only": True,
-            }
-        )
+            },
+        ),
     )
     file_path = "app/Models/User.php"
 
@@ -307,7 +308,7 @@ class User extends Authenticatable implements MustVerifyEmail {}
             middleware=["throttle:api", "auth:sanctum"],
             file_path="routes/api.php",
             line_number=10,
-        )
+        ),
     )
     near_miss = """
 <?php
@@ -326,7 +327,7 @@ class User extends Authenticatable {}
             middleware=["web", "auth", "verified"],
             file_path="routes/web.php",
             line_number=18,
-        )
+        ),
     )
     invalid = """
 <?php
@@ -345,8 +346,8 @@ def test_inertia_shared_props_sensitive_data_batch4_valid_near_invalid():
                 "min_signal_count": 2,
                 "require_inertia_context": True,
                 "require_global_share_context": True,
-            }
-        )
+            },
+        ),
     )
     facts = Facts(project_path=".")
     file_path = "app/Http/Middleware/HandleInertiaRequests.php"
@@ -394,8 +395,8 @@ def test_inertia_shared_props_eager_query_batch4_valid_near_invalid():
                 "require_inertia_context": True,
                 "require_global_share_context": True,
                 "allow_lazy_or_cached": True,
-            }
-        )
+            },
+        ),
     )
     facts = Facts(project_path=".")
     file_path = "app/Http/Middleware/HandleInertiaRequests.php"
@@ -475,8 +476,8 @@ def test_missing_cache_for_reference_data_batch4_valid_near_invalid():
                 "min_reference_query_count": 2,
                 "require_project_cache_usage": True,
                 "require_service_or_repository_context": True,
-            }
-        )
+            },
+        ),
     )
 
     temp_root = Path("backend/tests/.tmp_batch4_cache") / str(uuid4())
@@ -502,7 +503,7 @@ class RoleRepository {
             file_path="app/Repositories/RoleRepository.php",
             file_hash="v1",
             call_sites=["Cache::remember('roles.all', 3600, fn() => Role::all())"],
-        )
+        ),
     )
     valid.queries.append(
         QueryUsage(
@@ -512,7 +513,7 @@ class RoleRepository {
             model="Role",
             method_chain="all()",
             query_type="select",
-        )
+        ),
     )
     assert rule.analyze(valid) == []
 
@@ -539,7 +540,7 @@ class SettingsController {
             file_path="app/Services/CacheProbe.php",
             file_hash="n1",
             call_sites=["Cache::remember('probe', 60, fn() => ['ok' => true])"],
-        )
+        ),
     )
     near.queries.append(
         QueryUsage(
@@ -549,7 +550,7 @@ class SettingsController {
             model="Setting",
             method_chain="all()",
             query_type="select",
-        )
+        ),
     )
     assert rule.analyze(near) == []
 
@@ -586,7 +587,7 @@ class CountryRepository {
             file_path="app/Services/CacheProbe.php",
             file_hash="i1",
             call_sites=["Cache::remember('probe', 60, fn() => ['ok' => true])"],
-        )
+        ),
     )
     invalid.queries.extend(
         [
@@ -606,7 +607,7 @@ class CountryRepository {
                     method_chain="query->get()",
                     query_type="select",
                 ),
-            ]
+            ],
         )
     assert len(rule.analyze(invalid)) >= 1
 
@@ -620,8 +621,8 @@ def test_n_plus_one_risk_batch4_valid_near_invalid():
                 "require_local_query_context_or_strong_relation_signal": True,
                 "require_select_query_context": True,
                 "min_evidence_signals": 2,
-            }
-        )
+            },
+        ),
     )
 
     def _relation_model(facts: Facts) -> None:
@@ -633,7 +634,7 @@ def test_n_plus_one_risk_batch4_valid_near_invalid():
                 file_hash="m1",
                 line_start=1,
                 line_end=80,
-            )
+            ),
         )
         facts.methods.append(
             MethodInfo(
@@ -645,7 +646,7 @@ def test_n_plus_one_risk_batch4_valid_near_invalid():
                 line_start=20,
                 line_end=28,
                 call_sites=["$this->belongsTo(Clinic::class)"],
-            )
+            ),
         )
 
     valid = Facts(project_path=".")
@@ -660,7 +661,7 @@ def test_n_plus_one_risk_batch4_valid_near_invalid():
             line_start=10,
             line_end=42,
             loc=33,
-        )
+        ),
     )
     valid.queries.append(
         QueryUsage(
@@ -671,7 +672,7 @@ def test_n_plus_one_risk_batch4_valid_near_invalid():
             method_chain="query->with('clinic')->get",
             query_type="select",
             has_eager_loading=True,
-        )
+        ),
     )
     valid.relation_accesses.append(
         RelationAccess(
@@ -683,7 +684,7 @@ def test_n_plus_one_risk_batch4_valid_near_invalid():
             relation="clinic",
             loop_kind="foreach",
             access_type="property",
-        )
+        ),
     )
     assert rule.analyze(valid) == []
 
@@ -700,7 +701,7 @@ def test_n_plus_one_risk_batch4_valid_near_invalid():
             line_end=36,
             loc=27,
             parameters=["Collection $patients"],
-        )
+        ),
     )
     near_miss.relation_accesses.append(
         RelationAccess(
@@ -712,7 +713,7 @@ def test_n_plus_one_risk_batch4_valid_near_invalid():
             relation="clinic",
             loop_kind="collection_map",
             access_type="property",
-        )
+        ),
     )
     assert rule.analyze(near_miss) == []
 
@@ -728,7 +729,7 @@ def test_n_plus_one_risk_batch4_valid_near_invalid():
             line_start=10,
             line_end=44,
             loc=35,
-        )
+        ),
     )
     invalid.queries.append(
         QueryUsage(
@@ -739,7 +740,7 @@ def test_n_plus_one_risk_batch4_valid_near_invalid():
             method_chain="query->get",
             query_type="select",
             has_eager_loading=False,
-        )
+        ),
     )
     invalid.relation_accesses.append(
         RelationAccess(
@@ -751,7 +752,7 @@ def test_n_plus_one_risk_batch4_valid_near_invalid():
             relation="clinic",
             loop_kind="foreach",
             access_type="property",
-        )
+        ),
     )
     assert len(rule.analyze(invalid)) == 1
 

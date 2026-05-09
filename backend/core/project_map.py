@@ -205,8 +205,7 @@ class ProjectMapArtifactStore:
         rel = str(index.get("by_signature", {}).get(signature, "") or "")
         if not rel:
             return None
-        payload = self._load_by_path(self._project_dir(project_path) / rel)
-        return payload
+        return self._load_by_path(self._project_dir(project_path) / rel)
 
     def load_by_scan(self, *, project_path: str, scan_id: str) -> dict[str, Any] | None:
         index = self._load_index(project_path)
@@ -527,7 +526,7 @@ class ProjectMapBuilder:
             files_graph = dict(frontend_graph.get("files") or {})
             frontend_edges_raw = list(frontend_graph.get("edges") or [])
 
-        frontend_files = set(_normalized_path(p) for p in files_graph.keys())
+        frontend_files = {_normalized_path(p) for p in files_graph}
         frontend_files.update(_normalized_path(c.file_path) for c in react_components)
         frontend_files = {p for p in frontend_files if p}
 
@@ -560,7 +559,7 @@ class ProjectMapBuilder:
             )
             components_by_file[file_path].append({"id": component_id, "name": str(comp.name)})
 
-            hooks = sorted(set(list(getattr(comp, "hooks_used", []) or [])))
+            hooks = sorted(set(getattr(comp, "hooks_used", []) or []))
             for hook in hooks:
                 hook_id = f"hook:{hook}"
                 hook_ids.add(hook_id)
@@ -1121,7 +1120,7 @@ class ProjectMapBuilder:
 
         # Component flows from page entries.
         component_flows: list[dict[str, Any]] = []
-        component_starts = [n for n in nodes if str(n.get("id", "")).startswith("component:") or str(n.get("id", "")).startswith("page:")]
+        [n for n in nodes if str(n.get("id", "")).startswith("component:") or str(n.get("id", "")).startswith("page:")]
         page_ids = [str(n.get("id", "")) for n in nodes if str(n.get("type", "")) == "page"]
         if not page_ids:
             page_ids = [nid for nid in sorted(dependency_index.keys()) if nid.startswith("component:")]
@@ -1135,9 +1134,8 @@ class ProjectMapBuilder:
             flow["entry_id"] = start_id
             flow["framework"] = "react"
             component_flows.append(flow)
-            if bool(flow.get("truncated")):
-                if "flow_truncated" not in truncated_flags:
-                    truncated_flags.append("flow_truncated")
+            if bool(flow.get("truncated")) and "flow_truncated" not in truncated_flags:
+                truncated_flags.append("flow_truncated")
         if len(page_ids) > self.caps.max_component_flows and "max_component_flows" not in truncated_flags:
             truncated_flags.append("max_component_flows")
 

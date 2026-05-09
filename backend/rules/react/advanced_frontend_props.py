@@ -207,9 +207,7 @@ class UnstableReactKeyRule(_AdvancedFrontendRegexRule):
             return True
         if self._is_from_static_collection(normalized, text, offset, static_sources, map_sources):
             return True
-        if self._is_hook_generated_key(normalized, text, offset):
-            return True
-        return False
+        return bool(self._is_hook_generated_key(normalized, text, offset))
 
     def _unstable_reason(self, expr: str) -> str:
         if "Math.random(" in expr or "Date.now(" in expr:
@@ -241,9 +239,7 @@ class UnstableReactKeyRule(_AdvancedFrontendRegexRule):
             return False
         if re.fullmatch(r"(?:['\"][^'\"]+['\"]|\d+)(?:\s*,\s*(?:['\"][^'\"]+['\"]|\d+))*\s*,?", stripped):
             return True
-        if re.search(r"\{\s*(?:id|value|key|code|slug|name|type|status)\s*:\s*['\"][^'\"]+['\"]", stripped):
-            return True
-        return False
+        return bool(re.search(r"\{\s*(?:id|value|key|code|slug|name|type|status)\s*:\s*['\"][^'\"]+['\"]", stripped))
 
     def _deduped_collection_names(self, text: str) -> set[str]:
         return {
@@ -370,9 +366,7 @@ class UnstableReactKeyRule(_AdvancedFrontendRegexRule):
         prior = (text or "")[:offset]
         if re.search(rf"\bconst\s+{re.escape(expr)}\s*=", prior):
             return True
-        if re.search(rf"\b{re.escape(expr)}s?\s*=\s*use[A-Z][A-Za-z0-9_]*\s*\(", prior):
-            return True
-        return False
+        return bool(re.search(rf"\b{re.escape(expr)}s?\s*=\s*use[A-Z][A-Za-z0-9_]*\s*\(", prior))
 
 
 class LooseDefaultObjectPropRule(_AdvancedFrontendRegexRule):

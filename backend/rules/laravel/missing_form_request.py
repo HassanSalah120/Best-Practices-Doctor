@@ -31,7 +31,7 @@ class MissingFormRequestRule(Rule):
     tags = {'domain': 'laravel', 'type': 'quality', 'concern': 'form-request'}
     """
     Detects inline validation in controllers and suggests FormRequest.
-    
+
     FormRequests provide:
     - Reusable validation rules
     - Authorization logic in one place
@@ -189,10 +189,7 @@ class MissingFormRequestRule(Rule):
 
         # Extract controller name from path
         match = re.search(r'(\w+)Controller\.php$', file_path)
-        if match:
-            base_name = match.group(1)
-        else:
-            base_name = "Item"
+        base_name = match.group(1) if match else "Item"
 
         # Map common method names to request names
         method_map = {

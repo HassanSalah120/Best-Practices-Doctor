@@ -7,6 +7,7 @@ for improved performance on large codebases.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -40,10 +41,8 @@ class FileFingerprint:
     def from_dict(cls, data: dict[str, Any]) -> FileFingerprint:
         last_scanned = datetime.now()
         if data.get("last_scanned"):
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 last_scanned = datetime.fromisoformat(data["last_scanned"])
-            except (ValueError, TypeError):
-                pass
 
         return cls(
             path=data.get("path", ""),
@@ -85,17 +84,13 @@ class ScanManifest:
 
         created_at = datetime.now()
         if data.get("created_at"):
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 created_at = datetime.fromisoformat(data["created_at"])
-            except (ValueError, TypeError):
-                pass
 
         updated_at = datetime.now()
         if data.get("updated_at"):
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 updated_at = datetime.fromisoformat(data["updated_at"])
-            except (ValueError, TypeError):
-                pass
 
         return cls(
             project_path=data.get("project_path", ""),
@@ -111,22 +106,22 @@ class ScanManifest:
 class IncrementalScanManager:
     """
     Manages incremental scanning by tracking file fingerprints.
-    
+
     Features:
     - Track file content hashes for change detection
     - Detect added, modified, and deleted files
     - Support for git-based change detection
     - Manifest persistence for cross-session tracking
-    
+
     Usage:
         manager = IncrementalScanManager(project_path)
-        
+
         # First scan - builds manifest
         changed = manager.detect_changes(all_files)
-        
+
         # Subsequent scans - only changed files
         changed = manager.detect_changes(all_files)
-        
+
         # Update manifest after scan
         manager.update_manifest(scanned_files)
     """
@@ -216,12 +211,12 @@ class IncrementalScanManager:
     ) -> dict[str, list[str]]:
         """
         Detect file changes since last scan.
-        
+
         Args:
             current_files: List of all files in project
             use_git: Use git to detect changes (faster for git repos)
             git_ref: Git reference to compare against
-        
+
         Returns:
             Dict with keys:
             - 'added': New files not in manifest
@@ -274,12 +269,12 @@ class IncrementalScanManager:
     ) -> list[str]:
         """
         Get list of files that need to be scanned.
-        
+
         Args:
             current_files: List of all files in project
             include_added: Include newly added files
             include_modified: Include modified files
-        
+
         Returns:
             List of files that need scanning
         """
@@ -296,7 +291,7 @@ class IncrementalScanManager:
     def update_manifest(self, scanned_files: list[str]) -> None:
         """
         Update manifest with scanned files.
-        
+
         Call this after a scan completes to record the new state.
         """
         if not self.manifest:
@@ -349,7 +344,7 @@ class IncrementalScanManager:
     def get_git_changed_files(self, base_ref: str = "HEAD~1") -> list[str]:
         """
         Get files changed in git since a reference.
-        
+
         This is faster than content hashing for git repos.
         """
         import subprocess

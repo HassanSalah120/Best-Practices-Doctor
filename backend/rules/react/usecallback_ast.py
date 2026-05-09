@@ -84,7 +84,7 @@ class UseCallbackASTRule(Rule):
         has_usecallback_import = analyzer.has_hook_import("useCallback")
 
         # Find all components
-        components = analyzer.find_components()
+        analyzer.find_components()
 
         # Find memoized components
         memoized_components = analyzer.find_memoized_components()
@@ -150,11 +150,7 @@ class UseCallbackASTRule(Rule):
         if hasattr(node, "async") and getattr(node, "async", False):
             return True
 
-        for child in ast.walk(node):
-            if isinstance(child, ast.Await):
-                return True
-
-        return False
+        return any(isinstance(child, ast.Await) for child in ast.walk(node))
 
     def _has_api_calls(self, node: ast.Node) -> bool:
         """Check for API call patterns."""
@@ -185,10 +181,9 @@ class UseCallbackASTRule(Rule):
     def _has_state_setter(self, node: ast.Node) -> bool:
         """Check for state setter calls."""
         for child in ast.walk(node):
-            if isinstance(child, ast.Call):
-                if isinstance(child.func, ast.Name):
-                    if self._STATE_SETTER_PATTERN.match(child.func.id):
-                        return True
+            if isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
+                if self._STATE_SETTER_PATTERN.match(child.func.id):
+                    return True
         return False
 
     def _calculate_complexity(self, node: ast.Node) -> int:
@@ -223,7 +218,7 @@ class UseCallbackASTRule(Rule):
                 for node in ast.walk(stmt):
                     if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
                         defined_names.add(node.id)
-                    elif isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
+                    elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         defined_names.add(node.name)
 
         # Parameters
@@ -317,10 +312,7 @@ class UseCallbackASTRule(Rule):
             return True
 
         # Check if body is just a simple call
-        if handler.body_complexity == 1 and len(handler.captures_variables) == 0:
-            return True
-
-        return False
+        return bool(handler.body_complexity == 1 and len(handler.captures_variables) == 0)
 
     def _is_in_performance_critical_context(self, handler: InlineHandler, analyzer: ReactASTAnalyzer) -> bool:
         """Check if handler is in a list or passed to memoized component."""

@@ -26,7 +26,7 @@ class LargeComponentRule(Rule):
     tags = {'domain': 'react', 'type': 'quality', 'concern': 'large-react-component'}
     """
     Detects React components that exceed reasonable size.
-    
+
     Large components typically:
     - Have too many responsibilities
     - Are hard to test
@@ -213,7 +213,7 @@ export function {name}() {{
 // After (split into smaller components)
 export function {name}() {{
     const {{ data, handlers }} = use{name}Logic();
-    
+
     return (
         <{name}Layout>
             <{name}Header data={{data}} />

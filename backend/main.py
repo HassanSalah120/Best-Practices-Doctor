@@ -40,8 +40,7 @@ def get_ephemeral_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((settings.host, 0))
         s.listen(1)
-        port = s.getsockname()[1]
-    return port
+        return s.getsockname()[1]
 
 
 @asynccontextmanager

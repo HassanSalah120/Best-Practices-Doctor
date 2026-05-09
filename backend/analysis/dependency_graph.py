@@ -159,7 +159,7 @@ def build_dependency_graph(facts: Facts) -> DependencyGraph:
     g = DependencyGraph()
 
     # Nodes: known classes only.
-    for fqcn in classes_by_fqcn.keys():
+    for fqcn in classes_by_fqcn:
         g.add_node(fqcn)
 
     # Edges: extends/implements

@@ -301,7 +301,4 @@ class MissingCsrfTokenVerificationRule(Rule):
         if route_path.endswith("routes/auth.php") or "/routes/auth-" in route_path:
             return True
 
-        if self._is_in_web_include_chain(route.file_path, web_route_includes):
-            return True
-
-        return False
+        return bool(self._is_in_web_include_chain(route.file_path, web_route_includes))

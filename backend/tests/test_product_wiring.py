@@ -88,7 +88,7 @@ def test_apply_fix_route_records_history_and_undo_redo_api(client, tmp_path: Pat
 
     try:
         apply_resp = client.post(
-            f"/api/scan/{job_id}/fixes/app/Services/PaymentService.php/apply?line_start=9&dry_run=false"
+            f"/api/scan/{job_id}/fixes/app/Services/PaymentService.php/apply?line_start=9&dry_run=false",
         )
         assert apply_resp.status_code == 200
         history_entry = apply_resp.json()["history_entry"]

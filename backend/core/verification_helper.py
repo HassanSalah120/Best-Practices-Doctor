@@ -22,9 +22,8 @@ def infer_verification_commands(project_path: Path) -> list[str]:
     commands: list[str] = []
 
     composer = _read_json(project_path / "composer.json")
-    composer_text = ""
     if (project_path / "composer.json").exists():
-        composer_text = (project_path / "composer.json").read_text(encoding="utf-8", errors="ignore")
+        (project_path / "composer.json").read_text(encoding="utf-8", errors="ignore")
 
     if (project_path / "phpunit.xml").exists() or (project_path / "phpunit.xml.dist").exists():
         commands.append("php artisan test")

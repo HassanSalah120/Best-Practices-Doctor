@@ -5,6 +5,7 @@ Tests that the rule correctly skips comments and only flags actual JSX usage.
 """
 
 import pytest
+
 from core.ruleset import RuleConfig
 from rules.react.no_dangerously_set_inner_html import NoDangerouslySetInnerHtmlRule
 from schemas.facts import Facts

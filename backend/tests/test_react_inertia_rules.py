@@ -1,11 +1,11 @@
 from core.ruleset import RuleConfig
-from rules.react.no_inline_types import NoInlineTypesRule
-from rules.react.no_inline_services import NoInlineServicesRule
-from rules.react.large_component import LargeComponentRule
-from rules.react.inline_logic import InlineLogicRule
-from rules.react.inertia_page_missing_head import InertiaPageMissingHeadRule
-from rules.react.inertia_internal_link_anchor import InertiaInternalLinkAnchorRule
 from rules.react.inertia_form_uses_fetch import InertiaFormUsesFetchRule
+from rules.react.inertia_internal_link_anchor import InertiaInternalLinkAnchorRule
+from rules.react.inertia_page_missing_head import InertiaPageMissingHeadRule
+from rules.react.inline_logic import InlineLogicRule
+from rules.react.large_component import LargeComponentRule
+from rules.react.no_inline_services import NoInlineServicesRule
+from rules.react.no_inline_types import NoInlineTypesRule
 from schemas.facts import Facts, ReactComponentInfo
 
 
@@ -21,7 +21,7 @@ def test_no_inline_types_flags_ast_component_metadata():
             loc=80,
             has_inline_type_defs=True,
             inline_type_names=["PatientRow", "PatientFilters"],
-        )
+        ),
     )
 
     findings = NoInlineTypesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
@@ -41,7 +41,7 @@ def test_no_inline_services_flags_ast_component_metadata():
             loc=80,
             has_inline_helper_fns=True,
             inline_helper_names=["fetchPatientRows", "persistPatientDraft"],
-        )
+        ),
     )
 
     findings = NoInlineServicesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
@@ -61,7 +61,7 @@ def test_no_inline_services_skips_trivial_ui_handlers():
             loc=60,
             has_inline_helper_fns=True,
             inline_helper_names=["handleBack", "toggleMenu", "focusIndex", "emitValue"],
-        )
+        ),
     )
 
     findings = NoInlineServicesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
@@ -80,7 +80,7 @@ def test_no_inline_types_skips_hook_modules():
             loc=80,
             has_inline_type_defs=True,
             inline_type_names=["PatientSearchParams"],
-        )
+        ),
     )
 
     findings = NoInlineTypesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
@@ -99,7 +99,7 @@ def test_no_inline_types_skips_single_local_type_in_component():
             loc=120,
             has_inline_type_defs=True,
             inline_type_names=["SettingsData"],
-        )
+        ),
     )
 
     findings = NoInlineTypesRule(RuleConfig()).run(facts, project_type="react").findings
@@ -118,7 +118,7 @@ def test_no_inline_types_skips_context_contract_modules():
             loc=120,
             has_inline_type_defs=True,
             inline_type_names=["User", "AuthContextType"],
-        )
+        ),
     )
 
     findings = NoInlineTypesRule(RuleConfig()).run(facts, project_type="react").findings
@@ -137,7 +137,7 @@ def test_no_inline_services_skips_colocated_utils_modules():
             loc=60,
             has_inline_helper_fns=True,
             inline_helper_names=["formatPlanPrice"],
-        )
+        ),
     )
 
     findings = NoInlineServicesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
@@ -156,7 +156,7 @@ def test_no_inline_services_skips_pure_local_utilities_inside_component():
             loc=120,
             has_inline_helper_fns=True,
             inline_helper_names=["getFocusableElements"],
-        )
+        ),
     )
 
     findings = NoInlineServicesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
@@ -175,7 +175,7 @@ def test_no_inline_services_skips_large_service_like_hook_module():
             loc=547,
             has_inline_helper_fns=True,
             inline_helper_names=["connectSocket", "sendCommand", "reconcilePresence"],
-        )
+        ),
     )
 
     findings = NoInlineServicesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
@@ -196,7 +196,7 @@ def test_no_inline_services_skips_standard_inertia_useform_handlers():
             imports=["@inertiajs/react"],
             has_inline_helper_fns=True,
             inline_helper_names=["deleteUser", "closeModal"],
-        )
+        ),
     )
 
     findings = NoInlineServicesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
@@ -215,14 +215,14 @@ def test_no_inline_services_uses_symbol_graph_imports_for_extracted_utils():
             loc=200,
             has_inline_helper_fns=True,
             inline_helper_names=["persistDashboardState"],
-        )
+        ),
     )
     facts._frontend_symbol_graph = {
         "files": {
             "resources/js/Pages/Admin/Dashboard.tsx": {
-                "imports": ["./utils/formatTimer", "@/hooks/useAdminDashboardState"]
-            }
-        }
+                "imports": ["./utils/formatTimer", "@/hooks/useAdminDashboardState"],
+            },
+        },
     }
 
     findings = NoInlineServicesRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
@@ -278,7 +278,7 @@ def test_inline_logic_skips_composed_dashboard_shell_with_extracted_hook_imports
             line_end=420,
             loc=420,
             has_inline_state_logic=True,
-        )
+        ),
     )
     facts._frontend_symbol_graph = {
         "files": {
@@ -287,9 +287,9 @@ def test_inline_logic_skips_composed_dashboard_shell_with_extracted_hook_imports
                     "@/hooks/useAdminDashboardState",
                     "@/Components/Game/CameraGrid",
                     "@/Components/Game/ResultsModal",
-                ]
-            }
-        }
+                ],
+            },
+        },
     }
 
     findings = InlineLogicRule(RuleConfig()).run(facts, project_type="laravel_inertia_react").findings
@@ -306,11 +306,11 @@ def test_large_component_skips_page_shell_that_is_under_soft_page_threshold():
             line_start=1,
             line_end=294,
             loc=294,
-        )
+        ),
     )
 
     findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
-        facts, project_type="laravel_inertia_react"
+        facts, project_type="laravel_inertia_react",
     ).findings
     assert findings == []
 
@@ -325,11 +325,11 @@ def test_large_component_skips_large_static_page_within_page_soft_threshold():
             line_start=1,
             line_end=367,
             loc=367,
-        )
+        ),
     )
 
     findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
-        facts, project_type="laravel_inertia_react"
+        facts, project_type="laravel_inertia_react",
     ).findings
     assert findings == []
 
@@ -345,11 +345,11 @@ def test_large_component_skips_large_page_when_logic_is_extracted_to_custom_hook
             line_end=355,
             loc=355,
             imports=["@/hooks/useAdminDashboard"],
-        )
+        ),
     )
 
     findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
-        facts, project_type="laravel_inertia_react"
+        facts, project_type="laravel_inertia_react",
     ).findings
     assert findings == []
 
@@ -370,11 +370,11 @@ def test_large_component_skips_composed_dashboard_shell():
                 "@/Components/Game/ResultsModal",
                 "@/Components/Game/VotingBottomPanel",
             ],
-        )
+        ),
     )
 
     findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
-        facts, project_type="laravel_inertia_react"
+        facts, project_type="laravel_inertia_react",
     ).findings
     assert findings == []
 
@@ -389,7 +389,7 @@ def test_large_component_uses_symbol_graph_imports_for_composed_dashboard_shell(
             line_start=1,
             line_end=640,
             loc=640,
-        )
+        ),
     )
     facts._frontend_symbol_graph = {
         "files": {
@@ -399,13 +399,13 @@ def test_large_component_uses_symbol_graph_imports_for_composed_dashboard_shell(
                     "@/Components/Game/CameraGrid",
                     "@/Components/Game/ResultsModal",
                     "@/Components/Game/VotingBottomPanel",
-                ]
-            }
-        }
+                ],
+            },
+        },
     }
 
     findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
-        facts, project_type="laravel_inertia_react"
+        facts, project_type="laravel_inertia_react",
     ).findings
     assert findings == []
 
@@ -426,11 +426,11 @@ def test_large_component_skips_complex_composed_panel_component():
                 "./BuzzButton",
                 "./VoteButton",
             ],
-        )
+        ),
     )
 
     findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
-        facts, project_type="laravel_inertia_react"
+        facts, project_type="laravel_inertia_react",
     ).findings
     assert findings == []
 
@@ -445,7 +445,7 @@ def test_large_component_uses_symbol_graph_imports_for_composed_panel_component(
             line_start=1,
             line_end=367,
             loc=367,
-        )
+        ),
     )
     facts._frontend_symbol_graph = {
         "files": {
@@ -455,13 +455,13 @@ def test_large_component_uses_symbol_graph_imports_for_composed_panel_component(
                     "./ResultsModal",
                     "./BuzzButton",
                     "./VoteButton",
-                ]
-            }
-        }
+                ],
+            },
+        },
     }
 
     findings = LargeComponentRule(RuleConfig(thresholds={"max_loc": 200})).run(
-        facts, project_type="laravel_inertia_react"
+        facts, project_type="laravel_inertia_react",
     ).findings
     assert findings == []
 

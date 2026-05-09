@@ -95,7 +95,7 @@ class ScoringResult:
 class ScoringEngine:
     """
     Calculates quality scores from findings.
-    
+
     Scoring methodology:
     1. Start at 100 for each category
     2. Subtract penalties based on findings
@@ -171,12 +171,12 @@ class ScoringEngine:
     ) -> ScoringResult:
         """
         Calculate quality scores from findings.
-        
+
         Args:
             findings: List of detected findings
             file_count: Total files analyzed (for normalization)
             method_count: Total methods analyzed (for normalization)
-        
+
         Returns:
             ScoringResult with overall and category scores
         """

@@ -55,7 +55,6 @@ class NoNestedComponentsRule(Rule):
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
-        findings = []
         matches = list(self._COMPONENT_DECL.finditer(content))
 
         found_nested = []
@@ -71,7 +70,7 @@ class NoNestedComponentsRule(Rule):
             return []
 
         # Dedup by name to avoid noise
-        unique_names = sorted(list(set(n for n, _ in found_nested)))
+        unique_names = sorted({n for n, _ in found_nested})
         count = len(unique_names)
 
         lines = []

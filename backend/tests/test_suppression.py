@@ -4,18 +4,17 @@ Test Suppression Manager
 Tests for the suppression feature.
 """
 
-import pytest
-import json
 import tempfile
-from pathlib import Path
 from datetime import date, timedelta
+from pathlib import Path
+
+import pytest
 
 from core.suppression import (
-    SuppressionRule,
-    SuppressionFile,
     SuppressionManager,
+    SuppressionRule,
 )
-from schemas.finding import Finding, Category, Severity
+from schemas.finding import Category, Finding, Severity
 
 
 @pytest.fixture
@@ -132,19 +131,19 @@ def test_suppression_rule_not_expired(sample_finding):
 def test_suppression_manager_add(temp_project, sample_finding):
     """Manager can add suppression."""
     manager = SuppressionManager(temp_project)
-    
+
     rule = manager.add_suppression(
         rule_id="no-dangerously-set-inner-html",
         reason="Test suppression",
     )
-    
+
     assert rule.id.startswith("suppress-")
     assert rule.rule_id == "no-dangerously-set-inner-html"
-    
+
     # Check file was created
     suppressions_file = temp_project / ".bpd-suppressions.json"
     assert suppressions_file.exists()
-    
+
     # Check it matches
     is_suppressed, matched = manager.is_suppressed(sample_finding)
     assert is_suppressed is True
@@ -154,10 +153,10 @@ def test_suppression_manager_add(temp_project, sample_finding):
 def test_suppression_manager_remove(temp_project):
     """Manager can remove suppression."""
     manager = SuppressionManager(temp_project)
-    
+
     rule = manager.add_suppression(rule_id="test-rule")
     assert len(manager.list_suppressions()) == 1
-    
+
     removed = manager.remove_suppression(rule.id)
     assert removed is True
     assert len(manager.list_suppressions()) == 0
@@ -166,15 +165,15 @@ def test_suppression_manager_remove(temp_project):
 def test_suppression_manager_apply_to_findings(temp_project, sample_finding):
     """Manager can filter findings."""
     manager = SuppressionManager(temp_project)
-    
+
     manager.add_suppression(
         rule_id="no-dangerously-set-inner-html",
         file_pattern="src/components/Unsafe.tsx",
     )
-    
+
     findings = [sample_finding]
     active, suppressed = manager.apply_to_findings(findings)
-    
+
     assert len(active) == 0
     assert len(suppressed) == 1
 
@@ -182,21 +181,21 @@ def test_suppression_manager_apply_to_findings(temp_project, sample_finding):
 def test_suppression_manager_clear_expired(temp_project, sample_finding):
     """Manager can clear expired suppressions."""
     manager = SuppressionManager(temp_project)
-    
+
     # Add expired suppression
     manager.add_suppression(
         rule_id="*",
         until=date.today() - timedelta(days=1),
     )
-    
+
     # Add active suppression
     manager.add_suppression(
         rule_id="test-rule",
         until=date.today() + timedelta(days=30),
     )
-    
+
     assert len(manager.list_suppressions()) == 2
-    
+
     removed = manager.clear_expired()
     assert removed == 1
     assert len(manager.list_suppressions()) == 1
@@ -214,10 +213,10 @@ def test_suppression_serialization():
         until=date(2025, 12, 31),
         created_by="test-user",
     )
-    
+
     data = rule.to_dict()
     restored = SuppressionRule.from_dict(data)
-    
+
     assert restored.id == rule.id
     assert restored.rule_id == rule.rule_id
     assert restored.file_pattern == rule.file_pattern

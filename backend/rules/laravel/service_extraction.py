@@ -33,7 +33,7 @@ class ServiceExtractionRule(Rule):
     tags = {'domain': 'laravel', 'type': 'architecture', 'concern': 'service-extraction'}
     """
     Detects business logic in controllers that should be in Services.
-    
+
     Services provide:
     - Reusable business logic across controllers, jobs, commands
     - Better testability (unit test logic without HTTP)
@@ -404,10 +404,7 @@ class ServiceExtractionRule(Rule):
         has_dispatch = any(p in str(cs or "").lower() for cs in (method.call_sites or []) for p in dispatch_patterns)
 
         # If it has dispatches and minimal other logic, consider it thin
-        if has_dispatch and method.loc < 10:
-            return True
-
-        return False
+        return bool(has_dispatch and method.loc < 10)
 
     def _is_read_method(self, method: MethodInfo) -> bool:
         return str(method.name or "").lower() in self._READ_METHOD_NAMES
@@ -563,9 +560,7 @@ class ServiceExtractionRule(Rule):
             return True
 
         if has_service_property_call and has_execute_call and (method.loc or 0) <= 120:
-            if has_business_keyword:
-                return False
-            return True
+            return not has_business_keyword
 
         if has_service_injection and overlapping_property_calls and (method.loc or 0) <= 120:
             query_like_calls = sum(
@@ -659,16 +654,15 @@ class ServiceExtractionRule(Rule):
                 conf = getattr(method_metrics, "business_logic_confidence", 0.0)
                 if conf == 0.0 or conf >= min_business_confidence:
                     return True
-            if method_metrics:
-                if (
-                    method_metrics.cyclomatic_complexity >= 7
-                    and (
-                        method_metrics.query_count >= 2
-                        or method_metrics.conditional_count >= 4
-                        or method_metrics.loop_count >= 1
-                    )
-                ):
-                    return True
+            if method_metrics and (
+                method_metrics.cyclomatic_complexity >= 7
+                and (
+                    method_metrics.query_count >= 2
+                    or method_metrics.conditional_count >= 4
+                    or method_metrics.loop_count >= 1
+                )
+            ):
+                return True
 
         # Heuristic: check call sites for business logic patterns
         for call_site in method.call_sites:
@@ -688,10 +682,7 @@ class ServiceExtractionRule(Rule):
             return True
 
         # Last fallback: very long methods with many call sites still qualify.
-        if (method.loc or 0) >= loc_only_min_loc and len(method.call_sites or []) >= loc_only_min_call_sites:
-            return True
-
-        return False
+        return bool((method.loc or 0) >= loc_only_min_loc and len(method.call_sites or []) >= loc_only_min_call_sites)
 
     def _create_finding(
         self,

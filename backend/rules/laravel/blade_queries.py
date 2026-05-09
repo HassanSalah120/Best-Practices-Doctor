@@ -25,7 +25,7 @@ class BladeQueriesRule(Rule):
     tags = {'domain': 'laravel', 'type': 'performance', 'concern': 'blade-queries'}
     """
     Detects database queries in Blade templates.
-    
+
     This is a serious performance anti-pattern because:
     - Queries in views are hard to optimize
     - N+1 problems are invisible

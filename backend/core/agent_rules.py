@@ -575,13 +575,6 @@ class AgentRulesGenerator:
         project_type = _enum_value(getattr(project_info, "project_type", "")).lower()
         features = [str(item).lower() for item in (getattr(project_info, "features", []) or [])]
         tenant_tokens = ("clinic_id", "tenant_id", "organization_id", "company_id")
-        tenant_rule_ids = {
-            "tenant-scope-enforcement",
-            "missing-tenant-middleware",
-            "console-command-missing-tenant-scope",
-            "multi-tenant-boundary-violation",
-            "tenant-access-middleware-missing",
-        }
         scanned_paths = [
             str(path).lower().replace("\\", "/")
             for path in (
@@ -739,10 +732,7 @@ class AgentRulesGenerator:
             if len(ordered) >= max and not critical:
                 break
 
-        if len(critical) >= max:
-            selected = ordered
-        else:
-            selected = ordered[:max]
+        selected = ordered if len(critical) >= max else ordered[:max]
 
         out: list[dict[str, Any]] = []
         for finding, count in selected:
@@ -786,7 +776,7 @@ class AgentRulesGenerator:
         meta = metadata.get(rule_id, {}) if isinstance(metadata, dict) else {}
         if not isinstance(meta, dict):
             return False
-        return bool(set(str(item) for item in (meta.get("related_rules") or [])).intersection(fired_rule_ids))
+        return bool({str(item) for item in (meta.get("related_rules") or [])}.intersection(fired_rule_ids))
 
     def _finding_fix_text(self, finding: Finding, meta: dict[str, Any]) -> str:
         metadata = getattr(finding, "metadata", {}) or {}
@@ -1067,7 +1057,7 @@ Use this skill whenever an AI agent edits, reviews, refactors, or triages this p
 5. Define the verifiable goal and keep edits minimal unless the finding itself requires a larger contract change.
 6. Read `PROJECT_MAP.md` when present; document disconnected or incomplete work instead of leaving hidden orphans.
 7. Run the verification commands listed in `.bpdoctor/agent/RULES.md`.
- 
+
 ## Verification Commands
 {verification_block}
 """

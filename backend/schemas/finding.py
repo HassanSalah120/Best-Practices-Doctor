@@ -2,12 +2,12 @@
 Finding Schema - Standardized issue format with fingerprints for deduplication.
 """
 import hashlib
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """Issue severity levels."""
     CRITICAL = "critical"  # Must fix - security/data issues
     HIGH = "high"          # Should fix - architecture problems
@@ -16,7 +16,7 @@ class Severity(str, Enum):
     INFO = "info"          # Informational
 
 
-class Category(str, Enum):
+class Category(StrEnum):
     """Issue categories."""
     DRY = "dry"
     SRP = "srp"  # Single Responsibility Principle
@@ -31,7 +31,7 @@ class Category(str, Enum):
     MAINTAINABILITY = "maintainability"
 
 
-class FindingClassification(str, Enum):
+class FindingClassification(StrEnum):
     """High-level issue intent for UX and prioritization."""
     DEFECT = "defect"
     RISK = "risk"

@@ -1,12 +1,11 @@
 import asyncio
-import os
 from pathlib import Path
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
-from main import app
 from core.job_manager import job_manager
+from main import app
 
 
 @pytest.fixture

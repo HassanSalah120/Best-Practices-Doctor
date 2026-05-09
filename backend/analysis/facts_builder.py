@@ -4,6 +4,7 @@ Facts Builder
 Extracts raw facts from source files using Tree-sitter AST parsing.
 This module builds the Facts object that represents the codebase.
 """
+import contextlib
 import fnmatch
 import logging
 import threading
@@ -58,7 +59,7 @@ class BuildProgress:
 class FactsBuilder:
     """
     Builds Facts from source code using AST parsing.
-    
+
     This is the core analysis engine that extracts raw data:
     - Classes and methods
     - Call sites and imports
@@ -171,10 +172,10 @@ class FactsBuilder:
     def build(self, progress_callback: callable = None) -> Facts:
         """
         Build Facts from the codebase.
-        
+
         Args:
             progress_callback: Optional callback(progress: BuildProgress) for updates
-        
+
         Returns:
             Facts object with extracted data
         """
@@ -274,7 +275,7 @@ class FactsBuilder:
         # e.g. "**/*.php" -> "*.php"
         file_pattern = pattern.split("/")[-1]
 
-        for root, dirs, files in os.walk(str(self.project_path)):
+        for root, _dirs, files in os.walk(str(self.project_path)):
             for filename in files:
                 if fnmatch.fnmatch(filename, file_pattern):
                     path = Path(root) / filename
@@ -320,10 +321,8 @@ class FactsBuilder:
             self.progress.files_processed += 1
             self.progress.current_file = str(file_path)
             if callback:
-                try:
+                with contextlib.suppress(Exception):
                     callback(self.progress)
-                except Exception:
-                    pass
 
     def _get_file_hash(self, content: str) -> str:
         """Compute hash for file content."""
@@ -689,7 +688,7 @@ class FactsBuilder:
 
         # Classes
         class_query = self._get_query(self._local.php_lang, """
-            (class_declaration 
+            (class_declaration
                 name: (name) @class_name
                 (base_clause (qualified_name) @parent)?
                 (class_interface_clause (qualified_name) @implements)?
@@ -708,7 +707,7 @@ class FactsBuilder:
         )
 
         # Methods
-        method_query = self._get_query(self._local.php_lang, """
+        self._get_query(self._local.php_lang, """
             (method_declaration
                 (visibility_modifier)? @visibility
                 name: (name) @method_name
@@ -2010,12 +2009,11 @@ class FactsBuilder:
                 # Find first array argument (best effort).
                 arr_node = None
                 for ch in args_node.children:
-                    if ch.is_named and ch.type == "argument":
-                        if ch.child_count:
-                            cand = next((c for c in ch.children if c.is_named), None)
-                            if cand and cand.type == "array_creation_expression":
-                                arr_node = cand
-                                break
+                    if ch.is_named and ch.type == "argument" and ch.child_count:
+                        cand = next((c for c in ch.children if c.is_named), None)
+                        if cand and cand.type == "array_creation_expression":
+                            arr_node = cand
+                            break
                 rules = _parse_rules_from_array_node(arr_node)
 
             line_no = _line(node)
@@ -2254,7 +2252,7 @@ class FactsBuilder:
 
             # Detect query type (INSERT/UPDATE/DELETE don't have N+1 issues)
             query_type = "select"
-            chain_set = set(x.lower() for x in chain)
+            chain_set = {x.lower() for x in chain}
             if chain_set & {"insert", "create", "insertgetid", "upsert"}:
                 query_type = "insert"
             elif chain_set & {"update", "increment", "decrement"}:
@@ -2720,7 +2718,7 @@ class FactsBuilder:
         statements = self._iter_route_statements(content)
         group_contexts = self._extract_route_group_contexts(statements)
 
-        for stmt_start, stmt_end, stmt in statements:
+        for stmt_start, _stmt_end, stmt in statements:
             stmt_l = stmt.lower()
 
             route_entries: list[tuple[str, str, str, int]] = []
@@ -3157,7 +3155,7 @@ class FactsBuilder:
 
         for i, line in enumerate(lines):
             for match in string_pattern.finditer(line):
-                quote_char = match.group(1)
+                match.group(1)
                 value = match.group(2)
 
                 # Context extraction heuristics
@@ -3475,7 +3473,7 @@ class FactsBuilder:
         """Basic regex-based React component parsing."""
         import re
 
-        lines = content.split("\n")
+        content.split("\n")
 
         # Find function components
         component_patterns = [
@@ -3551,7 +3549,7 @@ class FactsBuilder:
 
         import_from = re.findall(r"^\s*import\s+.*?\s+from\s+['\"]([^'\"]+)['\"]", content, flags=re.MULTILINE)
         import_dyn = re.findall(r"\bimport\s*\(\s*['\"]([^'\"]+)['\"]\s*\)", content)
-        imports = sorted(set([*import_from, *import_dyn]))
+        imports = sorted({*import_from, *import_dyn})
 
         hooks = sorted(set(re.findall(r"\b(use[A-Z][A-Za-z0-9_]*)\s*\(", content)))
 
@@ -4475,7 +4473,7 @@ class FactsBuilder:
         signals: list[str] = []
 
         features = {str(item or "").lower() for item in (getattr(self.project_info, "features", []) or [])}
-        packages = {str(key or "").lower() for key in (getattr(self.project_info, "packages", {}) or {}).keys()}
+        packages = {str(key or "").lower() for key in (getattr(self.project_info, "packages", {}) or {})}
         file_paths = [str(path or "").lower().replace("\\", "/") for path in (getattr(self._facts, "files", []) or [])]
         route_tokens = [
             " ".join(
@@ -4643,7 +4641,7 @@ class FactsBuilder:
             for route in (getattr(self._facts, "routes", []) or [])
         ]
         features = {str(item or "").lower() for item in (getattr(self.project_info, "features", []) or [])}
-        packages = {str(key or "").lower() for key in (getattr(self.project_info, "packages", {}) or {}).keys()}
+        packages = {str(key or "").lower() for key in (getattr(self.project_info, "packages", {}) or {})}
 
         def _mark(key: str, enabled: bool, confidence: float, evidence: list[str]) -> None:
             capabilities[key] = (
@@ -5050,7 +5048,7 @@ class FactsBuilder:
             project_type_conf = 0.72
             project_type_kind = "heuristic"
 
-        npm_packages = {str(k).lower() for k in (getattr(self.project_info, "npm_packages", {}) or {}).keys()}
+        npm_packages = {str(k).lower() for k in (getattr(self.project_info, "npm_packages", {}) or {})}
         design_system_markers = (
             "shadcn",
             "@radix-ui",

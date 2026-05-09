@@ -6,6 +6,13 @@ import pytest
 
 from core.context_profiles import ContextProfileMatrix
 from core.ruleset import RuleConfig, Ruleset
+from rules.react.css_tailwind_accessibility_rules import (
+    CssColorOnlyStateIndicatorRule,
+    CssFocusOutlineWithoutReplacementRule,
+    CssHoverOnlyInteractionRule,
+    TailwindAppearanceNoneRiskRule,
+    TailwindMotionReduceMissingRule,
+)
 from rules.react.focus_indicator_missing import FocusIndicatorMissingRule
 from rules.react.form_label_association import FormLabelAssociationRule
 from rules.react.interactive_element_a11y import InteractiveElementA11yRule
@@ -24,15 +31,7 @@ from rules.react.wcag_apg_ast_rules import (
     OutsideClickWithoutKeyboardFallbackRule,
     SemanticWrapperBreakageRule,
 )
-from rules.react.css_tailwind_accessibility_rules import (
-    CssColorOnlyStateIndicatorRule,
-    CssFocusOutlineWithoutReplacementRule,
-    CssHoverOnlyInteractionRule,
-    TailwindAppearanceNoneRiskRule,
-    TailwindMotionReduceMissingRule,
-)
 from schemas.facts import Facts
-
 
 AST_READY = JsxTreeSitterHelper().is_ready()
 
@@ -559,7 +558,7 @@ export function SelectInput() {
 
 
 @pytest.mark.skipif(not AST_READY, reason="Tree-sitter JSX parser is unavailable")
-@pytest.mark.parametrize("rule_id,rule_cls,file_path,valid,near,invalid", AST_CASES)
+@pytest.mark.parametrize(("rule_id", "rule_cls", "file_path", "valid", "near", "invalid"), AST_CASES)
 def test_wcag_apg_ast_rules_valid_near_invalid(
     rule_id: str,
     rule_cls,
@@ -577,7 +576,7 @@ def test_wcag_apg_ast_rules_valid_near_invalid(
     assert any(f.rule_id == rule_id for f in findings)
 
 
-@pytest.mark.parametrize("rule_id,rule_cls,file_path,valid,near,invalid", REGEX_CASES)
+@pytest.mark.parametrize(("rule_id", "rule_cls", "file_path", "valid", "near", "invalid"), REGEX_CASES)
 def test_wcag_apg_regex_rules_valid_near_invalid(
     rule_id: str,
     rule_cls,

@@ -633,9 +633,7 @@ class UseMemoOveruseRule(_ReactGapAstRuleBase):
             return False
         if any(token in (text or "") for token in self._REFERENTIAL_SENSITIVE_TOKENS):
             return True
-        if any(dep.lower().endswith(("secret", "token", "key")) for dep in deps):
-            return True
-        return False
+        return bool(any(dep.lower().endswith(("secret", "token", "key")) for dep in deps))
 
 
 class UseCallbackOveruseRule(_ReactGapAstRuleBase):
@@ -1106,7 +1104,7 @@ class DuplicateKeySourceRule(_ReactGapAstRuleBase):
                 continue
 
             var_name = weak_match.group("var").split(".")[-1]
-            item_var = weak_match.group("var").split(".")[0]
+            weak_match.group("var").split(".")[0]
             source = self._map_source_for_key(text, key_offset, var_name)
 
             # Skip if source is a predefined constant (STEPS, KPIS, etc.)
@@ -1157,9 +1155,7 @@ class DuplicateKeySourceRule(_ReactGapAstRuleBase):
         if self._COMPOSITE_KEY.search(expr):
             return True
         # Contains string interpolation with multiple parts
-        if "${" in expr and ("+" in expr or "-" in expr or "_" in expr):
-            return True
-        return False
+        return bool("${" in expr and ("+" in expr or "-" in expr or "_" in expr))
 
     def _is_index_used_safely(self, text: str, key_offset: int, key_expr: str) -> bool:
         """

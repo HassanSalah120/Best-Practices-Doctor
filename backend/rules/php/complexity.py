@@ -25,7 +25,7 @@ class HighComplexityRule(Rule):
     tags = {'domain': 'php', 'type': 'quality', 'concern': 'high-complexity'}
     """
     Detects methods with high cyclomatic complexity.
-    
+
     High complexity indicates:
     - Hard to test (many paths)
     - Hard to understand
@@ -132,11 +132,11 @@ public function {method_name}($input)
     if ($this->shouldHandleCase1($input)) {{
         return $this->handleCase1($input);
     }}
-    
+
     if ($this->shouldHandleCase2($input)) {{
         return $this->handleCase2($input);
     }}
-    
+
     return $this->handleDefault($input);
 }}"""
 

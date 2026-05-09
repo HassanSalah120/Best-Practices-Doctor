@@ -2,8 +2,8 @@ from pathlib import Path
 
 from analysis.facts_builder import FactsBuilder
 from core.detector import ProjectDetector
-from rules.php.tests_missing import TestsMissingRule as MissingTestsRule
 from core.ruleset import RuleConfig
+from rules.php.tests_missing import TestsMissingRule as MissingTestsRule
 from schemas.facts import Facts, ReactComponentInfo
 
 
@@ -47,7 +47,7 @@ def test_tests_missing_rule_uses_react_testing_guidance():
                 line_start=1,
                 line_end=10,
                 loc=10,
-            )
+            ),
         ],
         has_tests=False,
         test_files_count=0,

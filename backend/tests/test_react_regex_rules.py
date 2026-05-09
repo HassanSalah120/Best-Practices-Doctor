@@ -81,7 +81,7 @@ export function PatientsPage() {
         encoding="utf-8",
     )
 
-    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES.keys()}
+    rules = {rid: RuleConfig(enabled=False) for rid in ALL_RULES}
     rules["react-useeffect-deps"] = RuleConfig(enabled=True)
     rules["react-no-array-index-key"] = RuleConfig(enabled=True)
     engine = RuleEngine(Ruleset(rules=rules))

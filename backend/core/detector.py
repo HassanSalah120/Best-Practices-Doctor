@@ -193,10 +193,7 @@ class ProjectDetector:
             return True
 
         # Check for app structure
-        if self._exists("app/Http/Controllers") and self._exists("config/app.php"):
-            return True
-
-        return False
+        return bool(self._exists("app/Http/Controllers") and self._exists("config/app.php"))
 
     def _load_json(self, filename: str) -> dict | None:
         """Load JSON file if exists."""
@@ -222,7 +219,7 @@ class ProjectDetector:
         if not views_path.exists():
             return False
 
-        for f in views_path.rglob("*.blade.php"):
+        for _f in views_path.rglob("*.blade.php"):
             return True
         return False
 
@@ -233,7 +230,7 @@ class ProjectDetector:
             return False
 
         for ext in ["jsx", "tsx"]:
-            for f in js_path.rglob(f"*.{ext}"):
+            for _f in js_path.rglob(f"*.{ext}"):
                 return True
         return False
 
@@ -243,14 +240,10 @@ class ProjectDetector:
         if not js_path.exists():
             return False
 
-        for f in js_path.rglob("*.vue"):
+        for _f in js_path.rglob("*.vue"):
             return True
         return False
 
     def _has_php_files(self) -> bool:
         """Check if project has PHP files."""
-        for f in self.project_path.rglob("*.php"):
-            # Ignore vendor
-            if "vendor" not in str(f):
-                return True
-        return False
+        return any("vendor" not in str(f) for f in self.project_path.rglob("*.php"))

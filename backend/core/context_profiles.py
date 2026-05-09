@@ -113,7 +113,7 @@ class ContextProfileMatrix(BaseModel):
 
         exp_caps = explicit_capabilities or {}
         det_caps = detected_capabilities or {}
-        for key in self.capabilities.keys():
+        for key in self.capabilities:
             if key in exp_caps:
                 effective.capabilities[key] = ContextSignalState(
                     enabled=bool(exp_caps[key]),

@@ -2,12 +2,9 @@ from __future__ import annotations
 
 import logging
 
-import pytest
-
 from core.rule_engine import (
     ALL_RULES,
     DISCOVERED_RULES,
-    INTERNAL_RULE_WRAPPERS,
     LEGACY_RULE_ALIASES,
     REGISTERED_RULES,
     RUNTIME_RULES,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -15,7 +15,7 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class FixStrategy(str, Enum):
+class FixStrategy(StrEnum):
     SAFE_EDIT = "safe_edit"
     GUIDED_EDIT = "guided_edit"
     MANUAL_REVIEW = "manual_review"
@@ -23,7 +23,7 @@ class FixStrategy(str, Enum):
     SUPPRESS_WITH_EVIDENCE = "suppress_with_evidence"
 
 
-class TaskState(str, Enum):
+class TaskState(StrEnum):
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     VERIFIED = "verified"

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from schemas.facts import Facts
 from rules.laravel.api_endpoint_missing_idempotency_key import ApiEndpointMissingIdempotencyKeyRule
 from rules.laravel.cache_missing_fallback import CacheMissingFallbackRule
 from rules.laravel.http_call_missing_fallback import HttpCallMissingFallbackRule
 from rules.laravel.queue_job_missing_failure_handling import QueueJobMissingFailureHandlingRule
+from schemas.facts import Facts
 
 
 def _facts() -> Facts:
@@ -25,7 +25,7 @@ class CheckoutController {
         return Idempotency::run($key, fn () => Order::create($request->validated()));
     }
 }
-"""
+""",
     )
 
     assert rule.analyze_regex("app/Http/Controllers/CheckoutController.php", content, _facts()) == []
@@ -40,7 +40,7 @@ class CheckoutController {
         return Order::create($request->validated());
     }
 }
-"""
+""",
     )
 
     findings = rule.analyze_regex("app/Http/Controllers/CheckoutController.php", content, _facts())
@@ -57,7 +57,7 @@ class CheckoutController {
         return Order::query()->latest()->paginate();
     }
 }
-"""
+""",
     )
 
     assert rule.analyze_regex("app/Http/Controllers/CheckoutController.php", content, _facts()) == []
@@ -72,7 +72,7 @@ class PaymentGateway {
         Http::post('https://pay.example/charge', $payload);
     }
 }
-"""
+""",
     )
 
     findings = rule.analyze_ast("app/Services/PaymentGateway.php", content, _facts())
@@ -93,7 +93,7 @@ class PaymentGateway {
         }
     }
 }
-"""
+""",
     )
 
     assert rule.analyze_ast("app/Services/PaymentGateway.php", content, _facts()) == []
@@ -112,7 +112,7 @@ class PaymentGateway {
         report($response->status());
     }
 }
-"""
+""",
     )
 
     assert rule.analyze_ast("app/Services/PaymentGateway.php", content, _facts()) == []
@@ -127,7 +127,7 @@ class PaymentGatewayTest {
         Http::fake();
     }
 }
-"""
+""",
     )
 
     assert rule.analyze_ast("tests/Feature/PaymentGatewayTest.php", content, _facts()) == []
@@ -145,7 +145,7 @@ class SyncInvoice implements ShouldQueue {
         report($e);
     }
 }
-"""
+""",
     )
 
     assert rule.analyze_regex("app/Jobs/SyncInvoice.php", content, _facts()) == []
@@ -160,7 +160,7 @@ class SyncInvoice implements ShouldQueue {
         Http::post('https://billing.example/sync');
     }
 }
-"""
+""",
     )
 
     findings = rule.analyze_regex("app/Jobs/SyncInvoice.php", content, _facts())
@@ -177,7 +177,7 @@ class CalculateTotals implements ShouldQueue {
         $total = collect([1, 2, 3])->sum();
     }
 }
-"""
+""",
     )
 
     assert rule.analyze_regex("app/Jobs/CalculateTotals.php", content, _facts()) == []
@@ -193,7 +193,7 @@ class ProfileService {
         return $user['name'];
     }
 }
-"""
+""",
     )
 
     findings = rule.analyze_ast("app/Services/ProfileService.php", content, _facts())
@@ -211,7 +211,7 @@ class ProfileService {
         return Cache::get('current-user');
     }
 }
-"""
+""",
     )
 
     findings = rule.analyze_ast("app/Services/ProfileService.php", content, _facts())
@@ -227,7 +227,7 @@ class ProfileService {
         return Cache::get('current-user', []);
     }
 }
-"""
+""",
     )
 
     assert rule.analyze_ast("app/Services/ProfileService.php", content, _facts()) == []
@@ -243,7 +243,7 @@ class ProfileService {
         return $user['name'] ?? null;
     }
 }
-"""
+""",
     )
 
     assert rule.analyze_ast("app/Services/ProfileService.php", content, _facts()) == []
@@ -262,7 +262,7 @@ class ProfileService {
         return $user->name();
     }
 }
-"""
+""",
     )
 
     assert rule.analyze_ast("app/Services/ProfileService.php", content, _facts()) == []

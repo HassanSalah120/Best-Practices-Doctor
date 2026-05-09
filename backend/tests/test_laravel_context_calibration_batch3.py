@@ -179,8 +179,8 @@ def test_transaction_required_for_multi_write_batch3_valid_near_invalid():
                 "min_write_calls": 2,
                 "min_distinct_models": 2,
                 "ignore_idempotent_batches": True,
-            }
-        )
+            },
+        ),
     )
 
     valid = Facts(project_path=".")
@@ -194,7 +194,7 @@ def test_transaction_required_for_multi_write_batch3_valid_near_invalid():
             line_start=10,
             line_end=45,
             loc=36,
-        )
+        ),
     )
     valid.queries.extend(
         [
@@ -214,7 +214,7 @@ def test_transaction_required_for_multi_write_batch3_valid_near_invalid():
                 method_chain="query->upsert",
                 query_type="insert",
             ),
-        ]
+        ],
     )
     assert rule.analyze(valid) == []
 
@@ -229,7 +229,7 @@ def test_transaction_required_for_multi_write_batch3_valid_near_invalid():
             line_start=10,
             line_end=48,
             loc=39,
-        )
+        ),
     )
     near_miss.queries.extend(
         [
@@ -249,7 +249,7 @@ def test_transaction_required_for_multi_write_batch3_valid_near_invalid():
                 method_chain="query->update",
                 query_type="update",
             ),
-        ]
+        ],
     )
     assert rule.analyze(near_miss) == []
 
@@ -264,7 +264,7 @@ def test_transaction_required_for_multi_write_batch3_valid_near_invalid():
             line_start=10,
             line_end=72,
             loc=63,
-        )
+        ),
     )
     invalid.queries.extend(
         [
@@ -284,7 +284,7 @@ def test_transaction_required_for_multi_write_batch3_valid_near_invalid():
                 method_chain="query->create",
                 query_type="insert",
             ),
-        ]
+        ],
     )
     assert len(rule.analyze(invalid)) == 1
 
@@ -296,8 +296,8 @@ def test_job_missing_idempotency_guard_batch3_valid_near_invalid():
                 "require_queue_capability": True,
                 "ignore_db_only_jobs": True,
                 "min_confidence": 0.6,
-            }
-        )
+            },
+        ),
     )
 
     facts = Facts(project_path=".")
@@ -341,8 +341,8 @@ def test_job_missing_retry_policy_batch3_valid_near_invalid():
                 "require_queue_capability": True,
                 "ignore_db_only_jobs": True,
                 "min_confidence": 0.6,
-            }
-        )
+            },
+        ),
     )
     facts = Facts(project_path=".")
     _enable_capability(facts, "queue_heavy")
@@ -385,8 +385,8 @@ def test_job_http_call_missing_timeout_batch3_valid_near_invalid():
             thresholds={
                 "require_queue_capability": True,
                 "min_confidence": 0.6,
-            }
-        )
+            },
+        ),
     )
     facts = Facts(project_path=".")
     _enable_capability(facts, "external_integrations_heavy")
