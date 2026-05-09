@@ -37,7 +37,7 @@ def test_low_info_penalty_capped_once_per_file_per_rule():
             ),
         )
     # Another file should add another capped penalty for the same rule.
-    for i in range(10):
+    for _i in range(10):
         findings.append(
             _mk_finding(
                 rule_id="long-method",

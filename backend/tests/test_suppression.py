@@ -5,7 +5,7 @@ Tests for the suppression feature.
 """
 
 import tempfile
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -113,7 +113,7 @@ def test_suppression_rule_expired(sample_finding):
     rule = SuppressionRule(
         id="test-1",
         rule_id="*",
-        until=date.today() - timedelta(days=1),
+        until=datetime.now().date() - timedelta(days=1),
     )
     assert rule.matches(sample_finding) is False
 
@@ -123,7 +123,7 @@ def test_suppression_rule_not_expired(sample_finding):
     rule = SuppressionRule(
         id="test-1",
         rule_id="*",
-        until=date.today() + timedelta(days=30),
+        until=datetime.now().date() + timedelta(days=30),
     )
     assert rule.matches(sample_finding) is True
 
@@ -178,20 +178,20 @@ def test_suppression_manager_apply_to_findings(temp_project, sample_finding):
     assert len(suppressed) == 1
 
 
-def test_suppression_manager_clear_expired(temp_project, sample_finding):
+def test_suppression_manager_clear_expired(temp_project, _sample_finding):
     """Manager can clear expired suppressions."""
     manager = SuppressionManager(temp_project)
 
     # Add expired suppression
     manager.add_suppression(
         rule_id="*",
-        until=date.today() - timedelta(days=1),
+        until=datetime.now().date() - timedelta(days=1),
     )
 
     # Add active suppression
     manager.add_suppression(
         rule_id="test-rule",
-        until=date.today() + timedelta(days=30),
+        until=datetime.now().date() + timedelta(days=30),
     )
 
     assert len(manager.list_suppressions()) == 2
