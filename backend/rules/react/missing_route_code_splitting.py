@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import re
+
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
+
 
 class MissingRouteCodeSplittingRule(Rule):
     id = "missing-route-code-splitting"

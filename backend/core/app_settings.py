@@ -13,7 +13,6 @@ from typing import Any
 
 from config import ensure_app_data_dir
 
-
 SETTINGS_FILENAME = "settings.json"
 
 

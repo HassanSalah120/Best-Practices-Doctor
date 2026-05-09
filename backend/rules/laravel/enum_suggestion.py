@@ -4,10 +4,11 @@ Detects repeated string literals that should be PHP enums.
 """
 import re
 from collections import defaultdict
-from schemas.facts import Facts, StringLiteral, StringOccurrence
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
+
 from rules.base import Rule
+from schemas.facts import Facts, StringLiteral, StringOccurrence
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class EnumSuggestionRule(Rule):
@@ -29,7 +30,7 @@ class EnumSuggestionRule(Rule):
     Detects groups of repeated string literals that form enum candidates.
     Uses context clustering (variable names, keys, etc.) to discover all enums at once.
     """
-    
+
     id = "enum-suggestion"
     name = "Enum Suggestion"
     description = "Suggests creating PHP enums for clustered or repeated string literals"
@@ -42,7 +43,7 @@ class EnumSuggestionRule(Rule):
         "laravel_api",
         "laravel_livewire",
     ]
-    
+
     # Common enum patterns for high-confidence matching
     ENUM_PATTERNS = {
         "status": [
@@ -67,7 +68,7 @@ class EnumSuggestionRule(Rule):
         "required", "nullable", "sometimes", "unique", "exists",
         "action", "cancelled", "id", "name", "email", "password",
         "iso2", "dial_code", "name_en", "name_ar", "max_users", "max_patients",
-        "id", "ip_address", "date", "type", "action", "clinic", "like", "asc", "desc",
+        "ip_address", "date", "type", "clinic", "like", "asc", "desc",
     }
     _NOISE_CONTEXTS = {
         "heading",
@@ -111,18 +112,18 @@ class EnumSuggestionRule(Rule):
         "reason",
         "source",
     )
-    
+
     # Patterns indicating enum is already being used
     _ENUM_USAGE_PATTERNS = [
         r"\w+Enum::\w+->value",  # StatusEnum::PENDING->value
         r"\w+Enum::\w+->name",   # StatusEnum::PENDING->name
         r"\w+Enum::class",       # StatusEnum::class
     ]
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._enum_usage_regex = [re.compile(p) for p in self._ENUM_USAGE_PATTERNS]
-    
+
     def analyze(
         self,
         facts: Facts,
@@ -131,18 +132,18 @@ class EnumSuggestionRule(Rule):
         findings = []
         existing_enums = self._existing_enum_names(facts)
         has_enum_usage = self._check_for_existing_enum_usage(facts)
-        
+
         # 1. Group values by context
         context_to_values = defaultdict(set)
         context_to_occurrences = defaultdict(list)
-        
+
         for literal in facts.string_literals:
             val = literal.value
             for occ in literal.occurrences:
                 # Skip translation files
                 if "/lang/" in occ.file_path.lower().replace("\\", "/"):
                     continue
-                
+
                 if occ.context:
                     normalized_context = self._normalize_context(occ.context)
                     if not normalized_context:
@@ -208,14 +209,14 @@ class EnumSuggestionRule(Rule):
             or normalized in self._tokenize_enum_name(enum_name)
             for enum_name in existing_enums
         )
-    
+
     def _check_for_existing_enum_usage(self, facts: Facts) -> bool:
         """Check if the codebase already uses enums extensively."""
         # Check for enum files in the codebase
         enum_file_count = len(facts.enums) if hasattr(facts, 'enums') else 0
         if enum_file_count >= 2:
             return True
-        
+
         # Check for enum usage patterns in class constant accesses
         enum_usage_count = 0
         for ref in getattr(facts, 'class_const_accesses', []):
@@ -224,9 +225,9 @@ class EnumSuggestionRule(Rule):
                 enum_usage_count += 1
                 if enum_usage_count >= 3:
                     return True
-        
+
         return False
-    
+
     def _find_enum_groups(self, literals: list[StringLiteral]) -> list[Finding]:
         findings = []
         min_occurrences = int(self.config.thresholds.get("min_occurrences", 3) or 3)
@@ -234,7 +235,7 @@ class EnumSuggestionRule(Rule):
             matching_vals = []
             all_occs = []
             normalized_contexts: set[str] = set()
-            
+
             for literal in literals:
                 if literal.value.lower() in pattern_values:
                     relevant = [occ for occ in literal.occurrences if "/lang/" not in occ.file_path.lower().replace("\\", "/")]
@@ -245,7 +246,7 @@ class EnumSuggestionRule(Rule):
                             normalized = self._normalize_context(getattr(occ, "context", None))
                             if normalized:
                                 normalized_contexts.add(normalized)
-            
+
             unique_vals = list(set(matching_vals))
             if len(unique_vals) < 3:
                 continue
@@ -265,7 +266,7 @@ class EnumSuggestionRule(Rule):
                 continue
 
             findings.append(self._create_cluster_finding(pattern_name, list(set(matching_vals)), all_occs))
-        
+
         return findings
 
     def _normalize_context(self, context: str | None) -> str:
@@ -331,7 +332,7 @@ class EnumSuggestionRule(Rule):
         if normalized in {"first_name", "last_name", "full_name", "clinic_name", "email", "phone_number"}:
             return True
         return bool(re.fullmatch(r"[a-z]+(?:_[a-z0-9]+)+", normalized)) and normalized.endswith(
-            ("_id", "_name", "_email", "_title", "_label", "_at", "_code")
+            ("_id", "_name", "_email", "_title", "_label", "_at", "_code"),
         )
 
     def _looks_like_ui_label(self, value: str) -> bool:
@@ -357,7 +358,7 @@ class EnumSuggestionRule(Rule):
         first = occurrences[0] if occurrences else StringOccurrence(file_path="", line_number=0, context=context)
         enum_name = f"{context.title()}Enum"
         val_list = sorted(values)
-        
+
         return self.create_finding(
             title=f"Create {enum_name} for related string literals",
             file=first.file_path,
@@ -376,7 +377,7 @@ class EnumSuggestionRule(Rule):
             metadata={"values": val_list, "context": context},
             tags=["enum", "dry", "type-safety"],
         )
-    
+
     def _generate_enum_fix(self, context: str, values: list[str]) -> str:
         enum_name = f"{context.title()}Enum"
         return (

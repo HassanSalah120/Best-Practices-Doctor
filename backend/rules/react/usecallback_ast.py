@@ -9,18 +9,16 @@ from __future__ import annotations
 
 import ast
 import re
-from typing import Any
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
 from rules.react.ast_utils import (
-    ReactASTAnalyzer,
     InlineHandler,
+    ReactASTAnalyzer,
     parse_react_file,
-    is_component_memoized,
 )
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class UseCallbackASTRule(Rule):

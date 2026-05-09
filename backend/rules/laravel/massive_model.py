@@ -3,10 +3,10 @@ Massive Model Rule
 
 Detects Eloquent models that have grown too large (too many methods / mixed responsibilities).
 """
-from schemas.facts import Facts, ClassInfo, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts, MethodInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MassiveModelRule(Rule):
@@ -107,7 +107,7 @@ class MassiveModelRule(Rule):
                     ),
                     tags=["maintainability", "models", "srp", "laravel"],
                     confidence=0.65,
-                )
+                ),
             )
 
         return findings

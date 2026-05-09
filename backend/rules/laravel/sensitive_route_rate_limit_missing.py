@@ -6,10 +6,10 @@ Detects public/auth-sensitive routes that are missing throttle/rate-limit middle
 
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts, RouteInfo
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class SensitiveRouteRateLimitMissingRule(Rule):
@@ -102,7 +102,7 @@ class SensitiveRouteRateLimitMissingRule(Rule):
                         "sensitive_route=true",
                         "rate_limit_middleware_missing=true",
                     ],
-                )
+                ),
             )
 
         return findings
@@ -118,7 +118,7 @@ class SensitiveRouteRateLimitMissingRule(Rule):
                 str(route.controller or "").lower(),
                 str(route.action or "").lower(),
                 str(route.name or "").lower(),
-            ]
+            ],
         )
         if not any(token in payload for token in self._SENSITIVE_TOKENS):
             return False

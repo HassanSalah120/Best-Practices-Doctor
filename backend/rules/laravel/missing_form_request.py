@@ -2,16 +2,16 @@
 Missing FormRequest Rule
 Suggests using FormRequest when inline validation is detected in controllers.
 """
-from schemas.facts import Facts, ValidationUsage
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
-from rules.base import Rule
 from core.project_recommendations import (
     enabled_capabilities,
     enabled_team_standards,
     project_aware_guidance,
     recommendation_context_tags,
 )
+from rules.base import Rule
+from schemas.facts import Facts, ValidationUsage
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MissingFormRequestRule(Rule):
@@ -38,7 +38,7 @@ class MissingFormRequestRule(Rule):
     - Cleaner controllers
     - Better testability
     """
-    
+
     id = "missing-form-request"
     name = "Missing FormRequest"
     description = "Suggests FormRequest for inline validation"
@@ -51,14 +51,14 @@ class MissingFormRequestRule(Rule):
         "laravel_api",
         "laravel_livewire",
     ]
-    
+
     def analyze(
         self,
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings = []
-        
+
         # Backwards/forwards compatible threshold keys.
         # Older rulesets used `max_validator_rules` for this same "suggest if >= N rules" threshold.
         min_rules = self.get_threshold("min_rules", None)
@@ -83,23 +83,23 @@ class MissingFormRequestRule(Rule):
         if "form_requests_expected" in team_standards:
             min_rules = max(1, int(min_rules) - 1)
             auth_flow_max_rules = max(1, auth_flow_max_rules - 1)
-        
+
         # Group validations by file and method
         for validation in facts.validations:
             # Skip if already using FormRequest
             if validation.validation_type == "form_request":
                 continue
-            
+
             # Count validation rules
             rule_count = sum(len(rules) for rules in validation.rules.values())
-            
+
             if rule_count >= min_rules:
                 # Check if this is in a controller
                 is_controller = any(
                     validation.file_path == c.file_path
                     for c in facts.controllers
                 )
-                
+
                 if is_controller:
                     if self._is_auth_flow_validation(validation) and rule_count <= auth_flow_max_rules:
                         continue
@@ -112,11 +112,11 @@ class MissingFormRequestRule(Rule):
                             project_type=project_type,
                             capabilities=capabilities,
                             team_standards=team_standards,
-                        )
+                        ),
                     )
-        
+
         return findings
-    
+
     def _create_finding(
         self,
         validation: ValidationUsage,
@@ -131,13 +131,13 @@ class MissingFormRequestRule(Rule):
         """Create a finding for missing FormRequest."""
         # Extract controller and method info from path
         method_name = validation.method_name or "unknown"
-        
+
         # Generate FormRequest class name suggestion
         suggested_class = self._suggest_form_request_name(validation.file_path, method_name)
         guidance = project_aware_guidance(facts, focus="controller_boundaries")
-        
+
         return self.create_finding(
-            title=f"Use FormRequest instead of inline validation",
+            title="Use FormRequest instead of inline validation",
             context=method_name,
             file=validation.file_path,
             line_start=validation.line_number,
@@ -182,18 +182,18 @@ class MissingFormRequestRule(Rule):
                 "overlap_role": "child",
             },
         )
-    
+
     def _suggest_form_request_name(self, file_path: str, method_name: str) -> str:
         """Generate a suggested FormRequest class name."""
         import re
-        
+
         # Extract controller name from path
         match = re.search(r'(\w+)Controller\.php$', file_path)
         if match:
             base_name = match.group(1)
         else:
             base_name = "Item"
-        
+
         # Map common method names to request names
         method_map = {
             "store": "Store",
@@ -202,9 +202,9 @@ class MissingFormRequestRule(Rule):
             "edit": "Update",
             "destroy": "Delete",
         }
-        
+
         action = method_map.get(method_name.lower(), method_name.title())
-        
+
         return f"{action}{base_name}Request"
 
     def _is_auth_flow_validation(self, validation: ValidationUsage) -> bool:
@@ -216,7 +216,7 @@ class MissingFormRequestRule(Rule):
             token in method_low
             for token in ("login", "register", "password", "reset", "verify", "twofactor", "two_factor", "forgot")
         )
-    
+
     def _generate_example(self, validation: ValidationUsage, class_name: str) -> str:
         """Generate before/after code example."""
         # Format rules for example
@@ -225,7 +225,7 @@ class MissingFormRequestRule(Rule):
             joined_rules = "', '".join(rules)
             rules_str += f"            '{field}' => ['{joined_rules}'],\n"
         rules_str += "        ]"
-        
+
         return f"""// Before (inline validation)
 public function store(Request $request)
 {{

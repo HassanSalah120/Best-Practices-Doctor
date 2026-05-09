@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from core.verification_helper import infer_verification_commands
 
 from .models import VerificationResult
-
 
 MAX_OUTPUT_CHARS = 2000
 
@@ -22,7 +21,7 @@ async def run_verification(
 ) -> list[VerificationResult]:
     results: list[VerificationResult] = []
     for command in commands:
-        started = datetime.now(timezone.utc)
+        started = datetime.now(UTC)
         try:
             proc = await asyncio.create_subprocess_shell(
                 command,
@@ -32,7 +31,7 @@ async def run_verification(
             )
             try:
                 stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
-                completed = datetime.now(timezone.utc)
+                completed = datetime.now(UTC)
                 out = stdout.decode("utf-8", errors="replace")
                 err = stderr.decode("utf-8", errors="replace")
                 results.append(
@@ -46,9 +45,9 @@ async def run_verification(
                         stderr_truncated=_truncate(err),
                         timed_out=False,
                         command_not_found=_looks_command_not_found(proc.returncode, err),
-                    )
+                    ),
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 proc.kill()
                 await proc.communicate()
                 results.append(
@@ -56,13 +55,13 @@ async def run_verification(
                         command=command,
                         cwd=str(cwd),
                         started_at=started,
-                        completed_at=datetime.now(timezone.utc),
+                        completed_at=datetime.now(UTC),
                         exit_code=None,
                         stdout_truncated="",
                         stderr_truncated="Timed out",
                         timed_out=True,
                         command_not_found=False,
-                    )
+                    ),
                 )
         except FileNotFoundError:
             results.append(
@@ -70,13 +69,13 @@ async def run_verification(
                     command=command,
                     cwd=str(cwd),
                     started_at=started,
-                    completed_at=datetime.now(timezone.utc),
+                    completed_at=datetime.now(UTC),
                     exit_code=None,
                     stdout_truncated="",
                     stderr_truncated="Command not found",
                     timed_out=False,
                     command_not_found=True,
-                )
+                ),
             )
     return results
 

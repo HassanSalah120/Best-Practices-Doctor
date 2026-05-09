@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class MissingNullGuardAfterRelationLoadRule(Rule):
@@ -95,7 +95,7 @@ class MissingNullGuardAfterRelationLoadRule(Rule):
                     suggested_fix=self.fix_suggestion,
                     tags=["laravel", "quality", "data-integrity", "relations"],
                     confidence=0.72,
-                )
+                ),
             )
         return findings
 
@@ -107,7 +107,7 @@ class MissingNullGuardAfterRelationLoadRule(Rule):
             or re.search(rf"abort_unless\s*\(\s*{relation_ref}", text)
             or re.search(rf"isset\s*\(\s*{relation_ref}", text)
             or re.search(rf"{relation_ref}\s*\?\?", text)
-            or (relation in text and "throw" in text)
+            or (relation in text and "throw" in text),
         )
 
     @staticmethod

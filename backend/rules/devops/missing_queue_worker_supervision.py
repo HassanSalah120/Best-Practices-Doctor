@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
-from ._helpers import iter_project_files, is_laravel_project, project_file_exists, read_project_file
+from ._helpers import is_laravel_project, iter_project_files, project_file_exists, read_project_file
 
 
 class MissingQueueWorkerSupervisionRule(Rule):
@@ -52,7 +52,7 @@ class MissingQueueWorkerSupervisionRule(Rule):
                 confidence=0.76,
                 tags=["devops", "queues", "supervision"],
                 evidence_signals=["queue_usage_detected=true", "queue_supervision_detected=false"],
-            )
+            ),
         ]
 
     def _uses_queues(self, facts: Facts) -> bool:

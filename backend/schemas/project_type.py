@@ -2,6 +2,7 @@
 Project Type Detection Schema
 """
 from enum import Enum
+
 from pydantic import BaseModel, Field
 
 
@@ -23,18 +24,18 @@ class ProjectInfo(BaseModel):
     project_type: ProjectType = ProjectType.UNKNOWN
     framework_version: str | None = None
     php_version: str | None = None
-    
+
     # Detected features
     features: list[str] = Field(default_factory=list)
     # e.g., ["inertia", "sanctum", "livewire", "horizon", "telescope"]
-    
+
     # Package info (from composer.json)
     packages: dict[str, str] = Field(default_factory=dict)
     dev_packages: dict[str, str] = Field(default_factory=dict)
-    
+
     # NPM packages (from package.json)
     npm_packages: dict[str, str] = Field(default_factory=dict)
-    
+
     # Project structure flags
     has_tests: bool = False
     has_api_routes: bool = False

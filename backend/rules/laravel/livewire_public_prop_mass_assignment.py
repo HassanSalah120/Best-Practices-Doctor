@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class LivewirePublicPropMassAssignmentRule(Rule):
@@ -88,6 +88,6 @@ class LivewirePublicPropMassAssignmentRule(Rule):
                     confidence=0.86,
                     tags=["laravel", "security", "livewire", "mass-assignment"],
                     evidence_signals=["livewire_public_prop_unlocked=true"],
-                )
+                ),
             )
         return findings

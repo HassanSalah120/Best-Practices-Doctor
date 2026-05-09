@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class SignedRoutesMissingSignatureMiddlewareRule(Rule):
@@ -30,7 +30,7 @@ class SignedRoutesMissingSignatureMiddlewareRule(Rule):
     ]
 
     _SIGNED_TOKENS = ("track", "redirect", "unsubscribe", "verify", "invitation", "invite", "magic-link", "magiclink")
-    
+
     # Patterns that indicate a notice/info page (not actual action)
     _NOTICE_TOKENS = ("notice", "info", "landing", "page", "show", "display")
     _INTERNAL_AUTH_TOKENS = ("auth", "verified", "password", "emailverification", "verification")
@@ -71,11 +71,11 @@ class SignedRoutesMissingSignatureMiddlewareRule(Rule):
                     str(route.controller or "").lower(),
                     str(route.action or "").lower(),
                     str(route.name or "").lower(),
-                ]
+                ],
             )
             if not any(tok in descriptor for tok in self._SIGNED_TOKENS):
                 continue
-            
+
             # Skip notice/info pages that don't need signature (e.g., verify-email notice)
             if any(tok in descriptor for tok in self._NOTICE_TOKENS):
                 continue
@@ -123,7 +123,7 @@ class SignedRoutesMissingSignatureMiddlewareRule(Rule):
                         *signal_evidence,
                         "signed_middleware_missing=true",
                     ],
-                )
+                ),
             )
         return findings
 

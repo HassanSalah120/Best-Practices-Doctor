@@ -8,7 +8,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TextIO
 
@@ -57,7 +57,7 @@ class FeedbackStore:
         if feedback_type not in self.VALID_TYPES:
             raise ValueError(f"Invalid feedback_type: {feedback_type}")
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         entry = FeedbackEntry(
             fingerprint=str(fingerprint or "").strip(),
             rule_id=str(rule_id or "").strip(),

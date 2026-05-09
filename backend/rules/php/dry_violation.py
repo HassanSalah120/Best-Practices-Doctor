@@ -6,10 +6,10 @@ from __future__ import annotations
 
 from fnmatch import fnmatch
 
-from schemas.facts import Facts, DuplicateBlock
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import DuplicateBlock, Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class DryViolationRule(Rule):
@@ -33,7 +33,7 @@ class DryViolationRule(Rule):
     Duplication is detected by the FactsBuilder using token hashing.
     This rule reports significant duplications.
     """
-    
+
     id = "dry-violation"
     name = "DRY Violation Detection"
     description = "Detects duplicate code blocks"
@@ -89,7 +89,7 @@ class DryViolationRule(Rule):
         "try {",
         "catch (",
     )
-    
+
     def analyze(
         self,
         facts: Facts,
@@ -151,7 +151,7 @@ class DryViolationRule(Rule):
         for file_path, group in by_file.items():
             if not group:
                 continue
-            
+
             # If just one violation, use it as is
             if len(group) == 1:
                 final_findings.append(group[0])
@@ -161,7 +161,7 @@ class DryViolationRule(Rule):
             group.sort(key=lambda x: x.line_start)
             first = group[0]
             count = len(group)
-            
+
             blocks_desc = ", ".join(f"lines {f.line_start}-{f.line_end}" for f in group[:3])
             if count > 3:
                 blocks_desc += f", and {count-3} more"
@@ -185,12 +185,12 @@ class DryViolationRule(Rule):
                 tags=["dry", "refactor", "duplication", "maintenance"],
                 confidence=0.8,
                 evidence_signals=[f"count={count}", f"file={file_path}"],
-                related_files=sorted({rf for f in group for rf in (f.related_files or []) if rf != file_path})[:10]
+                related_files=sorted({rf for f in group for rf in (f.related_files or []) if rf != file_path})[:10],
             )
-            
+
             for f in group:
                 aggregated.evidence_signals.append(f"block_line={f.line_start}-{f.line_end}: hash={f.context.replace('dup:', '')}")
-            
+
             final_findings.append(aggregated)
 
         return final_findings
@@ -241,7 +241,7 @@ class DryViolationRule(Rule):
                     token_count=token_count,
                     occurrences=merged_occurrences,
                     code_snippet=snippet[:200],
-                )
+                ),
             )
 
         normalized.sort(key=lambda d: (-int(d.token_count or 0), -len(d.occurrences or []), d.hash))

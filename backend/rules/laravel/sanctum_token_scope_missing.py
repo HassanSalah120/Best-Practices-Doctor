@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class SanctumTokenScopeMissingRule(Rule):
@@ -111,7 +111,7 @@ class SanctumTokenScopeMissingRule(Rule):
                         "abilities_missing_or_empty=true",
                         f"sanctum_context={int(self._has_sanctum_signal(text, facts))}",
                     ],
-                )
+                ),
             )
             break
         return findings

@@ -6,10 +6,10 @@ Detects broadcast channels that appear to allow access without authorization che
 
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class BroadcastChannelAuthorizationMissingRule(Rule):
@@ -85,7 +85,7 @@ class BroadcastChannelAuthorizationMissingRule(Rule):
                         "broadcast_channel_authorization_missing=true",
                         f"authorization_kind={kind or 'unknown'}",
                     ],
-                )
+                ),
             )
 
         return findings

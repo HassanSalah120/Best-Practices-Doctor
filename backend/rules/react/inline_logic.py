@@ -2,14 +2,15 @@
 Inline Logic Rule
 Detects API calls and complex logic directly in React components.
 """
-import re
 import os
+import re
 from pathlib import Path
-from schemas.facts import Facts, ReactComponentInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
-from rules.base import Rule
+
 from core.path_utils import normalize_rel_path
+from rules.base import Rule
+from schemas.facts import Facts, ReactComponentInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class InlineLogicRule(Rule):
@@ -35,7 +36,7 @@ class InlineLogicRule(Rule):
     - Service modules for API calls
     - Utility functions for transformations
     """
-    
+
     id = "inline-api-logic"
     name = "Inline API Logic Detection"
     description = "Detects API calls and logic in component bodies"
@@ -75,7 +76,7 @@ class InlineLogicRule(Rule):
     _API_SIDE_EFFECT_PATTERN = re.compile(r"\b(fetch\s*\(|axios\.)", re.IGNORECASE)
     _QUERY_HOOK_PATTERN = re.compile(r"\b(useQuery|useSWR)\s*\(", re.IGNORECASE)
     _SERVICE_IMPORT_MARKERS = ("/services/", "/api/", "service", "client", "repository")
-    
+
     def analyze(
         self,
         facts: Facts,
@@ -85,7 +86,7 @@ class InlineLogicRule(Rule):
         min_state_hook_count = max(3, int(self.get_threshold("min_state_hook_count", 4)))
         suppress_query_hook_usage = bool(self.get_threshold("suppress_query_hook_usage", True))
         require_fetch_or_axios_for_api_finding = bool(
-            self.get_threshold("require_fetch_or_axios_for_api_finding", True)
+            self.get_threshold("require_fetch_or_axios_for_api_finding", True),
         )
 
         for component in facts.react_components:
@@ -100,7 +101,7 @@ class InlineLogicRule(Rule):
                 if api_profile["suppressed_as_orchestrator_shell"]:
                     continue
                 findings.append(self._create_api_finding(component, api_profile))
-            
+
             if component.has_inline_state_logic:
                 logic_profile = self._logic_profile(component, facts)
                 if logic_profile["suppressed_as_composed_shell"]:
@@ -108,7 +109,7 @@ class InlineLogicRule(Rule):
                 if logic_profile["state_hook_count"] < min_state_hook_count:
                     continue
                 findings.append(self._create_logic_finding(component, logic_profile))
-        
+
         return findings
 
     def analyze_regex(
@@ -168,7 +169,7 @@ class InlineLogicRule(Rule):
                     f"nested_setters={len(nested_setters)}",
                     f"state_count={state_count}",
                 ],
-            )
+            ),
         )
         return findings
 
@@ -296,7 +297,7 @@ class InlineLogicRule(Rule):
             evidence_signals=profile["evidence_signals"],
             metadata={"decision_profile": profile},
         )
-    
+
     def _create_logic_finding(self, component: ReactComponentInfo, profile: dict[str, object]) -> Finding:
         """Create finding for inline state logic."""
         return self.create_finding(
@@ -324,7 +325,7 @@ class InlineLogicRule(Rule):
             evidence_signals=profile["evidence_signals"],
             metadata={"decision_profile": profile},
         )
-    
+
     def _generate_hook_example(self, name: str) -> str:
         """Generate hook extraction example."""
         return f"""// Before (API call in component)
@@ -364,7 +365,7 @@ function {name}() {{
     if (error) return <Error error={{error}} />;
     return <div>{{data?.name}}</div>;
 }}"""
-    
+
     def _generate_state_example(self, name: str) -> str:
         """Generate state logic extraction example."""
         return f"""// Before (complex logic in component)

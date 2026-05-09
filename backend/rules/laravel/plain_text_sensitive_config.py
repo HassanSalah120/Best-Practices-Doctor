@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class PlainTextSensitiveConfigRule(Rule):
@@ -119,7 +119,7 @@ class PlainTextSensitiveConfigRule(Rule):
                     confidence=0.94,
                     tags=["laravel", "security", "config", "secrets"],
                     evidence_signals=["sensitive_config_literal=true"],
-                )
+                ),
             )
         return findings
 

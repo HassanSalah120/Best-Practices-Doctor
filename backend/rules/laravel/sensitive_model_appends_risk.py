@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class SensitiveModelAppendsRiskRule(Rule):
@@ -115,7 +115,7 @@ class SensitiveModelAppendsRiskRule(Rule):
                         "model_appends_sensitive_attribute=true",
                         f"sensitive_append_count={len(sensitive)}",
                     ],
-                )
+                ),
             )
 
         return findings

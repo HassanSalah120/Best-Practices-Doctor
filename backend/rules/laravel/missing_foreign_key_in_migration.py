@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from schemas.facts import Facts, MigrationTableChange
+from rules.base import Rule
+from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class MissingForeignKeyInMigrationRule(Rule):
@@ -126,7 +126,7 @@ class MissingForeignKeyInMigrationRule(Rule):
                         "foreign_key_missing=true",
                         f"column_type={column_type or 'unknown'}",
                     ],
-                )
+                ),
             )
 
         return findings

@@ -108,10 +108,10 @@ class ReactProjectStructureConsistencyRule(Rule):
         duplicates = self._find_duplicates(candidates, scale, shared_roots)
         min_placement_issues = max(1, int(self.get_threshold("min_placement_issues", 2)))
         allow_context_hybrid_shared_colocation = bool(
-            self.get_threshold("allow_context_hybrid_shared_colocation", True)
+            self.get_threshold("allow_context_hybrid_shared_colocation", True),
         )
         suppress_when_context_pattern_matches = bool(
-            self.get_threshold("suppress_when_context_pattern_matches", True)
+            self.get_threshold("suppress_when_context_pattern_matches", True),
         )
         if allow_context_hybrid_shared_colocation and pattern == "hybrid" and context_pattern == "hybrid":
             placement = [
@@ -180,7 +180,7 @@ class ReactProjectStructureConsistencyRule(Rule):
                         "min_placement_issues": min_placement_issues,
                         "decision_profile": analysis_profile,
                     },
-                )
+                ),
             )
         if buried:
             findings.append(self._buried_finding(buried[0], pattern, analysis_profile))
@@ -334,11 +334,7 @@ class ReactProjectStructureConsistencyRule(Rule):
             issue_types: list[str] = []
             if pattern == "mixed-chaotic" and (len([k for k, v in families.items() if v]) >= 2 or families.get("ambiguous", 0)):
                 issue_types = ["inconsistent-placement", "missing-boundaries", "weak-discoverability"]
-            elif pattern == "category-based" and families.get("feature", 0) >= 2 and (families.get("global", 0) + families.get("shared", 0)) >= 2:
-                issue_types = ["inconsistent-placement", "missing-boundaries"]
-            elif pattern == "feature-based" and kind in {"services", "schemas", "validators"} and families.get("global", 0) >= 2 and families.get("feature", 0) >= 2:
-                issue_types = ["inconsistent-placement", "missing-boundaries"]
-            elif pattern == "feature-based" and kind == "hooks" and families.get("global", 0) >= 2 and families.get("feature", 0) >= 3:
+            elif pattern == "category-based" and families.get("feature", 0) >= 2 and (families.get("global", 0) + families.get("shared", 0)) >= 2 or pattern == "feature-based" and kind in {"services", "schemas", "validators"} and families.get("global", 0) >= 2 and families.get("feature", 0) >= 2 or pattern == "feature-based" and kind == "hooks" and families.get("global", 0) >= 2 and families.get("feature", 0) >= 3:
                 issue_types = ["inconsistent-placement", "missing-boundaries"]
             elif pattern == "hybrid" and ((families.get("ambiguous", 0) >= 1 and roots >= 3) or (kind in {"services", "schemas", "validators"} and families.get("global", 0) >= 2 and families.get("feature", 0) >= 2 and roots >= 4)):
                 issue_types = ["inconsistent-placement", "weak-discoverability"] if families.get("ambiguous", 0) else ["inconsistent-placement", "missing-boundaries"]
@@ -644,7 +640,7 @@ class ReactProjectStructureConsistencyRule(Rule):
                     "duplicate_kind": item["kind"],
                     "duplicate_name": item["name"],
                     "duplicate_domains": item["domains"],
-                }
+                },
             },
         )
 

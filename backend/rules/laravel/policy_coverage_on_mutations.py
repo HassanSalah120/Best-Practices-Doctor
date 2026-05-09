@@ -8,16 +8,16 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
-from rules.base import Rule
 from core.project_recommendations import (
     enabled_capabilities,
     enabled_team_standards,
     project_aware_guidance,
     recommendation_context_tags,
 )
+from rules.base import Rule
+from schemas.facts import Facts, MethodInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class PolicyCoverageOnMutationsRule(Rule):
@@ -223,7 +223,7 @@ class PolicyCoverageOnMutationsRule(Rule):
                         "overlap_rank": 210,
                         "overlap_role": "parent",
                     },
-                )
+                ),
             )
 
         return findings
@@ -265,7 +265,7 @@ class PolicyCoverageOnMutationsRule(Rule):
                 continue
             if m.name != "__construct":
                 continue
-            lc_calls = " ".join((m.call_sites or [])).lower()
+            lc_calls = " ".join(m.call_sites or []).lower()
             has_mw = "middleware(" in lc_calls
             has_auth = any(tok in lc_calls for tok in self._AUTH_MIDDLEWARE_TOKENS)
             if "authorizeresource(" in lc_calls:

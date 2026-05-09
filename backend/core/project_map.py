@@ -12,26 +12,25 @@ Design goals:
 
 from __future__ import annotations
 
-from collections import defaultdict, deque
-from copy import deepcopy
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
+from collections import defaultdict, deque
+from copy import deepcopy
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from analysis.dependency_graph import get_dependency_graph
 from schemas.facts import Facts, MethodInfo
 from schemas.report import ScanReport
 
-
 _THIS_MEMBER_CALL = re.compile(r"\$this->\s*(?P<name>[A-Za-z_]\w*)\s*\(")
 _SCOPED_INTERNAL_CALL = re.compile(r"(?:self|static|parent)::\s*(?P<name>[A-Za-z_]\w*)\s*\(")
 _SCOPED_EXTERNAL_CALL = re.compile(
-    r"\\?(?P<class>[A-Za-z_][A-Za-z0-9_\\\\]*)::\s*(?P<name>[A-Za-z_]\w*)\s*\("
+    r"\\?(?P<class>[A-Za-z_][A-Za-z0-9_\\\\]*)::\s*(?P<name>[A-Za-z_]\w*)\s*\(",
 )
 
 _DEFAULT_FRONTEND_EXTS = (".tsx", ".ts", ".jsx", ".js")
@@ -49,7 +48,7 @@ _DEFAULT_IMPORT_RESOLUTION_SUFFIXES = (
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _stable_short_hash(raw: str, length: int = 12) -> str:
@@ -333,7 +332,7 @@ class ProjectMapBuilder:
                     "to": dst,
                     "type": edge_type,
                     "metadata": dict(metadata or {}),
-                }
+                },
             )
 
         classes = list(getattr(facts, "classes", []) or [])
@@ -457,7 +456,7 @@ class ProjectMapBuilder:
                     "file": _normalized_path(str(r.file_path or "")),
                     "line": int(getattr(r, "line_number", 0) or 0),
                     "entry_method_id": method_id,
-                }
+                },
             )
 
         # Method call/usage edges.
@@ -757,7 +756,7 @@ class ProjectMapBuilder:
                     "controller": entry.get("controller", ""),
                     "action": entry.get("action", ""),
                     "children": [entry.get("entry_method_id")] if entry.get("entry_method_id") else [],
-                }
+                },
             )
 
         def class_tree(kind: str) -> list[dict[str, Any]]:
@@ -772,7 +771,7 @@ class ProjectMapBuilder:
                             "id": f"method:{fqcn}::{m.name}#{int(m.line_start or 0)}",
                             "label": f"{m.name}()",
                             "type": "method",
-                        }
+                        },
                     )
                 out.append(
                     {
@@ -781,7 +780,7 @@ class ProjectMapBuilder:
                         "type": kind,
                         "file": _normalized_path(str(c.file_path or "")),
                         "children": method_children,
-                    }
+                    },
                 )
             return out
 
@@ -796,7 +795,7 @@ class ProjectMapBuilder:
                     "label": p,
                     "type": "file",
                     "children": [dict(item) for item in components_by_file.get(p, [])],
-                }
+                },
             )
         return {
             "backend": {
@@ -858,7 +857,7 @@ class ProjectMapBuilder:
                     "title": title,
                     "description": description,
                     "metadata": dict(metadata or {}),
-                }
+                },
             )
 
         # Dead methods: no inbound calls and not route entrypoints and not magic methods.
@@ -877,7 +876,7 @@ class ProjectMapBuilder:
                     "label": f"{_class_base_name(str(info.class_fqcn or ''))}::{info.name}",
                     "file": _normalized_path(info.file_path),
                     "line_start": int(info.line_start or 0),
-                }
+                },
             )
             push_warning(
                 warning_type="dead_method",
@@ -952,7 +951,7 @@ class ProjectMapBuilder:
                         "label": _class_base_name(fqcn_norm),
                         "method_count": method_count,
                         "dependency_count": out_count,
-                    }
+                    },
                 )
                 push_warning(
                     warning_type="god_class_candidate",
@@ -1003,7 +1002,7 @@ class ProjectMapBuilder:
                         "depth": len(chain),
                         "path": chain,
                         "truncated": truncated,
-                    }
+                    },
                 )
                 push_warning(
                     warning_type="deep_call_chain",
@@ -1019,7 +1018,7 @@ class ProjectMapBuilder:
                 -_severity_rank(str(item.get("severity", ""))),
                 str(item.get("type", "")),
                 str(item.get("node_id", "")),
-            )
+            ),
         )
 
         findings_by_rule: dict[str, int] = defaultdict(int)
@@ -1099,7 +1098,7 @@ class ProjectMapBuilder:
                     str(e.get("to", ""))
                     for e in out_edges
                     if str(e.get("type", "")) in {"depends_on", "uses", "imports", "renders"}
-                }
+                },
             )
             called_by = sorted({str(e.get("from", "")) for e in in_edges if str(e.get("type", "")) == "calls"})
             used_by = sorted(
@@ -1107,7 +1106,7 @@ class ProjectMapBuilder:
                     str(e.get("from", ""))
                     for e in in_edges
                     if str(e.get("type", "")) in {"depends_on", "uses", "imports", "renders"}
-                }
+                },
             )
             dependency_index[node_id] = {
                 "id": node_id,
@@ -1232,7 +1231,7 @@ class ProjectMapBuilder:
                     "type": str(node.get("type", "")),
                     "label": str(node.get("label", "")),
                     "file": str(node.get("file", "")),
-                }
+                },
             )
         return {
             "start_id": start_id,
@@ -1371,7 +1370,7 @@ def build_minimal_artifact_from_report(report: ScanReport) -> dict[str, Any]:
             {
                 "title": "Fallback Map",
                 "body": "Project map artifact was unavailable for this scan; showing finding-to-file fallback graph.",
-            }
+            },
         ],
     }
 

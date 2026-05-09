@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 from ._helpers import is_laravel_project, project_file_exists, read_project_file
 
@@ -49,7 +49,7 @@ class EnvCommittedToGitRule(Rule):
                 confidence=0.97,
                 tags=["devops", "secrets", "gitignore"],
                 evidence_signals=["gitignore_ignores_env=false"],
-            )
+            ),
         ]
 
     def _ignores_env(self, content: str) -> bool:

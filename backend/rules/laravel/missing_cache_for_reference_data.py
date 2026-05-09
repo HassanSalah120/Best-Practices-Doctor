@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from schemas.facts import Facts, QueryUsage
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts, QueryUsage
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MissingCacheForReferenceDataRule(Rule):
@@ -256,7 +256,7 @@ class MissingCacheForReferenceDataRule(Rule):
                     confidence=confidence,
                     tags=["performance", "caching", "reference-data", "optimization"],
                     evidence_signals=evidence,
-                )
+                ),
             )
 
         return findings

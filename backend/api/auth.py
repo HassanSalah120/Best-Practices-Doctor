@@ -1,5 +1,7 @@
-from fastapi import Request, HTTPException
 import os
+
+from fastapi import HTTPException, Request
+
 from config import settings
 
 
@@ -32,15 +34,15 @@ async def verify_token(request: Request):
         token_query = request.query_params.get("token")
         if token_query == expected_token:
             return
-        
+
         raise HTTPException(
             status_code=401,
-            detail="Unauthorized: Missing or invalid security token"
+            detail="Unauthorized: Missing or invalid security token",
         )
 
     token = auth_header.split(" ")[1]
     if token != expected_token:
         raise HTTPException(
             status_code=401,
-            detail="Unauthorized: Invalid security token"
+            detail="Unauthorized: Invalid security token",
         )

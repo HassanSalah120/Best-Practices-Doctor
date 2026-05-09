@@ -11,11 +11,11 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 
-from schemas.facts import Facts, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Category, Finding, FindingClassification, Severity
-from rules.base import Rule
 from core.project_recommendations import recommendation_context_tags
+from rules.base import Rule
+from schemas.facts import Facts, MethodInfo
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 @dataclass
@@ -228,7 +228,7 @@ class ControllerIndexFilterDuplicationRule(Rule):
                         "overlap_role": "child",
                         "overlap_with_rule": "dry-violation",
                     },
-                )
+                ),
             )
             per_file_count[file_path] += 1
 
@@ -270,7 +270,7 @@ class ControllerIndexFilterDuplicationRule(Rule):
                     filter_keys=extracted[3],
                     inline_filter_count=extracted[4],
                     has_render_response_context=self._has_response_render_context(normalized_calls),
-                )
+                ),
             )
         return out
 
@@ -316,7 +316,7 @@ class ControllerIndexFilterDuplicationRule(Rule):
             human_parts.append(
                 f"{key_name}({source_key}"
                 f"{'->trim' if has_trim else ''}"
-                f"{'->value' if has_value else ''})"
+                f"{'->value' if has_value else ''})",
             )
 
         signature = "|".join(signature_parts)

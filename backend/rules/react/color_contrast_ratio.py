@@ -8,12 +8,12 @@ Note: This is a heuristic check - actual contrast requires computed styles.
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from collections.abc import Iterable
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ColorContrastRatioRule(Rule):
@@ -31,7 +31,7 @@ class ColorContrastRatioRule(Rule):
         r"<(?P<tag>p|h[1-6]|span|div|li|td|th|label|a|button|small|strong|em)\b(?P<attrs>[^>]*)>",
         re.IGNORECASE,
     )
-    
+
     _CLASS_ATTR = re.compile(r'\b(?:className|class)\s*=\s*["\'](?P<classes>[^"\']+)["\']', re.IGNORECASE)
     _INLINE_COLOR = re.compile(r"(?:^|[,{;]\s*)(?:color)\s*:\s*(?P<color>#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))", re.IGNORECASE)
     _INLINE_BG = re.compile(
@@ -134,10 +134,10 @@ class ColorContrastRatioRule(Rule):
             line = content.count("\n", 0, m.start()) + 1
             if line in seen_lines:
                 continue
-            
+
             tag = m.group("tag").lower()
             attrs = m.group("attrs") or ""
-            
+
             classes = self._extract_classes(attrs)
             is_large_text = tag in {"h1", "h2", "h3", "h4", "h5", "h6"} or self._LARGE_TEXT_CLASS.search(" ".join(classes))
             threshold = 3.0 if is_large_text else 4.5
@@ -192,7 +192,7 @@ class ColorContrastRatioRule(Rule):
                         f"contrast_ratio={ratio:.2f}",
                         f"threshold={threshold:.1f}",
                     ],
-                )
+                ),
             )
 
         return findings

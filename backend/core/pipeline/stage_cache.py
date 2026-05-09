@@ -10,7 +10,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-
 _STAGE_VERSIONS = {
     "detect_project": 1,
     "build_facts": 1,

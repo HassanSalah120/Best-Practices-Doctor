@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MultipleExportedComponentsPerFileRule(Rule):
@@ -80,19 +80,19 @@ class MultipleExportedComponentsPerFileRule(Rule):
         # Get all exported names
         all_exported = set(self._EXPORT_FN.findall(content or ""))
         all_exported.update(self._EXPORT_CONST.findall(content or ""))
-        
+
         # Get default exports (only one allowed per file)
         default_exports = self._EXPORT_DEFAULT.findall(content or "")
         default_exports = [e for e in default_exports if e]  # Filter out empty matches
-        
+
         # Get type exports (these don't count as components)
         type_exports = self._TYPE_EXPORT.findall(content or "")
-        
+
         # Remove type exports from component list
         for type_name in type_exports:
             if type_name in all_exported:
                 all_exported.discard(type_name)
-        
+
         # Check if file has more than one default export (this is the real problem)
         if len(default_exports) > 1:
             line = 1
@@ -116,15 +116,15 @@ class MultipleExportedComponentsPerFileRule(Rule):
                     tags=["react", "structure", "components", "module-boundaries"],
                     confidence=0.9,
                     evidence_signals=[f"default_exports={len(default_exports)}"],
-                )
+                ),
             ]
-        
+
         if len(all_exported) <= 1:
             return []
-        
+
         names = sorted(all_exported)
         base_names = [self._variant_base_name(n) for n in names]
-        
+
         # If all components share a common base name, they're likely variants
         if len(set(base_names)) == 1:
             return []
@@ -155,7 +155,7 @@ class MultipleExportedComponentsPerFileRule(Rule):
                 tags=["react", "structure", "components", "module-boundaries"],
                 confidence=0.78,
                 evidence_signals=[f"exported_components={len(all_exported)}"],
-            )
+            ),
         ]
 
     @classmethod

@@ -84,7 +84,7 @@ class ScoringStage:
                     "warnings": list(state.runtime_contracts.warnings),
                 }
             state.report.analysis_debug["requested_project_context"] = dict(
-                context.request.project_context_overrides or {}
+                context.request.project_context_overrides or {},
             )
             logger.info(
                 "[Pipeline] scoring complete",

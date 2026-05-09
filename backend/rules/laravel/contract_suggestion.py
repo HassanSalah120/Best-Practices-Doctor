@@ -3,10 +3,10 @@ Contract Suggestion Rule
 
 Suggests injecting interfaces (contracts) instead of concrete classes.
 """
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ContractSuggestionRule(Rule):
@@ -31,14 +31,14 @@ class ContractSuggestionRule(Rule):
     - Concrete classes are type-hinted in constructors
     - Especially for Service or Repository classes
     """
-    
+
     id = "contract-suggestion"
     name = "Contract-Based Development"
     description = "Suggests using Interfaces (Contracts) for dependency injection"
     category = Category.ARCHITECTURE
     default_severity = Severity.LOW
     applicable_project_types = ["laravel_api", "laravel_blade", "laravel_inertia_react", "laravel_inertia_vue"]
-    
+
     def analyze(
         self,
         facts: Facts,
@@ -52,12 +52,12 @@ class ContractSuggestionRule(Rule):
             for c in [*facts.contracts, *facts.classes]
             if str(c.fqcn or "").split("\\")[-1].endswith(("Interface", "Contract"))
         }
-        
+
         # Analyze constructors
         for method in facts.methods:
             if method.name != "__construct":
                 continue
-                
+
             # Check constructor parameters for concrete type hints
             for param in method.parameters:
                 parsed = self._parse_typed_param(param)
@@ -98,7 +98,7 @@ class ContractSuggestionRule(Rule):
     def _build_fqcn_by_basename(classes_by_fqcn: dict[str, object]) -> dict[str, str]:
         out: dict[str, str] = {}
         ambiguous: set[str] = set()
-        for fqcn in classes_by_fqcn.keys():
+        for fqcn in classes_by_fqcn:
             base = fqcn.split("\\")[-1]
             if base in ambiguous:
                 continue

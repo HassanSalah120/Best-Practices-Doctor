@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import hashlib
 import fnmatch
+import hashlib
 import json
 import re
 import subprocess
@@ -12,10 +12,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from core.verification_helper import infer_verification_commands
 from schemas.finding import Finding
 from schemas.report import ScanReport
-from core.verification_helper import infer_verification_commands
-
 
 MANAGED_START = "<!-- BPD:AGENT-RULES:START -->"
 MANAGED_END = "<!-- BPD:AGENT-RULES:END -->"
@@ -177,7 +176,7 @@ class AgentRulesGenerator:
                     "kind": target.kind,
                     "status": "unchanged" if current == final_content else "pending",
                     "content": final_content,
-                }
+                },
             )
 
         return {
@@ -250,7 +249,7 @@ class AgentRulesGenerator:
                     "action": action,
                     "managed_block_before": None if current is None else self._managed_section_for_diff(current),
                     "managed_block_after": self._managed_section_for_diff(next_content),
-                }
+                },
             )
 
         return {
@@ -485,7 +484,7 @@ class AgentRulesGenerator:
                     for rule_id, config in ruleset.rules.items()
                     if bool(getattr(config, "enabled", True))
                     and resolve_rule_alias(str(rule_id)) in ALL_RULES
-                }
+                },
             )
             source = "active ruleset/profile"
         else:
@@ -541,7 +540,7 @@ class AgentRulesGenerator:
                     "fix_suggestion": str(getattr(rule_cls, "fix_suggestion", "") or ""),
                     "examples": dict(getattr(rule_cls, "examples", {}) or {}),
                     "tags": tags,
-                }
+                },
             )
 
         return {
@@ -593,7 +592,7 @@ class AgentRulesGenerator:
         ]
         project_context_payloads: list[Any] = []
         if hasattr(report, "project_context"):
-            project_context_payloads.append(getattr(report, "project_context"))
+            project_context_payloads.append(report.project_context)
         debug = getattr(report, "analysis_debug", None)
         if isinstance(debug, dict):
             project_context_payloads.append(debug.get("project_context"))
@@ -602,29 +601,29 @@ class AgentRulesGenerator:
         is_multitenant = bool(
             any(any(token in path for token in tenant_tokens) for path in [*lower_paths, *scanned_paths])
             or self._context_has_tenant_signal(project_context_payloads)
-            or any(token in " ".join(features) for token in ("tenant", "clinic"))
+            or any(token in " ".join(features) for token in ("tenant", "clinic")),
         )
         has_payments = bool(
             any("payment" in rid or "webhook" in rid or "billing" in rid for rid in rule_ids)
             or any("/payment/" in path or "/payments/" in path or "/billing/" in path or "webhook" in path for path in lower_paths)
             or (project_root / "app" / "Actions" / "Payment").exists()
-            or (project_root / "app" / "Services" / "Payment").exists()
+            or (project_root / "app" / "Services" / "Payment").exists(),
         )
         has_queues = bool(
             any("job-" in rid or "queue" in rid or "listener-" in rid or "shouldqueue" in rid for rid in rule_ids)
             or any(path.startswith("app/jobs/") or "/listeners/" in path for path in lower_paths)
-            or (project_root / "app" / "Jobs").exists()
+            or (project_root / "app" / "Jobs").exists(),
         )
         uses_inertia = bool(
             any("inertia" in rid for rid in rule_ids)
             or "inertia" in project_type
-            or any("inertia" in feature for feature in features)
+            or any("inertia" in feature for feature in features),
         )
         has_react = bool(
             any("react" in rid for rid in rule_ids)
             or any("react" in feature for feature in features)
             or (project_root / "resources" / "js").exists()
-            or (project_root / "package.json").exists()
+            or (project_root / "package.json").exists(),
         )
         is_api_only = bool("controller-returning-view-in-api" in rule_ids or project_type == "laravel_api")
         return {
@@ -760,7 +759,7 @@ class AgentRulesGenerator:
                     "related_rules": [self._s(rule) for rule in related],
                     "count": count,
                     "fingerprint": str(getattr(finding, "fingerprint", "")),
-                }
+                },
             )
         return out
 
@@ -893,7 +892,7 @@ class AgentRulesGenerator:
                     f"Generated from scan `{self._s(report.id)}`.",
                     "",
                     "No enabled rules were available for this scan.",
-                ]
+                ],
             ).strip() + "\n"
 
         severity_counts: dict[str, int] = {}
@@ -914,7 +913,7 @@ class AgentRulesGenerator:
                     f"Profile/source: `{self._s(str(catalog.get('profile', 'active/default')))} / {self._s(str(catalog.get('source', 'unknown')))}`.",
                     f"Total enabled rules: {len(rules)}.",
                     "Scores in reports are computed per scan; this catalog is rule metadata only.",
-                ]
+                ],
             ),
             "## Summary",
             _bullet(
@@ -923,7 +922,7 @@ class AgentRulesGenerator:
                     + ", ".join(f"{severity}={count}" for severity, count in sorted(severity_counts.items())),
                     "Group counts: "
                     + ", ".join(f"{group}={count}" for group, count in sorted(group_counts.items())),
-                ]
+                ],
             ),
         ]
 
@@ -995,7 +994,7 @@ class AgentRulesGenerator:
                     "Read `AGENTS.md`, `RULES.md`, `SKILLS.md`, `.bpdoctor/agent/RULES.md`, and `.bpdoctor/agent/RULE_CATALOG.md` before changing code.",
                     "Use `.bpdoctor/agent/RULE_CATALOG.md` as the exhaustive list of rules this project/profile follows.",
                     "Treat this as scanner calibration plus project-specific edit policy, not generic advice.",
-                ]
+                ],
             ),
             "## Operating Protocol",
             self._format_operating_protocol(),
@@ -1014,7 +1013,7 @@ class AgentRulesGenerator:
                     "Never use Model::findOrFail($id) without tenant scope.\n"
                     "Verify the model has a tenant key before adding scope.\n"
                     "Global models (roles, permissions, settings) may be intentionally unscoped - confirm before adding scope.",
-                ]
+                ],
             )
         if signals.get("has_payments"):
             sections.extend(
@@ -1025,9 +1024,9 @@ class AgentRulesGenerator:
                             "Payment webhook handlers MUST validate HMAC/signature before processing payload data.",
                             "Never process a webhook payload before verifying origin and replay protection.",
                             "Redirect and campaign URL handling must use static allowlists, not hosts parsed from user input.",
-                        ]
+                        ],
                     ),
-                ]
+                ],
             )
 
         sections.extend(
@@ -1040,12 +1039,12 @@ class AgentRulesGenerator:
                         "If a finding appears false positive, do not edit code first.",
                         "Document file, line, evidence, and architectural reason.",
                         "Prefer BPD calibration, project memory, or targeted suppression with evidence over blind suppression.",
-                    ]
+                    ],
                 ),
                 "## Scanner Calibration Notes",
                 self._format_guardrails(context, compact=True),
                 "Run BPD scan for full list.",
-            ]
+            ],
         )
         return _limit_lines("\n\n".join(section for section in sections if section), 80)
 
@@ -1122,13 +1121,13 @@ Use this skill whenever an AI agent edits, reviews, refactors, or triages this p
                     "Never use Model::findOrFail($id) without tenant scope.\n"
                     "Verify the model has a tenant key before adding scope.\n"
                     "Global models (roles, permissions, settings) may be intentionally unscoped - confirm before adding scope.",
-                ]
+                ],
             )
         sections.extend(
             [
                 "## If A Finding Looks Wrong",
                 "Document evidence. Do not suppress blindly. Run BPD scan to verify.",
-            ]
+            ],
         )
         return _limit_lines("\n\n".join(sections), 40)
 
@@ -1156,7 +1155,7 @@ Use this skill whenever an AI agent edits, reviews, refactors, or triages this p
                 [
                     f"After changes, run BPD scan and confirm score.security does not decrease from current baseline: {getattr(score, 'security', 100) if score else 100}.",
                     "If the finding was false positive, document the evidence instead of editing code.",
-                ]
+                ],
             ),
             "## High-Risk Files To Review First",
             "\n".join(f"- [ ] `{path}`" for path in high_risk_files) if high_risk_files else "- [ ] No high-risk files were identified.",
@@ -1191,7 +1190,7 @@ Use this skill whenever an AI agent edits, reviews, refactors, or triages this p
                     f"Queue jobs: {'YES' if signals.get('has_queues') else 'NO'}",
                     f"Inertia SPA: {'YES' if signals.get('uses_inertia') else 'NO'}",
                     f"Payments/webhooks: {'YES' if signals.get('has_payments') else 'NO'}",
-                ]
+                ],
             ),
             "## Current Health",
             f"Security: {getattr(score, 'security', 100) if score else 100} | Performance: {getattr(score, 'performance', 100) if score else 100} | Overall: {getattr(score, 'overall', 100) if score else 100}",
@@ -1415,7 +1414,7 @@ When fixing a BPD finding:
                     "sha256": _sha256(content),
                     "owned": target.owned,
                     "kind": target.kind,
-                }
+                },
             )
         payload = {
             "version": PACK_VERSION,
@@ -1445,7 +1444,7 @@ When fixing a BPD finding:
             rows.append(
                 f"{idx}. DO NOT leave `{item.get('rule_name')}` unresolved ({item.get('severity')}) at {location}. "
                 f"{_truncate_at_sentence(str(item.get('fix_suggestion') or 'Resolve this finding before merging.'), max_chars)}"
-                f"{count_note}{related_note}"
+                f"{count_note}{related_note}",
             )
         return "\n".join(rows)
 
@@ -1456,7 +1455,7 @@ When fixing a BPD finding:
             location = f"`{item.get('file')}`" + (f":{line}" if line else "")
             rows.append(
                 f"`{item.get('rule_id')}` ({item.get('severity')}) at {location}: "
-                f"{_compact(str(item.get('fix_suggestion') or ''), 180)}"
+                f"{_compact(str(item.get('fix_suggestion') or ''), 180)}",
             )
         return _bullet(rows) if rows else "No selected high-signal findings."
 
@@ -1467,7 +1466,7 @@ When fixing a BPD finding:
             rows.append(
                 f"Rule `{self._s(str(entry.get('rule_id', '')) )}`: marked as "
                 f"`{self._s(str(entry.get('feedback_type', '')) )}` by team "
-                f"(last reviewed: `{self._s(str(entry.get('timestamp', 'unknown')) )}`)."
+                f"(last reviewed: `{self._s(str(entry.get('timestamp', 'unknown')) )}`).",
             )
 
         suppressions = [item for item in (context.get("suppressions") or []) if isinstance(item, dict)]
@@ -1477,7 +1476,7 @@ When fixing a BPD finding:
                 f"Suppression `{self._s(str(suppression.get('id', '')) )}` for "
                 f"`{self._s(str(suppression.get('rule_id', '*')) )}` on "
                 f"`{self._s(str(suppression.get('file_pattern', '')) )}`"
-                + (f": {reason}" if reason else ".")
+                + (f": {reason}" if reason else "."),
             )
         return _bullet(rows) if rows else "No known false-positive decisions were recorded for this project yet."
 
@@ -1500,7 +1499,7 @@ When fixing a BPD finding:
                 rows.append(
                     f"`{item.rule_id}` ({_enum_value(getattr(item, 'max_severity', ''))}): "
                     f"{_compact(getattr(item, 'title', ''), 90)}. "
-                    f"Files: {len(files)}. Fix: {_compact(fix, 160)}"
+                    f"Files: {len(files)}. Fix: {_compact(fix, 160)}",
                 )
             return _bullet(rows)
 
@@ -1513,7 +1512,7 @@ When fixing a BPD finding:
             files = {str(f.file) for f in findings}
             rows.append(
                 f"`{rule_id}` ({_enum_value(sample.severity)}): {len(findings)} finding(s) across {len(files)} file(s). "
-                f"Fix: {_compact(sample.suggested_fix, 160)}"
+                f"Fix: {_compact(sample.suggested_fix, 160)}",
             )
         return _bullet(rows) if rows else "No active findings were recorded in the latest scan."
 
@@ -1557,7 +1556,7 @@ When fixing a BPD finding:
                 reason = _compact(str(item.get("reason", "")), 140)
                 rows.append(
                     f"Suppression `{item.get('id', '')}`: `{item.get('rule_id', '*')}` on `{item.get('file_pattern', '')}`"
-                    + (f" because {reason}" if reason else "")
+                    + (f" because {reason}" if reason else ""),
                 )
             if len(suppressions) > 25:
                 rows.append(f"{len(suppressions) - 25} additional suppression(s) omitted from this summary.")

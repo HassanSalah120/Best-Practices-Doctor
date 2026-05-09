@@ -6,10 +6,10 @@ Detects request host usage in redirect/URL construction without clear trust boun
 
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts, MethodInfo
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class HostHeaderPoisoningRiskRule(Rule):
@@ -86,7 +86,7 @@ class HostHeaderPoisoningRiskRule(Rule):
                     confidence=confidence,
                     tags=["laravel", "security", "host-header", "redirect"],
                     evidence_signals=["host_source=true", "redirect_sink=true", "trusted_host_guard=false"],
-                )
+                ),
             )
         return findings
 

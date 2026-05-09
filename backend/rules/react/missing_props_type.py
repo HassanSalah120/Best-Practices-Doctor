@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MissingPropsTypeRule(Rule):
@@ -27,7 +27,7 @@ class MissingPropsTypeRule(Rule):
     _COMPONENT_PROPS_PATTERNS = [
         # function Component({ prop1, prop2 })
         re.compile(r"function\s+[A-Z][a-zA-Z0-9]*\s*\(\s*\{[^}]*\}\s*\)", re.IGNORECASE),
-        # const Component = ({ prop1, prop2 }) => 
+        # const Component = ({ prop1, prop2 }) =>
         re.compile(r"const\s+[A-Z][a-zA-Z0-9]*\s*=\s*\(\s*\{[^}]*\}\s*\)\s*=>", re.IGNORECASE),
         # const Component: FC<Props> = ({ ... })
         re.compile(r"const\s+[A-Z][a-zA-Z0-9]*\s*:\s*FC", re.IGNORECASE),
@@ -48,7 +48,7 @@ class MissingPropsTypeRule(Rule):
 
     # Pattern to extract component name
     _COMPONENT_NAME_PATTERN = re.compile(
-        r"(?:function|const)\s+([A-Z][a-zA-Z0-9]*)\s*(?:=|<|\()"
+        r"(?:function|const)\s+([A-Z][a-zA-Z0-9]*)\s*(?:=|<|\()",
     )
 
     _ALLOWLIST_PATHS = (
@@ -126,7 +126,7 @@ class MissingPropsTypeRule(Rule):
             # Check if this component uses destructured props
             props_pattern = re.compile(
                 rf"(?:function|const)\s+{comp_name}\s*(?:<[^>]+>)?\s*\(\s*\{{[^}}]*\}}",
-                re.IGNORECASE
+                re.IGNORECASE,
             )
             if not props_pattern.search(text):
                 continue
@@ -184,7 +184,7 @@ class MissingPropsTypeRule(Rule):
                     ),
                     confidence=0.70,
                     tags=["typescript", "react", "props", "type-safety"],
-                )
+                ),
             )
 
         return findings

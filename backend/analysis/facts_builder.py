@@ -4,27 +4,44 @@ Facts Builder
 Extracts raw facts from source files using Tree-sitter AST parsing.
 This module builds the Facts object that represents the codebase.
 """
+import fnmatch
 import logging
 import threading
+from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Generator
-import fnmatch
+from pathlib import Path
 
-from schemas.facts import (
-    Facts, ClassInfo, MethodInfo, RouteInfo,
-    QueryUsage, ValidationUsage, DuplicateBlock,
-    StringLiteral, StringOccurrence, BladeQuery, BladeRawEcho, EnvUsage, ReactComponentInfo,
-    RelationAccess, AssocArrayLiteral, ConfigUsage,
-    UseImport, FqcnReference, ClassConstAccess,
-    MigrationTableChange, MigrationIndexDefinition, MigrationForeignKeyDefinition,
-    ModelAttributeConfig, BroadcastChannelDefinition,
-)
-from schemas.project_type import ProjectInfo
+from core.hashing import fast_hash_hex
 from core.path_utils import normalize_rel_path
 from core.test_detection import count_test_files
-from core.hashing import fast_hash_hex
+from schemas.facts import (
+    AssocArrayLiteral,
+    BladeQuery,
+    BladeRawEcho,
+    BroadcastChannelDefinition,
+    ClassConstAccess,
+    ClassInfo,
+    ConfigUsage,
+    DuplicateBlock,
+    EnvUsage,
+    Facts,
+    FqcnReference,
+    MethodInfo,
+    MigrationForeignKeyDefinition,
+    MigrationIndexDefinition,
+    MigrationTableChange,
+    ModelAttributeConfig,
+    QueryUsage,
+    ReactComponentInfo,
+    RelationAccess,
+    RouteInfo,
+    StringLiteral,
+    StringOccurrence,
+    UseImport,
+    ValidationUsage,
+)
+from schemas.project_type import ProjectInfo
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +67,7 @@ class FactsBuilder:
     - String literals (enum candidates)
     - React components
     """
-    
+
     def __init__(
         self,
         project_info: ProjectInfo,
@@ -115,11 +132,11 @@ class FactsBuilder:
         # Compile ignore patterns
         import pathspec
         self._ignore_spec = pathspec.PathSpec.from_lines("gitignore", self.ignore_patterns) or None
-        
+
         # Tree-sitter parsers (thread-local lazy load)
         self._lock = threading.RLock()
         self._local = threading.local()
-        
+
         # Build state
         self.progress = BuildProgress()
         self._facts = Facts(project_path=str(self.project_path))
@@ -131,7 +148,7 @@ class FactsBuilder:
         except Exception:
             self._facts.has_tests = False
         self._facts.test_files_count = self._count_test_files()
-        
+
         # Token hashing for duplicate detection.
         # hash -> [(file, start_line, end_line, snippet, token_count, method_key, start_token_idx)]
         self._token_hashes: dict[str, list[tuple[str, int, int, str, int, str, int]]] = {}
@@ -150,7 +167,7 @@ class FactsBuilder:
             return count_test_files(self.project_path)
         except Exception:
             return 0
-    
+
     def build(self, progress_callback: callable = None) -> Facts:
         """
         Build Facts from the codebase.
@@ -209,7 +226,7 @@ class FactsBuilder:
         def _process_single_file(file_path: Path):
             if self._is_cancelled():
                 return
-            
+
             try:
                 # Route to the correct handler.
                 if file_path.name.endswith(".blade.php"):
@@ -233,31 +250,30 @@ class FactsBuilder:
         # Laravel migration facts are extracted as a side pass so migrations can stay
         # out of the generic scan surface used by unrelated regex rules.
         self._process_laravel_sidecar_files()
-        
+
         # Detect duplicates from collected tokens
         self._detect_duplicates()
-        
+
         # Find enum candidates from string literals
         self._analyze_string_literals()
         self._analyze_project_context()
-        
+
         logger.info(
             f"Built facts: {len(self._facts.classes)} classes, "
             f"{len(self._facts.methods)} methods, "
-            f"{len(self._facts.routes)} routes"
+            f"{len(self._facts.routes)} routes",
         )
-        
+
         return self._facts
-    
+
     def _find_files(self, pattern: str) -> Generator[Path, None, None]:
         """Find files matching pattern, excluding ignored paths."""
         import os
-        import fnmatch
-        
+
         # Simple filename pattern from glob
         # e.g. "**/*.php" -> "*.php"
         file_pattern = pattern.split("/")[-1]
-        
+
         for root, dirs, files in os.walk(str(self.project_path)):
             for filename in files:
                 if fnmatch.fnmatch(filename, file_pattern):
@@ -270,7 +286,7 @@ class FactsBuilder:
                         continue
                     if not self._is_ignored(path):
                         yield path
-    
+
     def _is_ignored(self, path: Path) -> bool:
         """Check if path matches any ignore pattern."""
         import os
@@ -278,26 +294,26 @@ class FactsBuilder:
             # Absolute normalization
             p_abs = os.path.abspath(path)
             root_abs = os.path.abspath(self.project_path)
-            
+
             rel_path = os.path.relpath(p_abs, root_abs)
             rel_path = rel_path.replace("\\", "/")
-            
+
             if rel_path.startswith(".."):
                 return True # Outside project root
-            
+
             if self._ignore_spec:
                 return self._ignore_spec.match_file(rel_path)
         except Exception:
             return True # Safe default
-            
+
         return False
-    
+
     def _is_cancelled(self) -> bool:
         """Check if analysis was cancelled."""
         if self.cancellation_check:
             return self.cancellation_check()
         return False
-    
+
     def _update_progress(self, file_path: Path, callback: callable):
         """Update progress and notify callback (thread-safe)."""
         with self._lock:
@@ -308,7 +324,7 @@ class FactsBuilder:
                     callback(self.progress)
                 except Exception:
                     pass
-    
+
     def _get_file_hash(self, content: str) -> str:
         """Compute hash for file content."""
         return fast_hash_hex(content, 16)
@@ -340,8 +356,8 @@ class FactsBuilder:
             logger.warning(f"Error processing auxiliary file {file_path}: {e}")
             with self._lock:
                 self.progress.errors.append(f"{file_path}: {e}")
-    
-    
+
+
     def _init_treesitter(self):
         """Initialize Tree-sitter parsers if available (thread-local)."""
         if hasattr(self._local, "php_parser"):
@@ -366,12 +382,12 @@ class FactsBuilder:
         """Get a cached Tree-sitter query (thread-local)."""
         if not hasattr(self._local, "query_cache"):
             self._local.query_cache = {}
-        
+
         cache_key = (id(lang), query_str)
         if cache_key not in self._local.query_cache:
             import tree_sitter
             self._local.query_cache[cache_key] = tree_sitter.Query(lang, query_str)
-        
+
         return self._local.query_cache[cache_key]
 
     def _get_treesitter_js(self, ext: str) -> tuple[object | None, object | None]:
@@ -441,15 +457,15 @@ class FactsBuilder:
                                 file_path=rel_path,
                                 line_number=i,
                                 snippet=l[:200],
-                            )
+                            ),
                         )
                 if env_hits:
                     with self._lock:
                         self._facts.env_usages.extend(env_hits)
-            
+
             # Lazy init parser
             self._init_treesitter()
-            
+
             parsed = False
             ts_had_errors = False
 
@@ -484,7 +500,7 @@ class FactsBuilder:
                     self._extract_broadcast_channels(rel_path, content)
             self._extract_model_attribute_configs(rel_path, content)
             self._collect_string_literals(rel_path, content, content.split("\n"))
-            
+
         except Exception as e:
             logger.warning(f"Error processing {file_path}: {e}")
             self.progress.errors.append(f"{file_path}: {e}")
@@ -492,20 +508,20 @@ class FactsBuilder:
     def _parse_php_treesitter(self, file_path: str, content: str, file_hash: str, rel_path: str, is_ts: bool = False) -> bool:
         """Parse PHP using Tree-sitter."""
         import tree_sitter
-        
+
         content_bytes = bytes(content, "utf8")
         tree = self._local.php_parser.parse(content_bytes)
         root_node = tree.root_node
         has_errors = bool(getattr(root_node, "has_error", False))
-        
+
         # --- 1. Basic Queries ---
-        
+
         # Namespace
         ns_query = self._get_query(self._local.php_lang, "(namespace_definition (namespace_name) @ns)")
         ns_cursor = tree_sitter.QueryCursor(ns_query)
         raw_captures = ns_cursor.captures(root_node)
         ns_caps = self._get_caps_dict(raw_captures)
-        
+
         namespace = ns_caps["ns"][0].text.decode("utf8") if "ns" in ns_caps else ""
         try:
             # Store per-file namespace (raw, no derived logic).
@@ -556,7 +572,7 @@ class FactsBuilder:
                                 fqcn=fqcn,
                                 alias=alias,
                                 import_type="class",
-                            )
+                            ),
                         )
                     continue
 
@@ -586,7 +602,7 @@ class FactsBuilder:
                             fqcn=fqcn,
                             alias=alias,
                             import_type="class",
-                        )
+                        ),
                     )
 
             # Extract fully-qualified class references: any `qualified_name` starting with "\".
@@ -636,7 +652,7 @@ class FactsBuilder:
                         raw=raw,
                         kind=kind,
                         snippet=snippet,
-                    )
+                    ),
                 )
         except Exception:
             # Imports/FQCN references are "nice to have" for readability rules; keep core parsing resilient.
@@ -666,11 +682,11 @@ class FactsBuilder:
                         file_path=file_path,
                         line_number=node.start_point.row + 1,
                         expression=s,
-                    )
+                    ),
                 )
         except Exception:
             pass
-        
+
         # Classes
         class_query = self._get_query(self._local.php_lang, """
             (class_declaration 
@@ -690,7 +706,7 @@ class FactsBuilder:
             ) @fn_def
             """,
         )
-        
+
         # Methods
         method_query = self._get_query(self._local.php_lang, """
             (method_declaration
@@ -699,22 +715,22 @@ class FactsBuilder:
                 parameters: (formal_parameters) @params
             ) @method_def
         """)
-        
+
         class_cursor = tree_sitter.QueryCursor(class_query)
         raw_captures = class_cursor.captures(root_node)
         class_caps = self._get_caps_dict(raw_captures)
-        
+
         if "class_name" in class_caps:
             for name_node in class_caps["class_name"]:
                 node = name_node.parent # class_declaration
                 class_name = name_node.text.decode("utf8")
-                
+
                 # Extract parent/implements from children manually
                 parent = ""
                 implements = []
                 is_abstract = False
                 is_final = False
-                
+
                 # Scan children for base/interfaces/modifiers
                 for child in node.children:
                     if child.type == "base_clause":
@@ -736,7 +752,7 @@ class FactsBuilder:
                 # Location (1-based line numbers)
                 cls_line_start = node.start_point.row + 1
                 cls_line_end = node.end_point.row + 1
-                
+
                 class_info = ClassInfo(
                     name=class_name,
                     namespace=namespace,
@@ -752,9 +768,9 @@ class FactsBuilder:
                     line_start=cls_line_start,
                     line_end=cls_line_end,
                 )
-                
+
                 self._register_class_info(class_info)
-                
+
                 # Simplify: Iterate children of class body
                 class_body = next((c for c in node.children if c.type == "declaration_list"), None)
                 if class_body:
@@ -884,7 +900,7 @@ class FactsBuilder:
                 call_sites=calls,
                 instantiations=instantiations,
                 throws=throws,
-            )
+            ),
         )
 
     def _extract_ts_script(self, root_node, namespace: str, file_path: str, file_hash: str, content: str) -> None:
@@ -949,18 +965,18 @@ class FactsBuilder:
                 call_sites=calls,
                 instantiations=instantiations,
                 throws=throws,
-            )
+            ),
         )
 
     def _extract_ts_method(self, method_node, class_info, content):
         """Extract method details from Tree-sitter node."""
         import tree_sitter
-        
+
         name_node = method_node.child_by_field_name("name")
         if not name_node: return
-        
+
         method_name = name_node.text.decode("utf8")
-        
+
         # Visibility
         visibility = "public"
         for child in method_node.children:
@@ -975,14 +991,14 @@ class FactsBuilder:
                 elif "public" in vis:
                     visibility = "public"
                 break
-                
+
         # Location
         start_line = method_node.start_point.row + 1
         end_line = method_node.end_point.row + 1
-        
+
         method_body_node = method_node.child_by_field_name("body")
         method_body = method_body_node.text.decode("utf8") if method_body_node else ""
-        
+
         # Params (simplified)
         params_node = method_node.child_by_field_name("parameters")
         params = []
@@ -994,7 +1010,7 @@ class FactsBuilder:
         calls = []
         instantiations = []
         throws = []
-        
+
         if method_body_node:
             # Capture *expressions* (not just names) so downstream heuristics can match
             # patterns like "->get(", "DB::table(", "$request->validate(", etc.
@@ -1010,11 +1026,11 @@ class FactsBuilder:
                 (throw_expression (object_creation_expression (name) @exception_simple))
                 """,
             )
-            
+
             call_cursor = tree_sitter.QueryCursor(call_query)
             raw_captures = call_cursor.captures(method_body_node)
             call_caps = self._get_caps_dict(raw_captures)
-            
+
             if "member_call" in call_caps:
                 calls.extend([n.text.decode("utf8") for n in call_caps["member_call"]])
             if "scoped_call" in call_caps:
@@ -1029,7 +1045,7 @@ class FactsBuilder:
                 throws.extend([n.text.decode("utf8") for n in call_caps["exception"]])
             if "exception_simple" in call_caps:
                 throws.extend([n.text.decode("utf8") for n in call_caps["exception_simple"]])
-                
+
         imports_used = [
             item.fqcn
             for item in self._facts.use_imports
@@ -1052,9 +1068,9 @@ class FactsBuilder:
             throws=throws,
             imports_used=sorted(set(imports_used)),
         )
-        
+
         self._facts.methods.append(method_info)
-        
+
         if method_body_node:
             # Validation extraction is AST-first (regex is fallback only).
             self._extract_validations_ts(class_info.file_path, method_name, method_body_node, content, start_line, class_info.fqcn)
@@ -1077,7 +1093,7 @@ class FactsBuilder:
             # Tree-sitter missing body node (rare). Fallback to regex extraction.
             if "validate" in method_body:
                 self._extract_validation(class_info.file_path, method_name, method_body, start_line)
-    
+
     def _get_caps_dict(self, captures) -> dict[str, list]:
         """Convert tree-sitter captures (list or dict) to a dictionary of lists."""
         if isinstance(captures, dict):
@@ -1106,29 +1122,29 @@ class FactsBuilder:
     ):
         """Basic regex-based PHP parsing (fallback for Tree-sitter)."""
         import re
-        
+
         lines = content.split("\n")
-        
+
         # Detect namespace
         namespace_match = re.search(r"namespace\s+([\w\\]+);", content)
         namespace = namespace_match.group(1) if namespace_match else ""
-        
+
         # Detect class
         class_match = re.search(
             r"class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?",
-            content
+            content,
         )
-        
+
         if class_match:
             class_name = class_match.group(1)
             parent = class_match.group(2) or ""
             implements = class_match.group(3) or ""
             interfaces = [i.strip() for i in implements.split(",")] if implements else []
-            
+
             # Determine class type
             is_controller = "Controller" in class_name or "Controller" in parent
             is_model = parent in ["Model", "Eloquent"] or "Model" in file_path
-            
+
             fqcn = f"{namespace}\\{class_name}" if namespace else class_name
 
             # Approximate class location by matching braces.
@@ -1153,7 +1169,7 @@ class FactsBuilder:
                         cls_line_end = content[: end_idx + 1].count("\n") + 1
             except Exception:
                 pass
-            
+
             class_info = ClassInfo(
                 name=class_name,
                 namespace=namespace,
@@ -1167,15 +1183,15 @@ class FactsBuilder:
                 line_start=cls_line_start,
                 line_end=cls_line_end,
             )
-            
+
             self._register_class_info(class_info, dedupe_existing=dedupe_existing)
-            
+
             # Find methods
             method_pattern = re.compile(
                 r"(public|protected|private)\s+function\s+(\w+)\s*\(([^)]*)\)",
-                re.MULTILINE
+                re.MULTILINE,
             )
-            
+
             for match in method_pattern.finditer(content):
                 visibility = match.group(1)
                 method_name = match.group(2)
@@ -1185,7 +1201,7 @@ class FactsBuilder:
                         continue
                     if self._php_class_scope_depth(content, open_brace, match.start()) != 1:
                         continue
-                
+
                 # Find method location
                 method_start = content[:match.start()].count("\n") + 1
 
@@ -1210,12 +1226,12 @@ class FactsBuilder:
 
                 method_body = content[match.start() : close_brace + 1]
                 method_end = content[: close_brace + 1].count("\n") + 1
-                
+
                 # Find call sites
                 # Matches: $var->method(, Class::method(, ->method(
                 call_pattern = re.compile(r"(?:\$\w+|(?:\w+::\w+)|->)\s*\w+\s*\(")
                 call_sites = [m.group(0).strip() for m in call_pattern.finditer(method_body)]
-                
+
                 # Find imports used (simplified)
                 imports = []
                 use_pattern = re.compile(r"use\s+([\w\\]+);")
@@ -1225,14 +1241,14 @@ class FactsBuilder:
                 # Find instantiations (new ClassName)
                 instantiation_pattern = re.compile(r"new\s+([\w\\]+)")
                 instantiations = [m.group(1) for m in instantiation_pattern.finditer(method_body)]
-                
+
                 # Find throw statements (throw new ClassName)
                 throw_pattern = re.compile(r"throw\s+new\s+([\w\\]+)")
                 throws = [m.group(1) for m in throw_pattern.finditer(method_body)]
-                
+
                 class_fqcn = f"{namespace}\\{class_name}" if namespace else class_name
                 method_fqn = f"{class_fqcn}::{method_name}"
-                
+
                 if dedupe_existing and self._has_existing_method_fact(file_path, method_fqn):
                     continue
 
@@ -1253,24 +1269,24 @@ class FactsBuilder:
                     throws=throws,
                     imports_used=sorted(set(imports)),
                 )
-                
+
                 self._facts.methods.append(method_info)
-                
+
                 # Detect validations
                 if "validate(" in method_body or "validated(" in method_body:
                     self._extract_validation(file_path, method_name, method_body, method_start)
-                
+
                 # Detect query patterns
                 if any(p in method_body for p in ["::where", "::find", "::all", "->get(", "->first("]):
                     self._extract_queries(file_path, method_name, method_body, method_start)
 
                 self._collect_duplicate_candidate(file_path, method_start, method_end, method_body)
-        
+
         if include_shared_extracts:
             # Check for routes file
             if "routes/" in rel_path or "routes\\" in rel_path:
                 self._extract_routes(file_path, content)
-            
+
             # Collect string literals
             self._collect_string_literals(file_path, content, lines)
 
@@ -1378,7 +1394,7 @@ class FactsBuilder:
                     operation="drop_table",
                     snippet=" ".join(match.group(0).split())[:240],
                     guard_signals=list(guard_signals),
-                )
+                ),
             )
 
         for match in rename_table_re.finditer(scope_content):
@@ -1391,7 +1407,7 @@ class FactsBuilder:
                     target_name=str(match.group("to") or "").strip(),
                     snippet=" ".join(match.group(0).split())[:240],
                     guard_signals=list(guard_signals),
-                )
+                ),
             )
 
         for match in body_call_re.finditer(scope_content):
@@ -1411,7 +1427,7 @@ class FactsBuilder:
                     operation="create_table" if op == "create" else "alter_table",
                     snippet=f"Schema::{op}('{table_name}', ...)",
                     guard_signals=list(guard_signals),
-                )
+                ),
             )
             self._extract_migration_body_facts(
                 file_path=file_path,
@@ -1492,7 +1508,7 @@ class FactsBuilder:
                         column_type=method,
                         snippet=snippet,
                         guard_signals=list(guard_signals),
-                    )
+                    ),
                 )
                 if "->index(" in chain.lower() or "->unique(" in chain.lower():
                     self._facts.migration_indexes.append(
@@ -1503,7 +1519,7 @@ class FactsBuilder:
                             columns=[column_name],
                             kind="unique" if "->unique(" in chain.lower() else "index",
                             snippet=snippet,
-                        )
+                        ),
                     )
                 if "->constrained(" in chain.lower() or "->references(" in chain.lower():
                     self._facts.migration_foreign_keys.append(
@@ -1516,7 +1532,7 @@ class FactsBuilder:
                             referenced_columns=["id"],
                             via_constrained="->constrained(" in chain.lower(),
                             snippet=snippet,
-                        )
+                        ),
                     )
 
         for match in foreign_for_re.finditer(body):
@@ -1536,7 +1552,7 @@ class FactsBuilder:
                     column_type="foreignIdFor",
                     snippet=snippet,
                     guard_signals=list(guard_signals),
-                )
+                ),
             )
             self._facts.migration_foreign_keys.append(
                 MigrationForeignKeyDefinition(
@@ -1548,7 +1564,7 @@ class FactsBuilder:
                     referenced_columns=["id"],
                     via_constrained=True,
                     snippet=snippet,
-                )
+                ),
             )
 
         for match in index_re.finditer(body):
@@ -1564,7 +1580,7 @@ class FactsBuilder:
                     columns=columns,
                     kind=str(match.group("kind") or "index").lower(),
                     snippet=" ".join(match.group(0).split())[:240],
-                )
+                ),
             )
 
         for match in foreign_re.finditer(body):
@@ -1584,7 +1600,7 @@ class FactsBuilder:
                     referenced_columns=self._parse_referenced_columns(chain),
                     via_constrained="->constrained(" in chain.lower(),
                     snippet=" ".join(match.group(0).split())[:240],
-                )
+                ),
             )
 
         for match in rename_column_re.finditer(body):
@@ -1598,7 +1614,7 @@ class FactsBuilder:
                     target_name=str(match.group("to") or "").strip(),
                     snippet=" ".join(match.group(0).split())[:240],
                     guard_signals=list(guard_signals),
-                )
+                ),
             )
 
         for match in drop_column_re.finditer(body):
@@ -1614,7 +1630,7 @@ class FactsBuilder:
                         column_name=column_name,
                         snippet=" ".join(match.group(0).split())[:240],
                         guard_signals=list(guard_signals),
-                    )
+                    ),
                 )
 
     def _extract_model_attribute_configs(self, file_path: str, content: str) -> None:
@@ -1692,7 +1708,7 @@ class FactsBuilder:
                     body=body,
                     line_number=content.count("\n", 0, match.start()) + 1,
                     snippet=" ".join(match.group(0).split())[:240],
-                )
+                ),
             )
 
         for match in arrow_re.finditer(content):
@@ -1704,7 +1720,7 @@ class FactsBuilder:
                     body=str(match.group("body") or ""),
                     line_number=content.count("\n", 0, match.start()) + 1,
                     snippet=" ".join(match.group(0).split())[:240],
-                )
+                ),
             )
 
     def _build_broadcast_channel_fact(
@@ -1846,16 +1862,16 @@ class FactsBuilder:
             elif ch == "}":
                 depth = max(0, depth - 1)
         return depth
-    
+
     def _extract_validation(self, file_path: str, method_name: str, body: str, line_num: int):
         """Extract validation rules from method body."""
         import re
-        
+
         # Find validate() calls with rules
         validate_match = re.search(r"validate\s*\(\s*\[([^\]]+)\]", body, re.DOTALL)
         if validate_match:
             rules_str = validate_match.group(1)
-            
+
             # Parse rules (simplified)
             rules = {}
             rule_pattern = re.compile(r"['\"](\w+)['\"]\s*=>\s*['\"]([^'\"]+)['\"]")
@@ -1863,7 +1879,7 @@ class FactsBuilder:
                 field = match.group(1)
                 rule_list = match.group(2).split("|")
                 rules[field] = rule_list
-            
+
             if rules:
                 validation = ValidationUsage(
                     file_path=file_path,
@@ -1891,7 +1907,7 @@ class FactsBuilder:
                     line_number=line_num,
                     validation_type="validator_make",
                     rules=rules,
-                )
+                ),
             )
 
     def _extract_validations_ts(
@@ -2016,7 +2032,7 @@ class FactsBuilder:
                     validation_type="inline",
                     rules=rules,
                     form_request_class=None,
-                )
+                ),
             )
 
         # 2) Validator::make($data, [...])
@@ -2055,9 +2071,9 @@ class FactsBuilder:
                     validation_type="validator_make",
                     rules=rules,
                     form_request_class=None,
-                )
+                ),
             )
-    
+
     def _extract_queries(self, file_path: str, method_name: str, body: str, line_num: int):
         """Extract database query patterns into QueryUsage facts."""
         import re
@@ -2141,7 +2157,7 @@ class FactsBuilder:
                         has_eager_loading=has_eager,
                         n_plus_one_risk=n_plus_one_risk,
                         n_plus_one_reason=n_plus_one_reason,
-                    )
+                    ),
                 )
 
     def _extract_queries_ts(self, file_path: str, method_name: str, method_body_node, content: str, method_start_line: int) -> None:
@@ -2273,7 +2289,7 @@ class FactsBuilder:
                     has_eager_loading=has_eager,
                     n_plus_one_risk=n_plus_one_risk,
                     n_plus_one_reason=n_plus_one_reason,
-                )
+                ),
             )
 
     def _extract_relation_accesses_ts(
@@ -2342,7 +2358,7 @@ class FactsBuilder:
                                         relation=rel,
                                         loop_kind=loop_kind,
                                         access_type="property",
-                                    )
+                                    ),
                                 )
 
                 # Detect chains rooted at $var->relation()->...->get()/count()/...
@@ -2383,7 +2399,7 @@ class FactsBuilder:
                                             relation=rel,
                                             loop_kind=loop_kind,
                                             access_type="method",
-                                        )
+                                        ),
                                     )
 
                 for ch in reversed(getattr(n, "children", []) or []):
@@ -2560,7 +2576,7 @@ class FactsBuilder:
                     used_as=used_as,
                     target=target,
                     snippet=snippet,
-                )
+                ),
             )
 
     def _extract_config_usages_ts(
@@ -2625,7 +2641,7 @@ class FactsBuilder:
                     class_fqcn=class_fqcn,
                     in_loop=in_loop,
                     snippet=snippet,
-                )
+                ),
             )
 
     def _collect_duplicate_candidate_ts(self, file_path: str, start_line: int, end_line: int, body_node, content: str) -> None:
@@ -2687,7 +2703,7 @@ class FactsBuilder:
             ln0 = lines[i] if i < len(lines) else start_line
             ln1 = lines[i + chunk_size - 1] if (i + chunk_size - 1) < len(lines) else end_line
             self._token_hashes.setdefault(h, []).append((file_path, ln0, ln1, snippet, chunk_size, method_key, i))
-    
+
     def _extract_routes(self, file_path: str, content: str):
         """Extract route definitions with inherited group context (middleware/prefix)."""
         import re
@@ -2930,7 +2946,7 @@ class FactsBuilder:
                     "end": stmt_start + close_brace,
                     "middleware": middleware,
                     "prefixes": prefixes,
-                }
+                },
             )
 
         groups.sort(key=lambda g: (int(g["start"]), int(g["end"])))
@@ -3123,7 +3139,7 @@ class FactsBuilder:
             i += 1
 
         return -1
-    
+
     def _collect_string_literals(self, file_path: str, content: str, lines: list[str]):
         """Collect string literals for enum candidate analysis with context."""
         import re
@@ -3134,11 +3150,11 @@ class FactsBuilder:
             return
         if fp_lc.startswith("config/"):
             return
-        
+
         # Find quoted strings that look like enum values
         string_pattern = re.compile(r"(['\"])(\w{2,20})\1")
         local_literals = {} # value -> list of occurrences
-        
+
         for i, line in enumerate(lines):
             for match in string_pattern.finditer(line):
                 quote_char = match.group(1)
@@ -3146,7 +3162,7 @@ class FactsBuilder:
 
                 # Context extraction heuristics
                 context = None
-                
+
                 # 1. Assignment: $status = 'active' or $order->status = 'active'
                 prefix = line[:match.start()].rstrip()
                 # matches $var = or $var->prop = or $var['key'] =
@@ -3154,13 +3170,13 @@ class FactsBuilder:
                 if assignment_match:
                     # Group 2 is property name, Group 3 is array key, Group 1 is variable name
                     context = assignment_match.group(2) or assignment_match.group(3) or assignment_match.group(1)
-                
+
                 # 2. Array value: 'status' => 'active' or "status" => "active"
                 if not context:
                     assoc_match = re.search(r"(['\"])([a-zA-Z0-9_]+)\1\s*=>\s*$", prefix)
                     if assoc_match:
                         context = assoc_match.group(2)
-                
+
                 # 3. Method call: where('status', 'active')
                 if not context:
                     # Look for something like where('attr', '
@@ -3183,35 +3199,35 @@ class FactsBuilder:
                 rest = line[match.end():]
                 if re.match(r"\s*=>", rest):
                     continue
-                
+
                 # Skip common non-enum strings
                 if value.lower() in ["id", "name", "email", "password", "created_at", "updated_at"]:
                     continue
-                
+
                 # Track occurrence with context
                 occurrence = StringOccurrence(
                     file_path=file_path,
                     line_number=i + 1,
-                    context=context
+                    context=context,
                 )
-                
+
                 if value not in local_literals:
                     local_literals[value] = []
                 local_literals[value].append(occurrence)
-                
+
         if local_literals:
             with self._lock:
                 for value, occurrences in local_literals.items():
                     existing = next(
                         (l for l in self._facts.string_literals if l.value == value),
-                        None
+                        None,
                     )
                     if existing:
                         existing.occurrences.extend(occurrences)
                     else:
                         self._facts.string_literals.append(StringLiteral(
                             value=value,
-                            occurrences=occurrences
+                            occurrences=occurrences,
                         ))
 
     def _collect_duplicate_candidate(self, file_path: str, start_line: int, end_line: int, code: str) -> None:
@@ -3258,7 +3274,7 @@ class FactsBuilder:
             h = fast_hash_hex(" ".join(window), 16)
             with self._lock:
                 self._token_hashes.setdefault(h, []).append((file_path, start_line, end_line, snippet, chunk_size, method_key, i))
-    
+
     def _process_js_file(self, file_path: Path):
         """Process JavaScript/React file and extract facts."""
         try:
@@ -3288,7 +3304,7 @@ class FactsBuilder:
 
             # Build lightweight frontend symbol graph for cross-file hook/import analysis.
             self._collect_frontend_symbol_graph(rel_path, content)
-            
+
         except Exception as e:
             logger.warning(f"Error processing {file_path}: {e}")
             with self._lock:
@@ -3296,8 +3312,9 @@ class FactsBuilder:
 
     def _parse_react_treesitter(self, file_path: str, content: str, file_hash: str, parser, lang) -> bool:
         """Tree-sitter-based React component parsing (JS/JSX/TS/TSX)."""
-        import tree_sitter
         import re
+
+        import tree_sitter
 
         tree = parser.parse(content.encode("utf-8", errors="ignore"))
         root = tree.root_node
@@ -3453,38 +3470,38 @@ class FactsBuilder:
             return False
         return extracted > 0
 
-    
+
     def _parse_react_basic(self, file_path: str, content: str, file_hash: str):
         """Basic regex-based React component parsing."""
         import re
-        
+
         lines = content.split("\n")
-        
+
         # Find function components
         component_patterns = [
             # export function ComponentName
             re.compile(r"export\s+(?:default\s+)?function\s+(\w+)\s*\("),
-            # export const ComponentName = 
+            # export const ComponentName =
             re.compile(r"export\s+(?:default\s+)?const\s+(\w+)\s*="),
             # function ComponentName (capitalized = component)
             re.compile(r"function\s+([A-Z]\w+)\s*\("),
         ]
-        
+
         for pattern in component_patterns:
             for match in pattern.finditer(content):
                 name = match.group(1)
-                
+
                 # Must start with uppercase (React convention)
                 if not name[0].isupper():
                     continue
-                
+
                 line_start = content[:match.start()].count("\n") + 1
-                
+
                 # Estimate component end
                 remaining = content[match.end():]
                 brace_count = 0
                 line_end = line_start
-                
+
                 for i, char in enumerate(remaining):
                     if char == "{":
                         brace_count += 1
@@ -3493,21 +3510,21 @@ class FactsBuilder:
                         if brace_count == 0:
                             line_end = line_start + remaining[:i].count("\n")
                             break
-                
+
                 # Extract component body for analysis
                 component_body = content[match.start():match.end() + i] if brace_count == 0 else content[match.start():]
-                
+
                 # Check for API calls
                 has_api_calls = any(p in component_body for p in [
-                    "fetch(", "axios.", "useSWR", "useQuery"
+                    "fetch(", "axios.", "useSWR", "useQuery",
                 ])
-                
+
                 # Check for complex state logic
                 state_count = component_body.count("useState")
                 effect_count = component_body.count("useEffect")
                 has_inline_logic = state_count > 3 or effect_count > 2
                 hooks_used = sorted(set(re.findall(r"\b(use[A-Z][A-Za-z0-9_]*)\s*\(", component_body)))
-                
+
                 component = ReactComponentInfo(
                     name=name,
                     file_path=file_path,
@@ -3520,7 +3537,7 @@ class FactsBuilder:
                     has_inline_state_logic=has_inline_logic,
                     imports=[],
                 )
-                
+
                 with self._lock:
                     self._facts.react_components.append(component)
 
@@ -3541,7 +3558,7 @@ class FactsBuilder:
         comps = []
         with self._lock:
             current_components = list(self._facts.react_components)
-            
+
         for c in current_components:
             if c.file_path != file_path:
                 continue
@@ -3569,7 +3586,7 @@ class FactsBuilder:
         graph["edges"] = edges
 
         self._facts._frontend_symbol_graph = graph
-    
+
     def _process_blade_file(self, file_path: Path):
         """Process Blade template for queries and issues."""
         try:
@@ -3581,20 +3598,20 @@ class FactsBuilder:
                 if rel_path not in self._facts.files:
                     self._facts.files.append(rel_path)
                 self._facts.file_hashes[rel_path] = file_hash
-            
+
             # Detect queries and echoes outside the lock (inner methods have their own locks).
             self._detect_blade_queries(rel_path, content)
             self._detect_blade_raw_echoes(rel_path, content)
-            
+
         except Exception as e:
             logger.warning(f"Error processing {file_path}: {e}")
             with self._lock:
                 self.progress.errors.append(f"{file_path}: {e}")
-    
+
     def _detect_blade_queries(self, file_path: str, content: str):
         """Detect database queries in Blade templates."""
         import re
-        
+
         # Patterns that indicate queries in templates
         methods = r"(?:where|find|all|get|first|count|sum|avg|max|min|pluck|exists|paginate|query)"
         # Blade templates often reference models as `\\App\\Models\\User` or just `User`.
@@ -3603,15 +3620,15 @@ class FactsBuilder:
             rf"{model}::(?:{methods})",
             rf"\{{\{{\s*{model}::(?:{methods})",
             rf"@foreach\s*\(\s*{model}::(?:{methods})",
-            rf"DB::(?:table|select|statement|raw)",
-            rf"\{{\{{\s*DB::(?:table|select|statement|raw)",
-            rf"@foreach\s*\(\s*DB::(?:table|select|statement|raw)",
+            r"DB::(?:table|select|statement|raw)",
+            r"\{\{\s*DB::(?:table|select|statement|raw)",
+            r"@foreach\s*\(\s*DB::(?:table|select|statement|raw)",
         ]
-        
+
         for pattern in query_patterns:
             for match in re.finditer(pattern, content):
                 line_num = content[:match.start()].count("\n") + 1
-                
+
                 blade_query = BladeQuery(
                     file_path=file_path,
                     line_number=line_num,
@@ -3644,9 +3661,9 @@ class FactsBuilder:
                         expression=expr[:200],
                         snippet=snippet,
                         is_request_derived=is_req,
-                    )
+                    ),
                 )
-    
+
     def _detect_duplicates(self):
         """Analyze collected token windows and merge into duplicated segments.
 
@@ -3760,7 +3777,7 @@ class FactsBuilder:
                                 (b0[0], int(b0[1]), int(bN[2])),
                             ],
                             code_snippet=(str(a0[3])[:200] if a0[3] else ""),
-                        )
+                        ),
                     )
 
                     # Mark duplicated token spans for per-file duplication percentage.
@@ -3793,7 +3810,7 @@ class FactsBuilder:
                             (b0[0], int(b0[1]), int(bN[2])),
                         ],
                         code_snippet=(str(a0[3])[:200] if a0[3] else ""),
-                    )
+                    ),
                 )
 
                 a_start = int(seq[0][0])
@@ -3855,7 +3872,7 @@ class FactsBuilder:
                         token_count=token_count,
                         occurrences=merged_occurrences,
                         code_snippet=snippet[:200],
-                    )
+                    ),
                 )
 
             return normalized
@@ -3894,7 +3911,7 @@ class FactsBuilder:
             }
 
         self._facts._duplication = duplication
-    
+
     def _analyze_string_literals(self):
         """Mark string literals that are enum candidates."""
         # Known enum value patterns
@@ -3911,7 +3928,7 @@ class FactsBuilder:
             "state": ["draft", "published", "archived", "deleted"],
             "priority": ["low", "medium", "high", "urgent", "critical"],
             "channel": ["email", "sms", "whatsapp", "push", "in_app"],
-            
+
             # Game-specific patterns
             "game_status": ["waiting", "in_progress", "finished", "paused", "cancelled", "staging"],
             "game_phase": ["day", "night", "discussion", "voting", "action", "setup", "reveal"],
@@ -3919,10 +3936,10 @@ class FactsBuilder:
             "werewolf_role": ["villager", "wolf", "doc", "seer", "witch", "hunter", "cupid", "amor", "bodyguard", "lycan"],
             "action_type": ["vote", "kill", "save", "poison", "check", "protect", "link"],
         }
-        
+
         for literal in self._facts.string_literals:
             value_lower = literal.value.lower()
-            
+
             # Check if it matches known patterns
             for enum_name, values in enum_patterns.items():
                 if value_lower in values:
@@ -3956,22 +3973,22 @@ class FactsBuilder:
         explicit_profile = self._normalize_context_key(
             self._context_overrides.get("architecture_profile")
             or self._context_overrides.get("backend_architecture_profile")
-            or self._context_overrides.get("architecture_style")
+            or self._context_overrides.get("architecture_style"),
         )
         explicit_project_type = self._normalize_context_key(
             self._context_overrides.get("project_type")
             or self._context_overrides.get("project_business_context")
-            or self._context_overrides.get("business_context")
+            or self._context_overrides.get("business_context"),
         )
         explicit_capabilities = self._normalize_bool_map(
             self._context_overrides.get("capabilities")
             or self._context_overrides.get("technical_capabilities")
-            or {}
+            or {},
         )
         explicit_expectations = self._normalize_bool_map(
             self._context_overrides.get("team_expectations")
             or self._context_overrides.get("team_standards")
-            or {}
+            or {},
         )
 
         matrix = None
@@ -3993,12 +4010,12 @@ class FactsBuilder:
                 detected_project_type = str(react_context.get("project_type", "standalone") or "standalone")
                 detected_project_type_confidence = float(react_context.get("project_type_confidence", 0.0) or 0.0)
                 detected_project_type_confidence_kind = str(
-                    react_context.get("project_type_confidence_kind", "heuristic") or "heuristic"
+                    react_context.get("project_type_confidence_kind", "heuristic") or "heuristic",
                 )
                 detected_profile = str(react_context.get("profile", "component-driven") or "component-driven")
                 detected_profile_confidence = float(react_context.get("profile_confidence", 0.0) or 0.0)
                 detected_profile_confidence_kind = str(
-                    react_context.get("profile_confidence_kind", "heuristic") or "heuristic"
+                    react_context.get("profile_confidence_kind", "heuristic") or "heuristic",
                 )
                 matrix_detected_capabilities = dict(react_context.get("capabilities", {}) or {})
                 matrix_detected_expectations = {}
@@ -4050,7 +4067,7 @@ class FactsBuilder:
             context.backend_architecture_profile = str(resolved_context.architecture_profile or "unknown")
             context.backend_profile_confidence = float(resolved_context.architecture_profile_confidence or 0.0)
             context.backend_profile_confidence_kind = str(
-                getattr(resolved_context, "architecture_profile_confidence_kind", "unknown") or "unknown"
+                getattr(resolved_context, "architecture_profile_confidence_kind", "unknown") or "unknown",
             )
             context.backend_profile_source = str(resolved_context.architecture_profile_source or "default")
 
@@ -4168,7 +4185,7 @@ class FactsBuilder:
                     str(getattr(route, "uri", "") or ""),
                     str(getattr(route, "controller", "") or ""),
                     " ".join(str(item or "") for item in (getattr(route, "middleware", []) or [])),
-                ]
+                ],
             ).lower()
             for marker in strong_markers:
                 if marker in route_text:
@@ -4191,7 +4208,7 @@ class FactsBuilder:
                             str(getattr(route, "uri", "") or ""),
                             str(getattr(route, "controller", "") or ""),
                             str(getattr(route, "action", "") or ""),
-                        ]
+                        ],
                     ).lower()
                     if any(marker in route_text for marker in weak_markers):
                         weak_only = True
@@ -4206,7 +4223,7 @@ class FactsBuilder:
 
     def _detect_backend_structure_context(self) -> dict[str, object]:
         project_type = getattr(getattr(self.project_info, "project_type", None), "value", None) or str(
-            getattr(self.project_info, "project_type", "") or ""
+            getattr(self.project_info, "project_type", "") or "",
         )
         framework = "laravel" if str(project_type).startswith("laravel") or "laravel/framework" in getattr(self.project_info, "packages", {}) else ("php" if any(str(path or "").lower().endswith(".php") for path in getattr(self._facts, "files", []) or []) else "unknown")
 
@@ -4312,7 +4329,7 @@ class FactsBuilder:
                 f"api_score={api_score}",
                 f"mvc_score={mvc_score}",
                 f"layers={','.join(sorted(detected_layers)) or 'none'}",
-            ]
+            ],
         )
 
         profile = "unknown"
@@ -4353,7 +4370,7 @@ class FactsBuilder:
                         int(has_supporting_layers),
                         int(has_data_boundary),
                         int(len(detected_layers) >= 4),
-                    ]
+                    ],
                 )
                 confidence_kind = "structural" if structural_markers >= 2 else "heuristic"
             elif profile == "modular":
@@ -4362,7 +4379,7 @@ class FactsBuilder:
                         int(modular_root_hits >= 2),
                         int(has_core_layers),
                         int(controller_hits >= 1),
-                    ]
+                    ],
                 )
                 confidence_kind = "structural" if structural_markers >= 2 else "heuristic"
             elif profile == "api-first":
@@ -4371,7 +4388,7 @@ class FactsBuilder:
                         int(has_api_routes),
                         int(api_controller_hits >= 1 or api_resource_hits >= 1),
                         int(not has_blade_views),
-                    ]
+                    ],
                 )
                 confidence_kind = "structural" if structural_markers >= 2 else "heuristic"
             elif profile == "mvc":
@@ -4381,7 +4398,7 @@ class FactsBuilder:
                         int(model_hits >= 1),
                         int(has_web_routes),
                         int(has_blade_views),
-                    ]
+                    ],
                 )
                 confidence_kind = "structural" if structural_markers >= 3 else "heuristic"
 
@@ -4415,7 +4432,7 @@ class FactsBuilder:
                 f"profile={profile}",
                 f"profile_confidence={confidence:.2f}",
                 f"profile_confidence_kind={confidence_kind}",
-            ]
+            ],
         )
         return {
             "framework": framework,
@@ -4432,7 +4449,7 @@ class FactsBuilder:
         project_type = str(
             getattr(getattr(self.project_info, "project_type", None), "value", "")
             or getattr(self.project_info, "project_type", "")
-            or ""
+            or "",
         ).lower()
         framework = str(backend_context.get("framework", "unknown") or "unknown").lower()
         if framework != "laravel":
@@ -4453,8 +4470,8 @@ class FactsBuilder:
             "public_website_with_dashboard": 0,
             "portal_based_business_app": 0,
         }
-        structural_hits = {key: 0 for key in score.keys()}
-        heuristic_hits = {key: 0 for key in score.keys()}
+        structural_hits = dict.fromkeys(score.keys(), 0)
+        heuristic_hits = dict.fromkeys(score.keys(), 0)
         signals: list[str] = []
 
         features = {str(item or "").lower() for item in (getattr(self.project_info, "features", []) or [])}
@@ -4466,7 +4483,7 @@ class FactsBuilder:
                     str(getattr(route, "uri", "") or ""),
                     str(getattr(route, "controller", "") or ""),
                     str(getattr(route, "action", "") or ""),
-                ]
+                ],
             ).lower()
             for route in (getattr(self._facts, "routes", []) or [])
         ]
@@ -4589,7 +4606,7 @@ class FactsBuilder:
                 f"project_type={selected}",
                 f"project_type_confidence={confidence:.2f}",
                 f"project_type_confidence_kind={confidence_kind}",
-            ]
+            ],
         )
         return {
             "project_type": selected,
@@ -4621,7 +4638,7 @@ class FactsBuilder:
                 [
                     str(getattr(route, "uri", "") or ""),
                     " ".join(str(item or "") for item in (getattr(route, "middleware", []) or [])),
-                ]
+                ],
             ).lower()
             for route in (getattr(self._facts, "routes", []) or [])
         ]
@@ -4739,7 +4756,7 @@ class FactsBuilder:
 
         # Public site + dashboard mixed.
         mixed_enabled = bool(getattr(self.project_info, "has_web_routes", False)) and bool(
-            getattr(self.project_info, "has_blade_views", False)
+            getattr(self.project_info, "has_blade_views", False),
         )
         mixed_evidence: list[str] = []
         if mixed_enabled:
@@ -4771,7 +4788,7 @@ class FactsBuilder:
             notifications_hits += 1
             notifications_evidence.append("notifications_path=1")
         notification_classes = len(
-            [c for c in (getattr(self._facts, "classes", []) or []) if "notification" in str(getattr(c, "name", "")).lower()]
+            [c for c in (getattr(self._facts, "classes", []) or []) if "notification" in str(getattr(c, "name", "")).lower()],
         )
         if notification_classes >= 1:
             notifications_hits += 1
@@ -4809,7 +4826,7 @@ class FactsBuilder:
                 "/archives",
                 "/storage",
                 "/files",
-            )
+            ),
         )
         if upload_paths >= 3:
             upload_hits += 2
@@ -5256,7 +5273,7 @@ class FactsBuilder:
                     str(getattr(route, "uri", "") or ""),
                     str(getattr(route, "controller", "") or ""),
                     str(getattr(route, "action", "") or ""),
-                ]
+                ],
             ).lower()
             if any(marker in route_bits for marker in auth_markers):
                 if getattr(route, "file_path", None):
@@ -5272,7 +5289,7 @@ class FactsBuilder:
                     str(getattr(method, "file_path", "") or ""),
                     str(getattr(method, "class_name", "") or ""),
                     str(getattr(method, "name", "") or ""),
-                ]
+                ],
             ).lower().replace("\\", "/")
             if any(marker in method_bits for marker in auth_markers):
                 found.add(str(method.file_path))

@@ -6,10 +6,10 @@ Detects Inertia page forms that submit with fetch/axios instead of `useForm`.
 
 from __future__ import annotations
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class InertiaFormUsesFetchRule(Rule):
@@ -83,5 +83,5 @@ class InertiaFormUsesFetchRule(Rule):
                 tags=["react", "inertia", "forms", "useform"],
                 confidence=0.83,
                 evidence_signals=[f"file={file_path}", "raw_http_form_submission=true"],
-            )
+            ),
         ]

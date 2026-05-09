@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MissingUseCallbackForEventHandlersRule(Rule):
@@ -88,7 +88,7 @@ class MissingUseCallbackForEventHandlersRule(Rule):
         # Inline increment/decrement: onClick={() => setCount(c => c + 1)}
         re.compile(r"set[A-Z][a-zA-Z]*\s*\(\s*\w+\s*=>\s*\w+\s*[-+]\s*1\s*\)", re.IGNORECASE),
     ]
-    
+
     # Files that should be excluded (not React components)
     _NON_COMPONENT_FILES = [
         re.compile(r"\.utils?\.tsx?$", re.IGNORECASE),
@@ -130,7 +130,7 @@ class MissingUseCallbackForEventHandlersRule(Rule):
     # Pattern for function definitions that could be memoized
     _FUNCTION_DEF_PATTERN = re.compile(
         r"const\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>",
-        re.IGNORECASE
+        re.IGNORECASE,
     )
 
     # Props that commonly receive handlers
@@ -409,9 +409,9 @@ class MissingUseCallbackForEventHandlersRule(Rule):
                                     "is_trivial": is_trivial,
                                     "is_simple": is_simple,
                                     "handler_complexity_score": handler_complexity_score,
-                                }
+                                },
                             },
-                        )
+                        ),
                     )
                     findings_emitted += 1
                     break  # Only one finding per line

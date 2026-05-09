@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class ApiResponseInconsistentShapeRule(Rule):
@@ -66,7 +66,7 @@ class ApiResponseInconsistentShapeRule(Rule):
                 confidence=0.72,
                 tags=["laravel", "api", "response-shape"],
                 evidence_signals=[f"response_kinds={','.join(sorted(kinds))}"],
-            )
+            ),
         ]
 
     def _response_kinds(self, content: str) -> set[str]:

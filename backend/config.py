@@ -5,21 +5,22 @@ Handles ephemeral port discovery and app settings.
 import json
 import os
 from pathlib import Path
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
 from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Application settings with ephemeral port support."""
-    
+
     # Server
     host: str = "127.0.0.1"
     port: int = 0  # 0 = ephemeral port (auto-assigned)
-    
+
     # Paths
     app_data_dir: Path = Field(default_factory=lambda: Path.home() / ".best-practices-doctor")
     port_file: str = "backend_discovery.json"
-    
+
     # Scanning
     default_ignore_patterns: list[str] = Field(default_factory=lambda: [
         "**/vendor/**",
@@ -38,7 +39,7 @@ class Settings(BaseSettings):
         "*.min.js",
         "*.min.css",
     ])
-    
+
     # Limits
     max_file_size_kb: int = 500  # Skip files larger than this
     max_files_per_scan: int = 5000
@@ -48,11 +49,11 @@ class Settings(BaseSettings):
     # Local dev can disable API token enforcement (useful for MCP workflows).
     # Set BPD_REQUIRE_AUTH=true to enforce bearer token checks.
     require_auth: bool = False
-    
+
     # Tree-sitter
     php_grammar_version: str = "0.21.0"
     js_grammar_version: str = "0.21.0"
-    
+
     model_config = SettingsConfigDict(env_prefix="BPD_")
 
 
@@ -74,7 +75,7 @@ def write_discovery_file(run_id: str, port: int, token: str) -> Path:
     discovery_file = f"bpd-discovery-{run_id}.json"
     discovery_path = settings.app_data_dir / discovery_file
     temp_path = discovery_path.with_suffix(".tmp")
-    
+
     data = {
         "port": port,
         "host": settings.host,
@@ -83,11 +84,11 @@ def write_discovery_file(run_id: str, port: int, token: str) -> Path:
         "run_id": run_id,
         "started_at": os.environ.get("BPD_STARTED_AT", ""),
     }
-    
+
     # Atomic write: write to .tmp then rename
     temp_path.write_text(json.dumps(data))
     os.replace(temp_path, discovery_path)
-    
+
     return discovery_path
 
 

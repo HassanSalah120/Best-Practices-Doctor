@@ -6,16 +6,16 @@ Detects auth-protected web routes for sensitive modules that do not require veri
 
 from __future__ import annotations
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
-from rules.base import Rule
 from core.project_recommendations import (
     enabled_capabilities,
     enabled_team_standards,
     project_aware_guidance,
     recommendation_context_tags,
 )
+from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class SensitiveRoutesMissingVerifiedMiddlewareRule(Rule):
@@ -85,7 +85,7 @@ class SensitiveRoutesMissingVerifiedMiddlewareRule(Rule):
                     str(route.controller or "").lower(),
                     str(route.action or "").lower(),
                     str(route.name or "").lower(),
-                ]
+                ],
             )
             if not any(tok in descriptor for tok in self._SENSITIVE_TOKENS):
                 continue
@@ -133,9 +133,9 @@ class SensitiveRoutesMissingVerifiedMiddlewareRule(Rule):
                                 f"descriptor_sensitive={int(any(tok in descriptor for tok in self._SENSITIVE_TOKENS))}",
                                 "verified_middleware_missing=true",
                             ],
-                        }
+                        },
                     },
-                )
+                ),
             )
         return findings
 

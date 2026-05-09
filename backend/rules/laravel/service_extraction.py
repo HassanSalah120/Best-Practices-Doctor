@@ -4,16 +4,16 @@ Suggests extracting business logic from controllers to Service classes.
 """
 import re
 
-from schemas.facts import AssocArrayLiteral, Facts, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
-from rules.base import Rule
 from core.project_recommendations import (
     enabled_capabilities,
     enabled_team_standards,
     project_aware_guidance,
     recommendation_context_tags,
 )
+from rules.base import Rule
+from schemas.facts import AssocArrayLiteral, Facts, MethodInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ServiceExtractionRule(Rule):
@@ -39,7 +39,7 @@ class ServiceExtractionRule(Rule):
     - Better testability (unit test logic without HTTP)
     - Clear separation of concerns
     """
-    
+
     id = "service-extraction"
     name = "Service Extraction Suggestion"
     description = "Suggests extracting business logic to Service classes"
@@ -52,7 +52,7 @@ class ServiceExtractionRule(Rule):
         "laravel_api",
         "laravel_livewire",
     ]
-    
+
     # Patterns that indicate business logic (not just CRUD)
     BUSINESS_LOGIC_PATTERNS = [
         "calculate", "compute", "process", "transform", "convert",
@@ -97,14 +97,14 @@ class ServiceExtractionRule(Rule):
         "back()->",
     )
     _THIS_HELPER_CALL_PATTERN = re.compile(r"\$this->([a-zA-Z_][a-zA-Z0-9_]*)\(")
-    
+
     def analyze(
         self,
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings = []
-        
+
         min_business_loc = int(self.get_threshold("min_business_loc", 15))
         min_business_confidence = float(self.get_threshold("min_business_confidence", 0.6))
         loc_only_min_loc = int(self.get_threshold("loc_only_min_loc", 42))
@@ -116,7 +116,7 @@ class ServiceExtractionRule(Rule):
         read_payload_min_keys = int(self.get_threshold("read_payload_min_keys", 5) or 5)
         read_payload_min_array_literals = int(self.get_threshold("read_payload_min_array_literals", 2) or 2)
         serializer_helper_min_keys = int(self.get_threshold("serializer_helper_min_keys", 4) or 4)
-        
+
         project_context = getattr(facts, "project_context", None)
         project_business_context = str(getattr(project_context, "project_business_context", "unknown") or "unknown")
         capabilities = enabled_capabilities(facts)
@@ -137,7 +137,7 @@ class ServiceExtractionRule(Rule):
         for controller in facts.controllers:
             has_service_injection = self._has_service_injection(controller, facts)
             uses_repository_pattern = self._uses_repository_pattern(controller, facts)
-             
+
             controller_methods = [
                 m for m in facts.methods
                 if m.class_name == controller.name
@@ -147,7 +147,7 @@ class ServiceExtractionRule(Rule):
                 facts,
                 min_keys=max(2, serializer_helper_min_keys),
             )
-            
+
             for method in controller_methods:
                 is_read_method = self._is_read_method(method)
                 read_payload_mapping_signal = False
@@ -197,11 +197,11 @@ class ServiceExtractionRule(Rule):
                     continue
                 if decision_profile["suppression_checks"]["layered_orchestration"]:
                     continue
-                 
+
                 # Skip if only dispatches jobs
                 if decision_profile["suppression_checks"]["only_dispatches_jobs"]:
                     continue
-                
+
                 if is_read_method and not bool(decision_profile.get("read_method_special_path", False)):
                     continue
 
@@ -219,9 +219,9 @@ class ServiceExtractionRule(Rule):
                             project_business_context=project_business_context,
                             capabilities=capabilities,
                             team_standards=team_standards,
-                        )
+                        ),
                     )
-        
+
         return findings
 
     def _decision_profile(
@@ -364,49 +364,49 @@ class ServiceExtractionRule(Rule):
                 f"loc_only_min_loc={int(loc_only_min_loc)}",
             ],
         }
-    
+
     def _has_service_injection(self, controller, facts: Facts) -> bool:
         """Check if controller already uses service injection."""
         # Check constructor parameters for Service classes
         constructor = next(
-            (m for m in facts.methods 
+            (m for m in facts.methods
              if m.class_name == controller.name and m.name == "__construct"),
-            None
+            None,
         )
-        
+
         if constructor:
             for param in constructor.parameters:
                 if "Service" in param:
                     return True
-        
+
         return False
-    
+
     def _uses_repository_pattern(self, controller, facts: Facts) -> bool:
         """Check if controller uses repository pattern (thin controller)."""
         # Check for Repository injection in constructor
         constructor = next(
-            (m for m in facts.methods 
+            (m for m in facts.methods
              if m.class_name == controller.name and m.name == "__construct"),
-            None
+            None,
         )
-        
+
         if constructor:
             for param in constructor.parameters:
                 if "Repository" in param:
                     return True
-        
+
         return False
-    
+
     def _only_dispatches_jobs(self, method: MethodInfo, facts: Facts) -> bool:
         """Check if method only dispatches jobs (not business logic)."""
         # If method only calls dispatch, job dispatch, or simple redirects, it's thin
         dispatch_patterns = ["dispatch", "dispatchSync", "dispatchNow", "bus::"]
         has_dispatch = any(p in str(cs or "").lower() for cs in (method.call_sites or []) for p in dispatch_patterns)
-        
+
         # If it has dispatches and minimal other logic, consider it thin
         if has_dispatch and method.loc < 10:
             return True
-            
+
         return False
 
     def _is_read_method(self, method: MethodInfo) -> bool:
@@ -639,7 +639,7 @@ class ServiceExtractionRule(Rule):
                 and not has_dto_or_request_mapping
             )
         )
-    
+
     def _detect_business_logic(
         self,
         method: MethodInfo,
@@ -669,13 +669,13 @@ class ServiceExtractionRule(Rule):
                     )
                 ):
                     return True
-        
+
         # Heuristic: check call sites for business logic patterns
         for call_site in method.call_sites:
             for pattern in self.BUSINESS_LOGIC_PATTERNS:
                 if pattern in call_site.lower():
                     return True
-        
+
         query_like_calls = sum(
             1
             for call_site in (method.call_sites or [])
@@ -690,9 +690,9 @@ class ServiceExtractionRule(Rule):
         # Last fallback: very long methods with many call sites still qualify.
         if (method.loc or 0) >= loc_only_min_loc and len(method.call_sites or []) >= loc_only_min_call_sites:
             return True
-        
+
         return False
-    
+
     def _create_finding(
         self,
         controller,
@@ -775,7 +775,7 @@ class ServiceExtractionRule(Rule):
                     "overlap_scope": method.method_fqn,
                     "overlap_rank": 190,
                     "overlap_role": "child",
-                }
+                },
             )
 
         return self.create_finding(
@@ -802,7 +802,7 @@ class ServiceExtractionRule(Rule):
         if {"billing", "realtime"} & set(capabilities):
             return Severity.HIGH
         return self.severity
-    
+
     def _generate_example(self, controller_name: str, method_name: str, service_name: str) -> str:
         """Generate before/after code example."""
         return f"""// Before (logic in controller)

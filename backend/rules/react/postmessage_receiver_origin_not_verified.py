@@ -6,10 +6,10 @@ Detects `message` event listeners that do not verify `event.origin`.
 
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class PostMessageReceiverOriginNotVerifiedRule(Rule):
@@ -91,7 +91,7 @@ class PostMessageReceiverOriginNotVerifiedRule(Rule):
                 confidence=confidence,
                 tags=["react", "security", "postmessage", "origin"],
                 evidence_signals=["postmessage_listener=true", "origin_check=false"],
-            )
+            ),
         ]
 
     def _find_line(self, text: str) -> int:

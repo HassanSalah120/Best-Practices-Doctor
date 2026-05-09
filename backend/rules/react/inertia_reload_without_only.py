@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class InertiaReloadWithoutOnlyRule(Rule):
@@ -106,7 +106,7 @@ class InertiaReloadWithoutOnlyRule(Rule):
                     tags=["inertia", "reload", "performance", "payload"],
                     evidence_signals=[f"pattern={pattern_name}"],
                     metadata={"decision_profile": {"pattern": pattern_name}},
-                )
+                ),
             )
             if len(findings) >= max_findings_per_file:
                 break

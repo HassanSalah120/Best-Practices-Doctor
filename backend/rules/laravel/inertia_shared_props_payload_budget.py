@@ -6,10 +6,10 @@ Detects heavy eager payloads shared globally via Inertia shared props.
 
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class InertiaSharedPropsPayloadBudgetRule(Rule):
@@ -133,7 +133,7 @@ class InertiaSharedPropsPayloadBudgetRule(Rule):
                     "shared_props_payload_budget=exceeded",
                     f"heavy_token={heavy_token}",
                     f"line={line_no}",
-                ]
+                ],
             )
             findings.append(
                 self.create_finding(
@@ -154,7 +154,7 @@ class InertiaSharedPropsPayloadBudgetRule(Rule):
                     confidence=confidence,
                     tags=["laravel", "inertia", "performance", "payload", "shared-props"],
                     evidence_signals=evidence,
-                )
+                ),
             )
             if len(findings) >= max_findings_per_file:
                 break

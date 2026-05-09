@@ -6,10 +6,10 @@ Suggests using explicit column selection instead of SELECT * for performance opt
 
 from __future__ import annotations
 
-from schemas.facts import Facts, QueryUsage
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ColumnSelectionSuggestionRule(Rule):
@@ -163,7 +163,7 @@ class ColumnSelectionSuggestionRule(Rule):
                     ),
                     confidence=confidence,
                     tags=["performance", "database", "eloquent", "optimization"],
-                )
+                ),
             )
 
         return findings

@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class InsecureFileDownloadResponseRule(Rule):
@@ -127,7 +127,7 @@ class InsecureFileDownloadResponseRule(Rule):
                         tags=["laravel", "security", "download", "idor", "path-traversal"],
                         confidence=confidence,
                         evidence_signals=["download_source=request_input", "path_validation_missing=true"],
-                    )
+                    ),
                 ]
             return []
 
@@ -174,7 +174,7 @@ class InsecureFileDownloadResponseRule(Rule):
                         f"path_guard={int(has_path_guard)}",
                         f"auth_guard={int(has_auth_guard)}",
                     ],
-                )
+                ),
             )
             break
 

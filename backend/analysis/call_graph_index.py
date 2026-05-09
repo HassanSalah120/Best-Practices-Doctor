@@ -11,11 +11,10 @@ Important:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import re
+from dataclasses import dataclass, field
 
-from schemas.facts import Facts, ClassInfo, MethodInfo
-
+from schemas.facts import ClassInfo, Facts, MethodInfo
 
 _INTERNAL_MEMBER_CALL = re.compile(r"\$this->\s*(?P<name>[A-Za-z_]\w*)\s*\(")
 _INTERNAL_SCOPED_CALL = re.compile(r"(?:self|static|parent)::\s*(?P<name>[A-Za-z_]\w*)\s*\(")

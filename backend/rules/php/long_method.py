@@ -2,10 +2,10 @@
 Long Method Rule
 Flags methods that exceed reasonable length.
 """
-from schemas.facts import Facts, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts, MethodInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class LongMethodRule(Rule):
@@ -31,29 +31,29 @@ class LongMethodRule(Rule):
     - Are hard to understand
     - Are hard to test
     """
-    
+
     id = "long-method"
     name = "Long Method Detection"
     description = "Flags methods exceeding recommended length"
     category = Category.SRP
     default_severity = Severity.LOW
-    
+
     def analyze(
         self,
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings = []
-        
+
         # Backwards/forwards compatible threshold keys.
         max_lines = self.get_threshold("max_lines", self.get_threshold("max_loc", 30))
-        
+
         for method in facts.methods:
             if method.loc > max_lines:
                 if self._is_mildly_over_threshold_but_still_simple(method, max_lines, metrics or {}):
                     continue
                 findings.append(self._create_finding(method, max_lines))
-        
+
         return findings
 
     @staticmethod
@@ -86,7 +86,7 @@ class LongMethodRule(Rule):
             and validations <= 1
             and not business_signal
         )
-    
+
     def _create_finding(self, method: MethodInfo, threshold: int) -> Finding:
         """Create finding for long method."""
         # Score impact is proportional to how far over the threshold the method is (bounded 1..10).
@@ -94,7 +94,7 @@ class LongMethodRule(Rule):
         impact = max(1, min(10, (exceed + 9) // 10))
 
         finding = self.create_finding(
-            title=f"Methods should be short and focused",
+            title="Methods should be short and focused",
             context=method.method_fqn,
             file=method.file_path,
             line_start=method.line_start,
@@ -120,7 +120,7 @@ class LongMethodRule(Rule):
 
         finding.score_impact = int(impact)
         return finding
-    
+
     def _generate_example(self, method_name: str) -> str:
         """Generate refactoring example."""
         return f"""// Before (50+ lines)

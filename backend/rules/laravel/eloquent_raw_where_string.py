@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class EloquentRawWhereStringRule(Rule):
@@ -71,7 +71,7 @@ class EloquentRawWhereStringRule(Rule):
                     confidence=0.9,
                     tags=["laravel", "sql", "injection"],
                     evidence_signals=["eloquent_where=true", "predicate_in_first_argument=true"],
-                )
+                ),
             )
         return findings
 

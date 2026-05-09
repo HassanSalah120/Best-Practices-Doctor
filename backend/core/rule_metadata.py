@@ -352,7 +352,7 @@ RULE_METADATA: list[RuleInfo] = [
         layer="backend",
         tags=["architecture", "models", "boundaries"],
     ),
-    
+
     # === Backend: Security ===
     RuleInfo(
         id="mass-assignment-risk",
@@ -579,7 +579,7 @@ RULE_METADATA: list[RuleInfo] = [
         layer="shared",
         tags=["security", "injection"],
     ),
-    
+
     # === Backend: Performance ===
     RuleInfo(
         id="n-plus-one-risk",
@@ -608,7 +608,7 @@ RULE_METADATA: list[RuleInfo] = [
         layer="backend",
         tags=["performance"],
     ),
-    
+
     # === Frontend: React Best Practices ===
     RuleInfo(
         id="large-react-component",
@@ -754,7 +754,7 @@ RULE_METADATA: list[RuleInfo] = [
         layer="frontend",
         tags=["hooks", "fetch"],
     ),
-    
+
     # === Frontend: Accessibility ===
     RuleInfo(
         id="color-contrast-ratio",
@@ -972,7 +972,7 @@ RULE_METADATA: list[RuleInfo] = [
         layer="frontend",
         tags=["a11y", "css", "contrast"],
     ),
-    
+
     # === Frontend: TypeScript ===
     RuleInfo(
         id="typescript-type-check",
@@ -983,7 +983,7 @@ RULE_METADATA: list[RuleInfo] = [
         layer="frontend",
         tags=["typescript", "types", "syntax", "tsc"],
     ),
-    
+
     # === Shared: Complexity ===
     RuleInfo(
         id="high-complexity",
@@ -1012,7 +1012,7 @@ RULE_METADATA: list[RuleInfo] = [
         layer="shared",
         tags=["complexity", "size"],
     ),
-    
+
     # === Shared: Maintainability ===
     RuleInfo(
         id="too-many-dependencies",
@@ -1392,7 +1392,7 @@ RULE_METADATA: list[RuleInfo] = [
         layer="shared",
         tags=["testing", "coverage"],
     ),
-    
+
     # === Shared: DRY ===
     RuleInfo(
         id="dry-violation",
@@ -1403,10 +1403,10 @@ RULE_METADATA: list[RuleInfo] = [
         layer="shared",
         tags=["duplication"],
     ),
-    
+
     # === Shared: SRP ===
     # (Covered by other rules like fat-controller, god-class)
-    
+
     # === Security: Inertia/Props ===
     RuleInfo(
         id="inertia-shared-props-sensitive-data",
@@ -1610,7 +1610,7 @@ def _profiles_by_rule() -> dict[str, list[str]]:
     result: dict[str, list[str]] = {}
     try:
         from core.ruleset import Ruleset
-        from core.ruleset_profiles import list_profiles, get_profile_path
+        from core.ruleset_profiles import get_profile_path, list_profiles
 
         for profile in list_profiles():
             path = get_profile_path(profile)
@@ -1790,7 +1790,7 @@ def get_rules_grouped_for_ui() -> dict:
     class_map = _rule_class_map()
     profile_map = _profiles_by_rule()
     layers_data = []
-    
+
     for layer_id, layer_info in LAYER_GROUPS.items():
         # Get categories for this layer
         categories_in_layer = [
@@ -1800,13 +1800,13 @@ def get_rules_grouped_for_ui() -> dict:
         ]
         # Sort by order
         categories_in_layer.sort(key=lambda x: x[1]["order"])
-        
+
         categories_data = []
         for cat_id, cat_info in categories_in_layer:
             rules_in_cat = [r for r in rules if r.category == cat_id]
             if not rules_in_cat:
                 continue
-            
+
             categories_data.append({
                 "id": cat_id,
                 "label": cat_info["label"],
@@ -1814,9 +1814,9 @@ def get_rules_grouped_for_ui() -> dict:
                 "rules": [
                     _serialize_rule_v2(r, class_map.get(r.id, object), profile_map)
                     for r in sorted(rules_in_cat, key=lambda x: x.name)
-                ]
+                ],
             })
-        
+
         if categories_data:
             layers_data.append({
                 "id": layer_id,
@@ -1825,16 +1825,13 @@ def get_rules_grouped_for_ui() -> dict:
                 "icon": layer_info["icon"],
                 "categories": categories_data,
             })
-    
+
     serialized_rules = [
         _serialize_rule_v2(rule, class_map.get(rule.id, object), profile_map)
         for rule in rules
     ]
-    severity_counts = {severity: 0 for severity in ("critical", "high", "medium", "low")}
-    category_counts = {
-        category: 0
-        for category in ("security", "performance", "architecture", "quality", "accessibility")
-    }
+    severity_counts = dict.fromkeys(("critical", "high", "medium", "low"), 0)
+    category_counts = dict.fromkeys(("security", "performance", "architecture", "quality", "accessibility"), 0)
     for rule in serialized_rules:
         severity = str(rule.get("severity", "medium")).lower()
         if severity in severity_counts:

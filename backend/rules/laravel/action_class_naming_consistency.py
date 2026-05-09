@@ -7,11 +7,11 @@ names coexist under `app/Actions`.
 
 from __future__ import annotations
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Category, Finding, FindingClassification, Severity
-from rules.base import Rule
 from core.project_recommendations import recommendation_context_tags
+from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ActionClassNamingConsistencyRule(Rule):
@@ -120,7 +120,7 @@ class ActionClassNamingConsistencyRule(Rule):
                         "non_suffix_count": non_suffix_count,
                         "decision_profile": decision_profile,
                     },
-                )
+                ),
             )
             emitted += 1
 

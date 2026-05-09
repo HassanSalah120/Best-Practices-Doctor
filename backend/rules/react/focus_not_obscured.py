@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class FocusNotObscuredRule(Rule):
@@ -32,16 +32,16 @@ class FocusNotObscuredRule(Rule):
         re.compile(r'position-fixed', re.IGNORECASE),  # Bootstrap
         re.compile(r'position-sticky', re.IGNORECASE),  # Bootstrap
     ]
-    
+
     # Common overlay patterns
     _OVERLAY_PATTERNS = [
         re.compile(r"(?:header|footer|nav|sidebar|modal|overlay|banner|cookie|notification)", re.IGNORECASE),
     ]
-    
+
     # Z-index patterns that suggest layering
     _ZINDEX_PATTERN = re.compile(r'z-index\s*:\s*(\d+)', re.IGNORECASE)
     _ZINDEX_CLASS = re.compile(r'z-\d+', re.IGNORECASE)  # Tailwind
-    
+
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
@@ -90,27 +90,27 @@ class FocusNotObscuredRule(Rule):
                 line = content.count("\n", 0, m.start()) + 1
                 if line in seen_lines:
                     continue
-                
+
                 seen_lines.add(line)
-                
+
                 # Check context for z-index (suggests it's a layer on top)
                 context_start = max(0, m.start() - 100)
                 context_end = min(len(content), m.end() + 100)
                 context = content[context_start:context_end]
-                
+
                 has_high_zindex = False
                 z_match = self._ZINDEX_PATTERN.search(context)
                 if z_match:
                     z_value = int(z_match.group(1))
                     has_high_zindex = z_value >= 10
-                
+
                 z_class_match = self._ZINDEX_CLASS.search(context)
                 if z_class_match:
                     has_high_zindex = True
-                
+
                 # Check if this is likely an overlay element
                 is_overlay = any(p.search(context) for p in self._OVERLAY_PATTERNS)
-                
+
                 if has_high_zindex or is_overlay:
                     findings.append(
                         self.create_finding(
@@ -144,7 +144,7 @@ class FocusNotObscuredRule(Rule):
                                 f"high_zindex={has_high_zindex}",
                                 f"is_overlay={is_overlay}",
                             ],
-                        )
+                        ),
                     )
 
         return findings

@@ -2,10 +2,6 @@
 God Class Rule
 Flags classes that are too large (many lines and/or many methods).
 """
-from schemas.facts import Facts, ClassInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
-from rules.base import Rule
 from core.project_recommendations import (
     enabled_capabilities,
     enabled_team_standards,
@@ -13,6 +9,10 @@ from core.project_recommendations import (
     project_business_context,
     recommendation_context_tags,
 )
+from rules.base import Rule
+from schemas.facts import ClassInfo, Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class GodClassRule(Rule):
@@ -241,9 +241,9 @@ class GodClassRule(Rule):
                             "too_many_methods": too_many,
                             "decision": "emit",
                             "decision_summary": "emit because class exceeds size thresholds without bounded coordinator suppression",
-                        }
+                        },
                     },
-                )
+                ),
             )
 
         return findings

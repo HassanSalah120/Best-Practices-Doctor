@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class SessionFixationRegenerateMissingRule(Rule):
@@ -103,7 +103,7 @@ class SessionFixationRegenerateMissingRule(Rule):
                         "auth_login_call=true",
                         "session_regenerate_missing=true",
                     ],
-                )
+                ),
             )
             break
 

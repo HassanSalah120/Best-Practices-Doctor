@@ -9,10 +9,10 @@ from __future__ import annotations
 import re
 
 from analysis.dependency_graph import get_dependency_graph, strongly_connected_components
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 _RELATION_METHOD_RE = re.compile(
     r"\b(?:belongsTo|hasOne|hasMany|belongsToMany|morphTo|morphOne|morphMany|morphToMany|morphedByMany|hasOneThrough|hasManyThrough)\s*\(",
@@ -123,7 +123,7 @@ class CircularDependencyRule(Rule):
                     related_methods=members,  # show cycle members as evidence
                     tags=["architecture", "coupling", "cycles"],
                     confidence=0.7,
-                )
+                ),
             )
 
         return findings
@@ -132,7 +132,7 @@ class CircularDependencyRule(Rule):
     def _fqcn_by_basename(classes_by_fqcn: dict[str, object]) -> dict[str, str]:
         out: dict[str, str] = {}
         seen_multi: set[str] = set()
-        for fqcn in classes_by_fqcn.keys():
+        for fqcn in classes_by_fqcn:
             base = fqcn.split("\\")[-1]
             if base in seen_multi:
                 continue

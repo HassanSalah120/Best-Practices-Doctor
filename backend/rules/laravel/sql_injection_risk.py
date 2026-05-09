@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class SqlInjectionRiskRule(Rule):
@@ -140,7 +140,7 @@ class SqlInjectionRiskRule(Rule):
                     file=file_path,
                     line_start=i,
                     description=(
-                        f"Detected raw SQL query with potential variable interpolation. "
+                        "Detected raw SQL query with potential variable interpolation. "
                         "This pattern can lead to SQL injection if user input is not properly sanitized."
                     ),
                     why_it_matters=(
@@ -171,7 +171,7 @@ class SqlInjectionRiskRule(Rule):
                     ),
                     confidence=0.80,
                     tags=["security", "sql-injection", "owasp-a1", "database"],
-                )
+                ),
             )
 
         return findings

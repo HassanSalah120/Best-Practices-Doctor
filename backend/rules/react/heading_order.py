@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class HeadingOrderRule(Rule):
@@ -29,13 +29,13 @@ class HeadingOrderRule(Rule):
         r"<h(?P<level>[1-6])\b[^>]*>(?P<text>.*?)</h[1-6]>",
         re.IGNORECASE | re.DOTALL,
     )
-    
+
     # Also catch headings with JSX content
     _HEADING_JSX_PATTERN = re.compile(
         r"<h(?P<level>[1-6])\b[^>]*>",
         re.IGNORECASE,
     )
-    
+
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
@@ -76,19 +76,19 @@ class HeadingOrderRule(Rule):
             return []
 
         findings: list[Finding] = []
-        
+
         # Collect all headings with their levels and positions
         headings: list[tuple[int, int, str]] = []  # (level, line, text)
-        
+
         for m in self._HEADING_PATTERN.finditer(content):
             level = int(m.group("level"))
             line = content.count("\n", 0, m.start()) + 1
             text = re.sub(r"<[^>]+>|\{[^}]*\}", "", m.group("text")).strip()[:30]
             headings.append((level, line, text))
-        
+
         if len(headings) < 2:
             return findings
-        
+
         # Check for skipped levels
         prev_level = 0
         for level, line, text in headings:
@@ -96,12 +96,12 @@ class HeadingOrderRule(Rule):
             if prev_level == 0:
                 prev_level = level
                 continue
-            
+
             # Check if level is skipped (e.g., h1 -> h3)
             if level > prev_level + 1:
                 skipped = list(range(prev_level + 1, level))
                 skipped_str = ", ".join(f"h{s}" for s in skipped)
-                
+
                 findings.append(
                     self.create_finding(
                         title="Heading level skipped",
@@ -129,9 +129,9 @@ class HeadingOrderRule(Rule):
                             f"to_level={level}",
                             f"skipped={skipped_str}",
                         ],
-                    )
+                    ),
                 )
-            
+
             # Allow going back up (h3 -> h2 is fine)
             prev_level = level
 

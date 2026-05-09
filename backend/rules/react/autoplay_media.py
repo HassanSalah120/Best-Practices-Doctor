@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class AutoplayMediaRule(Rule):
@@ -29,19 +29,19 @@ class AutoplayMediaRule(Rule):
         r"<(?:video|audio)\b(?P<attrs>[^>]*)autoplay[^>]*>",
         re.IGNORECASE | re.DOTALL,
     )
-    
+
     # Controls attribute
     _CONTROLS_PATTERN = re.compile(r"\bcontrols\b", re.IGNORECASE)
-    
+
     # Muted attribute (muted autoplay is allowed)
     _MUTED_PATTERN = re.compile(r"\bmuted\b", re.IGNORECASE)
-    
+
     # Play method calls
     _PLAY_CALL_PATTERN = re.compile(
         r"\.play\s*\(\s*\)",
         re.IGNORECASE,
     )
-    
+
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
@@ -89,19 +89,19 @@ class AutoplayMediaRule(Rule):
             line = content.count("\n", 0, m.start()) + 1
             if line in seen_lines:
                 continue
-            
+
             attrs = m.group("attrs") or ""
-            
+
             # Check if muted (muted autoplay is acceptable)
             is_muted = bool(self._MUTED_PATTERN.search(attrs))
             if is_muted:
                 continue  # Muted autoplay is allowed
-            
+
             # Check if has controls
             has_controls = bool(self._CONTROLS_PATTERN.search(attrs))
-            
+
             seen_lines.add(line)
-            
+
             if not has_controls:
                 findings.append(
                     self.create_finding(
@@ -133,7 +133,7 @@ class AutoplayMediaRule(Rule):
                             "controls_missing=true",
                             "muted=false",
                         ],
-                    )
+                    ),
                 )
             else:
                 findings.append(
@@ -164,7 +164,7 @@ class AutoplayMediaRule(Rule):
                             "autoplay=true",
                             "controls_present=true",
                         ],
-                    )
+                    ),
                 )
 
         return findings

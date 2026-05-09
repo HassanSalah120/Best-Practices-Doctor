@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class CookieSameSiteMissingRule(Rule):
@@ -80,7 +80,7 @@ class CookieSameSiteMissingRule(Rule):
                     confidence=0.9 if reason == "null/none" else 0.82,
                     tags=["laravel", "security", "cookies", "samesite"],
                     evidence_signals=["session_same_site_weak=true"],
-                )
+                ),
             ]
 
         return [
@@ -95,5 +95,5 @@ class CookieSameSiteMissingRule(Rule):
                 confidence=0.78,
                 tags=["laravel", "security", "cookies", "samesite"],
                 evidence_signals=["session_same_site_missing=true"],
-            )
+            ),
         ]

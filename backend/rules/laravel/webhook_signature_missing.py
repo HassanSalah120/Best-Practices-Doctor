@@ -6,10 +6,10 @@ Detects webhook/callback routes that do not show explicit signature verification
 
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts, MethodInfo, RouteInfo
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class WebhookSignatureMissingRule(Rule):
@@ -119,7 +119,7 @@ class WebhookSignatureMissingRule(Rule):
                         "signature_middleware_missing=true",
                         "signature_call_missing=true",
                     ],
-                )
+                ),
             )
 
         return findings
@@ -134,7 +134,7 @@ class WebhookSignatureMissingRule(Rule):
                 str(route.controller or "").lower(),
                 str(route.action or "").lower(),
                 str(route.name or "").lower(),
-            ]
+            ],
         )
         return any(token in payload for token in self._WEBHOOK_TOKENS)
 

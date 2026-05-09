@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class JobHttpCallMissingTimeoutRule(Rule):
@@ -126,7 +126,7 @@ class JobHttpCallMissingTimeoutRule(Rule):
                 tags=["laravel", "queues", "jobs", "http", "timeout"],
                 confidence=confidence,
                 evidence_signals=["job_http_call=true", "timeout_missing=true", "wrapper_timeout_hint_missing=true"],
-            )
+            ),
         ]
 
     def _queue_or_integration_capability_enabled(self, facts: Facts) -> bool:

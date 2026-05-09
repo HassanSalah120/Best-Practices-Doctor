@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class ForcedLoginWithoutAuthorizationRule(Rule):
@@ -53,7 +53,7 @@ class ForcedLoginWithoutAuthorizationRule(Rule):
     _LOGIN_RE = re.compile(r"(?:Auth::login\s*\(|auth\(\)->login\s*\(|Auth::guard\s*\([^)]*\)\s*->\s*login\s*\()")
     _AUTHZ_RE = re.compile(
         r"(\$this->authorize\s*\(|Gate::allows\s*\(|Gate::denies\s*\(|abort_if\s*\(\s*!\s*\$user->can\s*\(|"
-        r"abort_unless\s*\(\s*\$user->can\s*\(|policy\s*\(|->can\s*\(|ensureGuest\s*\(|Auth::check\s*\()"
+        r"abort_unless\s*\(\s*\$user->can\s*\(|policy\s*\(|->can\s*\(|ensureGuest\s*\(|Auth::check\s*\()",
     )
 
     def analyze(self, facts: Facts, metrics: dict[str, MethodMetrics] | None = None) -> list[Finding]:
@@ -106,7 +106,7 @@ class ForcedLoginWithoutAuthorizationRule(Rule):
                         suggested_fix=self.fix_suggestion,
                         tags=["laravel", "security", "access-control", "authentication"],
                         confidence=0.74,
-                    )
+                    ),
                 )
         return findings
 

@@ -6,13 +6,13 @@ Detects migration lookup/reference columns that do not appear indexed.
 
 from __future__ import annotations
 
-from collections import defaultdict
 import re
+from collections import defaultdict
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class MissingIndexOnLookupColumnsRule(Rule):
@@ -111,7 +111,7 @@ class MissingIndexOnLookupColumnsRule(Rule):
                         "lookup_index_missing=true",
                         f"column_type={column_type or 'unknown'}",
                     ],
-                )
+                ),
             )
 
         return findings

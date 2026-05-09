@@ -9,10 +9,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from schemas.facts import Facts, RouteInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts, RouteInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MissingCsrfTokenVerificationRule(Rule):
@@ -185,7 +185,7 @@ class MissingCsrfTokenVerificationRule(Rule):
                     confidence=0.72 if is_in_web_routes else 0.80,
                     tags=["security", "csrf", "laravel", "owasp-a8"],
                     related_files=[route.file_path] if route.file_path else [],
-                )
+                ),
             )
 
         return findings

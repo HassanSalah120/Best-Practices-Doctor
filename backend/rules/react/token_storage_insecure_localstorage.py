@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class TokenStorageInsecureLocalStorageRule(Rule):
@@ -127,7 +127,7 @@ class TokenStorageInsecureLocalStorageRule(Rule):
                         "browser_storage=local_or_session",
                         "sensitive_token_key=true",
                     ],
-                )
+                ),
             ]
         return []
 

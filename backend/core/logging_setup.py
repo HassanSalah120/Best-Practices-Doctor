@@ -9,7 +9,6 @@ import os
 
 import structlog
 
-
 _CONFIGURED = False
 
 

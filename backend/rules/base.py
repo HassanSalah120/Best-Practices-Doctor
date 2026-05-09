@@ -7,12 +7,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics, ProjectMetrics
-from schemas.finding import Finding, FindingClassification, Category, Severity
-from core.ruleset import RuleConfig
 from core.finding_templates import get_fix_template
-
+from core.ruleset import RuleConfig
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 SEVERITY_WEIGHT_MAP: dict[str, int] = {
     "low": 2,
@@ -47,7 +46,7 @@ class Rule(ABC):
     - Pure: Only read from Facts, no side effects
     - Configurable: Use thresholds from RuleConfig
     """
-    
+
     # Override these in subclasses
     id: str = "base-rule"
     name: str = "Base Rule"
@@ -76,10 +75,10 @@ class Rule(ABC):
     # File extensions scanned for regex rules. AST rules ignore this.
     # Keep PHP as default to preserve existing behavior.
     regex_file_extensions: list[str] = [".php"]
-    
+
     # Project types this rule applies to (empty = all)
     applicable_project_types: list[str] = []
-    
+
     def __init__(self, config: RuleConfig | None = None):
         self.config = config or RuleConfig()
         self.enabled = self.config.enabled
@@ -98,7 +97,7 @@ class Rule(ABC):
             except Exception:
                 # Keep the rule's declared category if the config is invalid.
                 pass
-        
+
         # Override severity if configured
         if self.config.severity:
             try:
@@ -110,11 +109,11 @@ class Rule(ABC):
 
         if not int(getattr(self, "severity_weight", 0) or 0):
             self.severity_weight = severity_weight_for(self.severity)
-    
+
     def get_threshold(self, key: str, default: Any = None) -> Any:
         """Get a threshold value from config."""
         return self.config.thresholds.get(key, default)
-    
+
     def is_applicable(self, facts: Facts, project_type: str = "") -> bool:
         """
         Check if this rule should run for the given project.
@@ -122,12 +121,12 @@ class Rule(ABC):
         """
         if not self.enabled:
             return False
-        
+
         if self.applicable_project_types and project_type:
             return project_type in self.applicable_project_types
-        
+
         return True
-    
+
     @abstractmethod
     def analyze(
         self,
@@ -176,7 +175,7 @@ class Rule(ABC):
         Use rules.react.ast_utils for React-specific AST utilities.
         """
         return []
-    
+
     def run(
         self,
         facts: Facts,
@@ -189,9 +188,9 @@ class Rule(ABC):
         Returns RuleResult with findings and metadata.
         """
         import time
-        
+
         result = RuleResult(rule_id=self.id)
-        
+
         # Check applicability
         if not self.is_applicable(facts, project_type):
             result.skipped = True
@@ -200,7 +199,7 @@ class Rule(ABC):
             else:
                 result.skip_reason = "Not applicable to this project type"
             return result
-        
+
         # Run analysis
         start = time.perf_counter()
         try:
@@ -210,9 +209,9 @@ class Rule(ABC):
             result.skip_reason = f"Error: {str(e)}"
         finally:
             result.execution_time_ms = (time.perf_counter() - start) * 1000
-        
+
         return result
-    
+
     def create_finding(
         self,
         title: str,

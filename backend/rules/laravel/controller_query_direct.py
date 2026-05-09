@@ -4,11 +4,11 @@ Controller Query Direct Rule
 Flags direct DB/Eloquent queries inside controller actions.
 This is distinct from repository-suggestion (advisory): this is a violation.
 """
-from schemas.facts import Facts, QueryUsage
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, FindingClassification, Category, Severity
-from rules.base import Rule
 from core.project_recommendations import enabled_team_standards
+from rules.base import Rule
+from schemas.facts import Facts, QueryUsage
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ControllerQueryDirectRule(Rule):
@@ -164,7 +164,7 @@ class ControllerQueryDirectRule(Rule):
                         "overlap_rank": 140,
                         "overlap_role": "child",
                     },
-                )
+                ),
             )
 
         return findings

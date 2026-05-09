@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class _AdvancedFrontendRegexRule(Rule):
@@ -96,7 +96,7 @@ class InlinePropObjectArrayRule(_AdvancedFrontendRegexRule):
                         confidence=0.9,
                         tags=["react", "performance", "props"],
                         evidence_signals=[f"prop={prop}", f"inline_value={kind}"],
-                    )
+                    ),
                 )
         return findings[: max(1, int(self.get_threshold("max_findings_per_file", 3)))]
 
@@ -184,7 +184,7 @@ class UnstableReactKeyRule(_AdvancedFrontendRegexRule):
                     confidence=0.9,
                     tags=["react", "rendering", "keys"],
                     evidence_signals=[f"key_expression={expr}", f"reason={reason}"],
-                )
+                ),
             )
         return findings[: max(1, int(self.get_threshold("max_findings_per_file", 3)))]
 
@@ -361,7 +361,7 @@ class UnstableReactKeyRule(_AdvancedFrontendRegexRule):
         return bool(
             re.search(rf"\b(?:const|function)\s+{helper_name}\b", prior)
             or re.search(rf"\b{helper_name}\s*=", prior)
-            or re.search(r"\browKey\b", prior)
+            or re.search(r"\browKey\b", prior),
         )
 
     def _is_hook_generated_key(self, expr: str, text: str, offset: int) -> bool:
@@ -438,6 +438,6 @@ class LooseDefaultObjectPropRule(_AdvancedFrontendRegexRule):
                         confidence=0.9,
                         tags=["typescript", "safety", "props"],
                         evidence_signals=[f"prop={prop}", "default_object={}"],
-                    )
+                    ),
                 )
         return findings[: max(1, int(self.get_threshold("max_findings_per_file", 3)))]

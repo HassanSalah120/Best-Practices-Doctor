@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Category, Finding, FindingClassification, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 class UnsafeAsyncHandlerWithoutGuardRule(Rule):
@@ -123,7 +123,7 @@ class UnsafeAsyncHandlerWithoutGuardRule(Rule):
                         "guard=0",
                     ],
                     metadata={"decision_profile": {"handler": handler_name, "guarded": False}},
-                )
+                ),
             )
 
         return findings

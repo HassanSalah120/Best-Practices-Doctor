@@ -2,10 +2,11 @@
 Ruleset YAML Configuration
 Loads and validates rule configuration with versioning and defaults.
 """
+import logging
+import os
 from pathlib import Path
 from typing import Any
-import os
-import logging
+
 import yaml
 from pydantic import BaseModel, Field, field_validator
 
@@ -19,7 +20,7 @@ class RuleConfig(BaseModel):
     category: str | None = None  # Rule category (laravel, security, etc.)
     version: int = 1  # Per-rule version for compatibility
     thresholds: dict[str, Any] = Field(default_factory=dict)
-    
+
     # Example thresholds:
     # fat-controller: { max_method_loc: 30, max_queries: 3 }
     # enum-suggestion: { min_occurrences: 3 }
@@ -104,19 +105,19 @@ class Ruleset(BaseModel):
     schema_version: int = 1
     name: str = "default"
     description: str = ""
-    
+
     # Rule configurations
     rules: dict[str, RuleConfig] = Field(default_factory=dict)
-    
+
     # Scan settings
     scan: ScanConfig = Field(default_factory=ScanConfig)
-    
+
     # Scoring weights
     scoring: ScoringConfig = Field(default_factory=ScoringConfig)
-    
+
     # Limit to specific project types (empty = all)
     project_types: list[str] = Field(default_factory=list)
-    
+
     @field_validator("schema_version")
     @classmethod
     def validate_version(cls, v: int) -> int:
@@ -151,7 +152,7 @@ class Ruleset(BaseModel):
             merged.project_types = user.project_types
 
         return merged
-    
+
     @classmethod
     def load(cls, path: str | Path) -> "Ruleset":
         """Load ruleset from YAML file."""
@@ -169,12 +170,12 @@ class Ruleset(BaseModel):
                     raise FileNotFoundError(f"Ruleset not found: {path}")
             else:
                 raise FileNotFoundError(f"Ruleset not found: {path}")
-        
-        with open(path, "r", encoding="utf-8") as f:
+
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-        
+
         return cls(**data)
-    
+
     @classmethod
     def load_with_fallback(cls, path: str | Path | None, default_path: str | Path) -> "Ruleset":
         """Load ruleset with fallback to default if invalid."""
@@ -183,7 +184,7 @@ class Ruleset(BaseModel):
                 return cls.load(path)
             except Exception:
                 pass  # Fall through to default
-        
+
         try:
             return cls.load(default_path)
         except Exception:
@@ -249,7 +250,7 @@ class Ruleset(BaseModel):
                 try:
                     if rs._maybe_migrate_legacy_scoring_weights():
                         logger.info(
-                            "Migrated legacy scoring weights in merged user/profile ruleset"
+                            "Migrated legacy scoring weights in merged user/profile ruleset",
                         )
                 except Exception:
                     pass
@@ -377,7 +378,7 @@ class Ruleset(BaseModel):
             return False
 
         return True
-    
+
     def get_rule_config(self, rule_id: str) -> RuleConfig:
         """Get config for a rule, with defaults if not specified."""
         if rule_id in self.rules:
@@ -385,17 +386,17 @@ class Ruleset(BaseModel):
         if self.rules:
             return RuleConfig(enabled=False)
         return RuleConfig()
-    
+
     def is_rule_enabled(self, rule_id: str) -> bool:
         """Check if a rule is enabled."""
         config = self.get_rule_config(rule_id)
         return config.enabled
-    
+
     def get_threshold(self, rule_id: str, key: str, default: Any = None) -> Any:
         """Get a threshold value for a rule."""
         config = self.get_rule_config(rule_id)
         return config.thresholds.get(key, default)
-    
+
     def should_ignore(self, path: str) -> bool:
         """Check if a path should be ignored based on patterns."""
         from fnmatch import fnmatch
@@ -403,7 +404,7 @@ class Ruleset(BaseModel):
             if fnmatch(path, pattern):
                 return True
         return False
-    
+
     @classmethod
     def default(cls) -> "Ruleset":
         """Return the default ruleset with all standard rules."""
@@ -1143,18 +1144,18 @@ class Ruleset(BaseModel):
                     category="react_best_practice",
                     thresholds={"max_findings_per_file": 2},
                 ),
-            }
+            },
         )
-    
+
     @classmethod
     def from_file(cls, path: str | Path) -> "Ruleset":
         """Alias for load() - load ruleset from YAML file."""
         return cls.load(path)
-    
+
     def to_yaml(self) -> str:
         """Export ruleset to YAML string."""
         return yaml.safe_dump(self.model_dump(), default_flow_style=False)
-    
+
     def save(self, path: str | Path) -> None:
         """Save ruleset to YAML file."""
         path = Path(path)

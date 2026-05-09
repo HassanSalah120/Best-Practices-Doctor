@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class InsecureSessionCookieConfigRule(Rule):
@@ -112,5 +112,5 @@ class InsecureSessionCookieConfigRule(Rule):
                 tags=["laravel", "security", "session", "cookies"],
                 confidence=0.91,
                 evidence_signals=["session_cookie_hardening_missing=true", f"issues={len(issues)}"],
-            )
+            ),
         ]

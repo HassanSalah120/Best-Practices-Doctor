@@ -7,10 +7,10 @@ Detects common unsafe file upload patterns, such as:
 
 This is heuristic-based and uses AST-extracted call sites and derived validation metrics.
 """
-from schemas.facts import Facts, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class UnsafeFileUploadRule(Rule):
@@ -104,7 +104,7 @@ class UnsafeFileUploadRule(Rule):
                         ),
                         tags=["security", "uploads", "validation", "laravel"],
                         confidence=0.65,
-                    )
+                    ),
                 )
 
             # Sub-detector: svg-upload-xss-risk
@@ -128,7 +128,7 @@ class UnsafeFileUploadRule(Rule):
                         tags=["security", "uploads", "svg", "xss"],
                         confidence=0.82,
                         metadata={"upload_subcontext": "svg-upload-xss-risk"},
-                    )
+                    ),
                 )
 
             # Sub-detector: double-extension-upload
@@ -154,7 +154,7 @@ class UnsafeFileUploadRule(Rule):
                         tags=["security", "uploads", "filename", "double-extension"],
                         confidence=0.8,
                         metadata={"upload_subcontext": "double-extension-upload"},
-                    )
+                    ),
                 )
 
         return findings

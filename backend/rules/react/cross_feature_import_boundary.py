@@ -9,10 +9,10 @@ from __future__ import annotations
 import posixpath
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Category, Finding, FindingClassification, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 class CrossFeatureImportBoundaryRule(Rule):
@@ -118,9 +118,9 @@ class CrossFeatureImportBoundaryRule(Rule):
                             "target_feature": target_feature,
                             "resolved_import": resolved,
                             "allow_entrypoint_import": allow_entrypoint_import,
-                        }
+                        },
                     },
-                )
+                ),
             )
 
         return findings

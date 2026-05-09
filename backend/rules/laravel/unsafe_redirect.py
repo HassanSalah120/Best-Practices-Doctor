@@ -6,12 +6,12 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
+from rules.laravel.unsafe_external_redirect import UnsafeExternalRedirectRule
+from rules.laravel.unvalidated_login_redirect import UnvalidatedLoginRedirectRule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
-from rules.laravel.unvalidated_login_redirect import UnvalidatedLoginRedirectRule
-from rules.laravel.unsafe_external_redirect import UnsafeExternalRedirectRule
 
 
 class UnsafeRedirectRule(Rule):
@@ -75,7 +75,7 @@ class UnsafeRedirectRule(Rule):
                         "Detected redirect logic that may trust unvalidated external or user-provided URLs."
                     ),
                     "metadata": metadata,
-                }
+                },
             )
             fp = updated.compute_fingerprint()
             if fp in seen:
@@ -125,6 +125,6 @@ class UnsafeRedirectRule(Rule):
                     tags=["laravel", "security", "redirect", "allowlist"],
                     confidence=0.92,
                     metadata={"source_rule_id": "self-approving-redirect-allowlist"},
-                )
+                ),
             )
         return findings

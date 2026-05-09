@@ -18,11 +18,10 @@ Notes:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import re
+from dataclasses import dataclass, field
 
-from schemas.facts import Facts, ClassInfo, MethodInfo
-
+from schemas.facts import ClassInfo, Facts
 
 _SCOPED_CLASS_REF = re.compile(r"\\?(?P<class>[A-Za-z_][A-Za-z0-9_\\\\]*)::")
 

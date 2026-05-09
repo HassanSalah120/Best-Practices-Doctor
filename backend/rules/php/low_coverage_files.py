@@ -9,11 +9,11 @@ Coverage is imported (if present) by MetricsAnalyzer into `facts._coverage` as:
 
 from __future__ import annotations
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
-from rules.base import Rule
 from core.path_utils import normalize_rel_path
+from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class LowCoverageFilesRule(Rule):
@@ -100,7 +100,7 @@ class LowCoverageFilesRule(Rule):
                     ),
                     tags=["quality_gate", "coverage"],
                     confidence=0.8,
-                )
+                ),
             )
 
             if max_findings and len(findings) >= max_findings:

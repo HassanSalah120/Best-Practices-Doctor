@@ -53,7 +53,7 @@ class ReportingStage:
                         cyclomatic=int(getattr(metric, "cyclomatic_complexity", 1) or 1),
                         cognitive=int(getattr(metric, "cognitive_complexity", 1) or 1),
                         nesting_depth=int(getattr(metric, "nesting_depth", 0) or 0),
-                    )
+                    ),
                 )
             hotspots.sort(key=lambda item: (-item.cognitive, -item.cyclomatic, item.method_fqn))
             state.report.complexity_hotspots = hotspots[:10]
@@ -74,10 +74,10 @@ class ReportingStage:
                             duplicated_tokens=int(data.get("duplicated_tokens", 0) or 0),
                             total_tokens=int(data.get("total_tokens", 0) or 0),
                             duplicate_blocks=int(data.get("duplicate_blocks", 0) or 0),
-                        )
+                        ),
                     )
             duplication_hotspots.sort(
-                key=lambda item: (-item.duplication_pct, -item.duplicated_tokens, item.file)
+                key=lambda item: (-item.duplication_pct, -item.duplicated_tokens, item.file),
             )
             state.report.duplication_hotspots = duplication_hotspots[:10]
         except Exception as exc:

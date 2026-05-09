@@ -7,16 +7,16 @@ tenant access middleware.
 
 from __future__ import annotations
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
-from rules.base import Rule
 from core.project_recommendations import (
     enabled_capabilities,
     enabled_team_standards,
     project_aware_guidance,
     recommendation_context_tags,
 )
+from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class TenantAccessMiddlewareMissingRule(Rule):
@@ -99,7 +99,7 @@ class TenantAccessMiddlewareMissingRule(Rule):
                     str(route.controller or "").lower(),
                     str(route.action or "").lower(),
                     str(route.name or "").lower(),
-                ]
+                ],
             )
             route_score, route_strong_hits = self._tenant_marker_score(descriptor)
             if route_strong_hits == 0:
@@ -158,9 +158,9 @@ class TenantAccessMiddlewareMissingRule(Rule):
                                 f"route_signal_score={route_score}",
                                 f"min_confidence={min_confidence:.2f}",
                             ],
-                        }
+                        },
                     },
-                )
+                ),
             )
         return findings
 
@@ -177,7 +177,7 @@ class TenantAccessMiddlewareMissingRule(Rule):
                     str(getattr(route, "uri", "") or ""),
                     str(getattr(route, "controller", "") or ""),
                     " ".join(str(x or "") for x in (getattr(route, "middleware", []) or [])),
-                ]
+                ],
             )
             item_score, item_strong_hits = self._tenant_marker_score(route_text)
             score += item_score

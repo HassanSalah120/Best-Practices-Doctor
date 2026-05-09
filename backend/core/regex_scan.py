@@ -7,8 +7,8 @@ line-level matches so rules can create stable findings without parsing AST.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)

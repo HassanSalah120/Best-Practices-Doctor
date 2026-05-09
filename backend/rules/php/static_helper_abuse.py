@@ -6,10 +6,10 @@ These often hide dependencies and make code harder to test.
 """
 import re
 
-from schemas.facts import Facts, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class StaticHelperAbuseRule(Rule):
@@ -105,7 +105,7 @@ class StaticHelperAbuseRule(Rule):
                     ),
                     tags=["architecture", "helpers", "di", "testing"],
                     confidence=0.65,
-                )
+                ),
             )
 
         return findings

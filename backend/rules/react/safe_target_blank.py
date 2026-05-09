@@ -4,10 +4,12 @@ Safe Target Blank Rule
 Detects usage of target="_blank" without rel="noopener noreferrer".
 """
 import re
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
+
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
+
 
 class SafeTargetBlankRule(Rule):
     id = "safe-target-blank"
@@ -49,16 +51,16 @@ class SafeTargetBlankRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings = []
-        
+
         for m in self._ANCHOR_TAG.finditer(content):
             attrs = (m.group("attrs") or "").lower()
-            
+
             if 'target="_blank"' not in attrs and "target='_blank'" not in attrs:
                 continue
-            
+
             has_noopener = "noopener" in attrs
             has_noreferrer = "noreferrer" in attrs
-            
+
             if not (has_noopener and has_noreferrer):
                 line = content.count("\n", 0, m.start()) + 1
                 findings.append(
@@ -77,7 +79,7 @@ class SafeTargetBlankRule(Rule):
                         ),
                         tags=["react", "security", "phishing"],
                         confidence=0.9,
-                    )
+                    ),
                 )
 
         return findings

@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class DangerousHtmlSinkWithoutSanitizerRule(Rule):
@@ -115,7 +115,7 @@ class DangerousHtmlSinkWithoutSanitizerRule(Rule):
                     "sanitizer_missing=true",
                     f"style_tag_sink={str(is_style_sink).lower()}",
                 ],
-            )
+            ),
         ]
 
     def _find_line(self, text: str, idx_hint: int | None = None) -> int:

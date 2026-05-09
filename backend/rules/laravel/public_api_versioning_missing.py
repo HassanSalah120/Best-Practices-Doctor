@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts, RouteInfo
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class PublicApiVersioningMissingRule(Rule):
@@ -82,7 +82,7 @@ class PublicApiVersioningMissingRule(Rule):
                     confidence=confidence,
                     tags=["laravel", "api", "versioning"],
                     evidence_signals=["public_api_route=true", "api_version_prefix_missing=true"],
-                )
+                ),
             )
 
         return findings

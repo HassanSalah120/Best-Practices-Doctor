@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class UserModelMissingMustVerifyEmailRule(Rule):
@@ -123,7 +123,7 @@ class UserModelMissingMustVerifyEmailRule(Rule):
                 tags=["laravel", "security", "email-verification", "auth"],
                 confidence=confidence,
                 evidence_signals=evidence,
-            )
+            ),
         ]
 
     def _is_token_api_only_context(self, facts: Facts) -> bool:
@@ -147,9 +147,7 @@ class UserModelMissingMustVerifyEmailRule(Rule):
 
             uri = str(route.uri or "").lower()
             middleware_txt = " ".join(str(x).lower() for x in (route.middleware or []))
-            if any(tok in middleware_txt for tok in ("sanctum", "passport", "jwt", "token")):
-                token_auth_routes += 1
-            elif any(tok in uri for tok in ("token", "login", "auth")):
+            if any(tok in middleware_txt for tok in ("sanctum", "passport", "jwt", "token")) or any(tok in uri for tok in ("token", "login", "auth")):
                 token_auth_routes += 1
 
         return non_api_routes == 0 and token_auth_routes > 0

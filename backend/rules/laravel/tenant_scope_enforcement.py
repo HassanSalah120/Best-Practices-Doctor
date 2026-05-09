@@ -8,16 +8,16 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
-from rules.base import Rule
 from core.project_recommendations import (
     enabled_capabilities,
     enabled_team_standards,
     project_aware_guidance,
     recommendation_context_tags,
 )
+from rules.base import Rule
+from schemas.facts import Facts, MethodInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class TenantScopeEnforcementRule(Rule):
@@ -287,9 +287,9 @@ class TenantScopeEnforcementRule(Rule):
                                 f"unsafe_queries={len(unsafe)}",
                                 f"min_confidence={min_confidence:.2f}",
                             ],
-                        }
+                        },
                     },
-                )
+                ),
             )
 
         return findings
@@ -351,7 +351,7 @@ class TenantScopeEnforcementRule(Rule):
                         ),
                         tags=["laravel", "security", "multi-tenant", "data-isolation"],
                         confidence=0.82,
-                    )
+                    ),
                 )
         return findings
 
@@ -382,7 +382,7 @@ class TenantScopeEnforcementRule(Rule):
                 [
                     str(getattr(route, "uri", "") or ""),
                     " ".join(str(x or "") for x in (getattr(route, "middleware", []) or [])),
-                ]
+                ],
             ).lower()
             item_score, item_strong = self._tenant_marker_score(route_text)
             score += item_score
@@ -399,7 +399,7 @@ class TenantScopeEnforcementRule(Rule):
                 str(method.file_path or ""),
                 str(method.class_name or ""),
                 str(method.class_fqcn or ""),
-            ]
+            ],
         ).lower().replace("\\", "/")
         _, strong_hits = self._tenant_marker_score(method_text)
         if strong_hits:
@@ -410,7 +410,7 @@ class TenantScopeEnforcementRule(Rule):
                 [
                     str(getattr(route, "uri", "") or ""),
                     " ".join(str(x or "") for x in (getattr(route, "middleware", []) or [])),
-                ]
+                ],
             ).lower()
             _, route_strong_hits = self._tenant_marker_score(route_text)
             if route_strong_hits:
@@ -442,17 +442,17 @@ class TenantScopeEnforcementRule(Rule):
         class_name = (method.class_name or "").lower().replace("_", "").replace("-", "")
         if any(m in class_name for m in self._STATIC_DATA_SERVICE_MARKERS):
             return True
-        
+
         # Check file path for static data patterns
         file_path = (method.file_path or "").lower().replace("\\", "/")
         if any(m in file_path for m in ["countrycallingcode", "callingcode", "staticdata", "referencedata"]):
             return True
-        
+
         # Check if method returns from a Data object (not database)
         call_sites = " ".join(method.call_sites or []).lower()
         if "data->get" in call_sites or "data->all" in call_sites:
             return True
-        
+
         return False
 
     def _is_scheduled_task(self, method: MethodInfo) -> bool:
@@ -460,17 +460,17 @@ class TenantScopeEnforcementRule(Rule):
         method_name = (method.name or "").lower().replace("_", "")
         if any(pattern in method_name for pattern in self._SCHEDULED_TASK_PATTERNS):
             return True
-        
+
         # Check for Console/Command context
         file_path = (method.file_path or "").lower().replace("\\", "/")
         if "/console/" in file_path or "/commands/" in file_path:
             return True
-        
+
         # Check docblock for scheduled task indicators
         doc_comment = str(getattr(method, "doc_comment", "") or "").lower()
         if any(kw in doc_comment for kw in ["scheduled", "cron", "console", "command", "system-wide", "background"]):
             return True
-        
+
         return False
 
     def _is_global_model_allowlisted(self, model: str | None) -> bool:

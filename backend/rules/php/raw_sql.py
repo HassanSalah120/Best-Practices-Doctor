@@ -4,10 +4,10 @@ Raw SQL Rule
 Detects raw SQL usage via DB::select/statement/raw (risk: SQL injection, portability, and readability).
 Uses QueryUsage facts extracted from AST (Tree-sitter primary).
 """
-from schemas.facts import Facts, QueryUsage
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class RawSqlRule(Rule):
@@ -70,7 +70,7 @@ class RawSqlRule(Rule):
                         "3. Centralize raw SQL in a repository/query object and add tests"
                     ),
                     tags=["security", "sql", "injection", "database"],
-                )
+                ),
             )
 
         return findings

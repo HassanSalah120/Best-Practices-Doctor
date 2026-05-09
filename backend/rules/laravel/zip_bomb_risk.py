@@ -6,10 +6,10 @@ Detects archive extraction without size/entry-count guardrails.
 
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts, MethodInfo
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class ZipBombRiskRule(Rule):
@@ -70,7 +70,7 @@ class ZipBombRiskRule(Rule):
                     confidence=confidence,
                     tags=["laravel", "security", "upload", "archive"],
                     evidence_signals=["zip_extract=true", "zip_bomb_guard=false"],
-                )
+                ),
             )
         return findings
 

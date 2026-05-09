@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class UrlValidationProtocolBypassRule(Rule):
@@ -101,7 +101,7 @@ class UrlValidationProtocolBypassRule(Rule):
                     suggested_fix=self.fix_suggestion,
                     tags=["laravel", "security", "redirect", "validation"],
                     confidence=0.9,
-                )
+                ),
             )
         return findings
 

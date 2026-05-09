@@ -3,10 +3,10 @@ Action Class Suggestion Rule
 
 Suggests converting single-method services into Action classes (use-case oriented).
 """
-from schemas.facts import Facts, ClassInfo, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import ClassInfo, Facts, MethodInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ActionClassSuggestionRule(Rule):
@@ -109,7 +109,7 @@ class ActionClassSuggestionRule(Rule):
                     ),
                     tags=["architecture", "actions", "services"],
                     confidence=0.7,
-                )
+                ),
             )
 
         return findings

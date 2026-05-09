@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 from pathlib import Path
-import re
-
 
 _IMPORT_RE = re.compile(
     r"import\s+(?P<spec>[\s\S]*?)\s+from\s+['\"](?P<src>[^'\"]+)['\"]\s*;?",

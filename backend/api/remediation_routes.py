@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +28,6 @@ from core.remediation.storage import (
 )
 from core.remediation.task_builder import build_tasks
 from core.rule_engine import REGISTERED_RULES
-
 
 remediation_router = APIRouter()
 
@@ -69,7 +68,7 @@ async def create_remediation_run(job_id: str, request: CreateRemediationRunReque
     run_id = f"rr_{uuid.uuid4().hex[:12]}"
     project_hash = project_hash_for_path(report.project_path)
     tasks = build_tasks(report, selected)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     run = RemediationRun(
         run_id=run_id,
         source_job_id=job_id,

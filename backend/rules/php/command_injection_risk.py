@@ -8,13 +8,17 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
-from ._parse_utils import extract_paren_content, split_top_level_args, is_simple_string_literal, string_literal_is_interpolated
-
+from ._parse_utils import (
+    extract_paren_content,
+    is_simple_string_literal,
+    split_top_level_args,
+    string_literal_is_interpolated,
+)
 
 _CMD_FUNCS = re.compile(r"\b(shell_exec|exec|system|passthru|popen|proc_open)\s*\(", re.IGNORECASE)
 _REQUESTISH = re.compile(r"(\$request\b|request\s*\(|\$_(get|post|request)\b)", re.IGNORECASE)
@@ -117,7 +121,7 @@ class CommandInjectionRiskRule(Rule):
                     ),
                     tags=["security", "command_injection", "rce"],
                     confidence=conf,
-                )
+                ),
             )
 
         return findings

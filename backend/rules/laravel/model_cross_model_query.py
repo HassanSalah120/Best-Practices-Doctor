@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from schemas.facts import ClassInfo, Facts, MethodInfo, QueryUsage
-from schemas.metrics import MethodMetrics
-from schemas.finding import Category, Finding, FindingClassification, Severity
-from rules.base import Rule
 from core.project_recommendations import recommendation_context_tags
+from rules.base import Rule
+from schemas.facts import ClassInfo, Facts, MethodInfo, QueryUsage
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ModelCrossModelQueryRule(Rule):
@@ -170,7 +170,7 @@ class ModelCrossModelQueryRule(Rule):
                         "cross_model_query_signal": cross_model_signal,
                         "decision_profile": decision_profile,
                     },
-                )
+                ),
             )
             per_file_count[file_path] += 1
 

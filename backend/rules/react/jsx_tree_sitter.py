@@ -123,7 +123,7 @@ class JsxTreeSitterHelper:
                     raw_value=raw_value,
                     static_value=static_value,
                     line=child.start_point.row + 1,
-                )
+                ),
             )
         return attrs
 

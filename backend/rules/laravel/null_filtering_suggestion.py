@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class NullFilteringSuggestionRule(Rule):
@@ -154,7 +154,7 @@ class NullFilteringSuggestionRule(Rule):
                     ),
                     confidence=0.55,
                     tags=["performance", "inertia", "json", "frontend"],
-                )
+                ),
             )
 
         return findings

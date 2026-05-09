@@ -2,10 +2,10 @@
 Eager Loading Rule
 Detects potential N+1 issues and suggests eager loading.
 """
-from schemas.facts import Facts, QueryUsage
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts, QueryUsage
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class EagerLoadingRule(Rule):

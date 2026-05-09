@@ -3,10 +3,6 @@ Too Many Dependencies Rule
 
 Flags constructors with too many injected dependencies (tight coupling / SRP smell).
 """
-from schemas.facts import Facts, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
-from rules.base import Rule
 from core.project_recommendations import (
     enabled_capabilities,
     enabled_team_standards,
@@ -14,6 +10,10 @@ from core.project_recommendations import (
     project_business_context,
     recommendation_context_tags,
 )
+from rules.base import Rule
+from schemas.facts import Facts, MethodInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class TooManyDependenciesRule(Rule):
@@ -113,11 +113,11 @@ class TooManyDependenciesRule(Rule):
         for m in facts.methods:
             if m.name != "__construct":
                 continue
-            
+
             # Skip DTOs - they have data properties, not service dependencies
             if self._is_dto(m, facts):
                 continue
-            
+
             # Skip orchestrators/coordinators - they intentionally coordinate multiple services
             if self._is_orchestrator(m, facts):
                 continue
@@ -127,7 +127,7 @@ class TooManyDependenciesRule(Rule):
                 continue
             if self._is_bounded_service_facade(m, architecture_profile):
                 continue
-            
+
             dep_count = len(m.parameters or [])
             if dep_count <= max_deps:
                 continue
@@ -172,7 +172,7 @@ class TooManyDependenciesRule(Rule):
                     confidence=confidence,
                     evidence_signals=profile["evidence_signals"],
                     metadata={"decision_profile": profile},
-                )
+                ),
             )
 
         return findings
@@ -236,7 +236,7 @@ class TooManyDependenciesRule(Rule):
         if "services_actions_expected" in team_standards:
             return Severity.HIGH
         return self.severity
-    
+
     def _is_dto(self, method: MethodInfo, facts: Facts) -> bool:
         """Check if the class is a DTO (Data Transfer Object) - these have data properties, not service dependencies."""
         # Check file path for DTO markers
@@ -248,17 +248,17 @@ class TooManyDependenciesRule(Rule):
             filename = path_lower.split("/")[-1] if "/" in path_lower else path_lower
             if "dto" in filename.lower():
                 return True
-        
+
         # Check if class name ends with DTO
         if method.class_name and method.class_name.lower().endswith("dto"):
             return True
-        
+
         return False
 
     def _is_orchestrator(self, method: MethodInfo, facts: Facts) -> bool:
         """Check if the class is an orchestrator/coordinator - these intentionally have many dependencies."""
         class_name = (method.class_name or "").lower()
-        
+
         # Check class name patterns for orchestrator/coordinator
         orchestrator_patterns = [
             "coordinator",
@@ -269,7 +269,7 @@ class TooManyDependenciesRule(Rule):
         ]
         if any(pattern in class_name for pattern in orchestrator_patterns):
             return True
-        
+
         # Check for service classes that orchestrate multi-step workflows
         # These typically have names like InsuranceClaimService, OrderProcessingService
         workflow_service_patterns = [
@@ -281,13 +281,13 @@ class TooManyDependenciesRule(Rule):
         ]
         if any(pattern in class_name for pattern in workflow_service_patterns):
             return True
-        
+
         # Check file path for coordination/workflow folders
         if method.file_path:
             path_lower = method.file_path.lower().replace("\\", "/")
             if "/coordination/" in path_lower or "/workflows/" in path_lower or "/workflow/" in path_lower:
                 return True
-        
+
         return False
 
     def _is_controller_facade_orchestrator(self, method: MethodInfo, architecture_profile: str) -> bool:

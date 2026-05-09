@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class InsecureRandomForSecurityRule(Rule):
@@ -177,7 +177,7 @@ class InsecureRandomForSecurityRule(Rule):
                     ),
                     confidence=0.75,
                     tags=["security", "cryptography", "random", "owasp-a2"],
-                )
+                ),
             )
 
         return findings

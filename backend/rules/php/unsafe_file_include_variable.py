@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class UnsafeFileIncludeVariableRule(Rule):
@@ -98,7 +98,7 @@ class UnsafeFileIncludeVariableRule(Rule):
                     confidence=0.9,
                     tags=["php", "security", "include", "lfi"],
                     evidence_signals=["include_variable_unvalidated=true"],
-                )
+                ),
             )
         return findings
 

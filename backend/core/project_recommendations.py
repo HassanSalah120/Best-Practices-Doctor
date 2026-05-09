@@ -7,8 +7,6 @@ business-context-aware.
 
 from __future__ import annotations
 
-from typing import Iterable
-
 from schemas.facts import Facts
 
 
@@ -62,33 +60,33 @@ def project_aware_guidance(facts: Facts, *, focus: str) -> str:
             [
                 "- Keep subscription lifecycle transitions in one billing/service boundary.",
                 "- Centralize quota enforcement so account/admin/customer paths stay consistent.",
-            ]
+            ],
         )
     elif business == "realtime_game_control_platform":
         lines.extend(
             [
                 "- Keep controller endpoints thin and move event/state synchronization to dedicated services.",
                 "- Preserve clear websocket auth and event-flow boundaries (controller -> action/service -> broadcaster).",
-            ]
+            ],
         )
     elif business == "clinic_erp_management":
         lines.extend(
             [
                 "- Keep workflow transitions explicit (appointments/claims/invoices) inside domain services/actions.",
                 "- Preserve role/permission boundaries and auditability in orchestration code paths.",
-            ]
+            ],
         )
     elif business == "portal_based_business_app":
         lines.extend(
             [
                 "- Keep portal role boundaries explicit so admin/staff/customer paths cannot drift.",
-            ]
+            ],
         )
     elif business == "api_backend":
         lines.extend(
             [
                 "- Keep response-shaping and API contracts separate from domain workflows.",
-            ]
+            ],
         )
 
     if "multi_tenant" in capabilities:

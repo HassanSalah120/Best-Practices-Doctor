@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class ClientOpenRedirectUnvalidatedNavigationRule(Rule):
@@ -121,7 +121,7 @@ class ClientOpenRedirectUnvalidatedNavigationRule(Rule):
                         "source=url_search_or_referrer",
                         "validation_signal_missing=true",
                     ],
-                )
+                ),
             ]
         return []
 

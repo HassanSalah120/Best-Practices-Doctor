@@ -6,17 +6,16 @@ Runs tsc --noEmit to detect TypeScript type errors and syntax issues.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import subprocess
-import logging
 from pathlib import Path
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
-
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +35,14 @@ class TypeScriptTypeCheckRule(Rule):
     _TSC_ERROR_PATTERN = re.compile(
         r"^(?P<file>[^(]+)\((?P<line>\d+),(?P<col>\d+)\):\s*"
         r"(?P<severity>error|warning)\s+(?P<code>TS\d+):\s*(?P<message>.+)$",
-        re.MULTILINE
+        re.MULTILINE,
     )
 
     # Alternative pattern for some tsc outputs
     _TSC_ERROR_PATTERN_ALT = re.compile(
         r"^(?P<file>[^(]+)\((?P<line>\d+),(?P<col>\d+)\):\s*"
         r"(?P<message>.+)$",
-        re.MULTILINE
+        re.MULTILINE,
     )
 
     _ALLOWLIST_PATHS = (
@@ -107,7 +106,7 @@ class TypeScriptTypeCheckRule(Rule):
                 capture_output=True,
                 text=True,
                 timeout=120,  # 2 minute timeout
-                env={**os.environ, "FORCE_COLOR": "0"}  # Disable colors for parsing
+                env={**os.environ, "FORCE_COLOR": "0"},  # Disable colors for parsing
             )
 
             # Parse errors from stdout and stderr
@@ -164,7 +163,7 @@ class TypeScriptTypeCheckRule(Rule):
                         confidence=1.0,
                         tags=["typescript", "types", "syntax", "tsc"],
                         evidence_signals=[f"tsc_{code}={severity_str}"],
-                    )
+                    ),
                 )
 
         except subprocess.TimeoutExpired:

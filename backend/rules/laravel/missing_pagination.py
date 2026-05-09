@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MissingPaginationRule(Rule):
@@ -148,7 +148,7 @@ class MissingPaginationRule(Rule):
                 continue
 
             terminal = chain_parts[-1] if chain_parts else ""
-            
+
             # Extract method name (remove parentheses and arguments)
             terminal_name = terminal.split("(")[0].strip() if "(" in terminal else terminal
 
@@ -206,7 +206,7 @@ class MissingPaginationRule(Rule):
                     f"model={q.model or 'unknown'}",
                     f"terminal={terminal_name}",
                     f"multi_record_signals={multi_record_signals}",
-                ]
+                ],
             )
             if is_large_model:
                 evidence.append("large_model=true")
@@ -271,7 +271,7 @@ class MissingPaginationRule(Rule):
                     confidence=confidence,
                     tags=["performance", "api", "pagination", "memory", "laravel"],
                     evidence_signals=evidence,
-                )
+                ),
             )
 
         return findings

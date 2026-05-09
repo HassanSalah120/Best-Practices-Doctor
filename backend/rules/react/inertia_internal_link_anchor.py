@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class InertiaInternalLinkAnchorRule(Rule):
@@ -90,5 +90,5 @@ class InertiaInternalLinkAnchorRule(Rule):
                 tags=["react", "inertia", "navigation", "link"],
                 confidence=0.8,
                 evidence_signals=[f"file={file_path}", f"line={line}", "raw_internal_anchor=true"],
-            )
+            ),
         ]

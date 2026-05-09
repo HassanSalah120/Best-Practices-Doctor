@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MissingUseMemoForExpensiveCalcRule(Rule):
@@ -96,7 +96,7 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
         re.compile(r"Object\.entries\s*\(\s*[^)]*\?\?\s*\{\s*\}\s*\)\s*\.\s*map", re.IGNORECASE),
         re.compile(r"Object\.entries\s*\(\s*[^)]*\b(meta|metadata|attrs|attributes|params|query)\b[^)]*\)\s*\.\s*map", re.IGNORECASE),
     ]
-    
+
     # Files that should be excluded (not React components)
     _NON_COMPONENT_FILES = [
         re.compile(r"/utils?/[^/]+\.tsx?$", re.IGNORECASE),  # files in /util/ or /utils/ directory
@@ -129,7 +129,7 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
 
     # Patterns that indicate useMemo is being used
     _MEMOIZED_PATTERN = re.compile(r"useMemo\s*\(", re.IGNORECASE)
-    
+
     # Variable assignment patterns (where expensive calc might be)
     _ASSIGNMENT_PATTERN = re.compile(r"const\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^;]+);?", re.IGNORECASE)
     _JSX_SIGNAL = re.compile(r"return\s*\(\s*<|return\s*<|<\s*[A-Z][A-Za-z0-9_]*|<>\s*", re.MULTILINE)
@@ -213,7 +213,7 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
         min_complexity_score = max(2, int(self.get_threshold("min_complexity_score", 3)))
         min_chain_ops = max(1, int(self.get_threshold("min_chain_ops", 2)))
         require_assignment_or_return_context = bool(
-            self.get_threshold("require_assignment_or_return_context", True)
+            self.get_threshold("require_assignment_or_return_context", True),
         )
         max_findings_per_file = max(1, int(self.get_threshold("max_findings_per_file", 2)))
 
@@ -357,9 +357,9 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
                             "is_return_context": is_return_context,
                             "is_in_critical_context": is_in_critical_context,
                             "file_has_usememo": file_has_usememo,
-                        }
+                        },
                     },
-                )
+                ),
             )
             findings_emitted += 1
 
@@ -462,27 +462,26 @@ class MissingUseMemoForExpensiveCalcRule(Rule):
         pattern_str = pattern.pattern
         if "filter" in pattern_str and "map" in pattern_str:
             return "filter().map()"
-        elif "filter" in pattern_str and "sort" in pattern_str:
+        if "filter" in pattern_str and "sort" in pattern_str:
             return "filter().sort()"
-        elif "sort" in pattern_str and "map" in pattern_str:
+        if "sort" in pattern_str and "map" in pattern_str:
             return "sort().map()"
-        elif "reduce" in pattern_str:
+        if "reduce" in pattern_str:
             return "reduce()"
-        elif "forEach" in pattern_str:
+        if "forEach" in pattern_str:
             return "nested forEach"
-        elif "Math" in pattern_str:
+        if "Math" in pattern_str:
             return "Math calculation"
-        elif "JSON.parse" in pattern_str:
+        if "JSON.parse" in pattern_str:
             return "JSON.parse()"
-        elif "RegExp" in pattern_str:
+        if "RegExp" in pattern_str:
             return "RegExp operation"
-        elif "Date" in pattern_str:
+        if "Date" in pattern_str:
             return "Date operation"
-        elif "Array.from" in pattern_str:
+        if "Array.from" in pattern_str:
             return "Array.from()"
-        elif "Object.entries" in pattern_str:
+        if "Object.entries" in pattern_str:
             return "Object.entries().map()"
-        elif "Object.keys" in pattern_str:
+        if "Object.keys" in pattern_str:
             return "Object.keys().filter()"
-        else:
-            return "expensive operation"
+        return "expensive operation"

@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class PlaceholderAsLabelRule(Rule):
@@ -29,13 +29,13 @@ class PlaceholderAsLabelRule(Rule):
         r"<(?P<tag>input|textarea)\b(?P<attrs>[^>]*)placeholder=[\"'](?P<placeholder>[^\"']+)[\"'][^>]*>",
         re.IGNORECASE | re.DOTALL,
     )
-    
+
     # Label patterns
     _LABEL_FOR = re.compile(r"<label[^>]*for=[\"'](?P<id>[^\"']+)[\"']", re.IGNORECASE)
     _INPUT_WITH_ID = re.compile(r"\bid=[\"'](?P<id>[^\"']+)[\"']", re.IGNORECASE)
     _ARIA_LABEL = re.compile(r"aria-label(?:ledby)?=[\"'][^\"']+[\"']", re.IGNORECASE)
     _FLOATING_LABEL = re.compile(r"floating|float", re.IGNORECASE)
-    
+
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
@@ -76,7 +76,7 @@ class PlaceholderAsLabelRule(Rule):
             return []
 
         findings: list[Finding] = []
-        
+
         # Find all labels and their htmlFor targets
         label_for_ids: set[str] = set()
         for m in self._LABEL_FOR.finditer(content):
@@ -87,26 +87,26 @@ class PlaceholderAsLabelRule(Rule):
             attrs = m.group("attrs") or ""
             tag = m.group("tag").lower()
             placeholder = m.group("placeholder") or ""
-            
+
             # Skip hidden, submit, button, reset types
             if re.search(r'type=["\'](?:hidden|submit|button|reset|image)["\']', attrs, re.IGNORECASE):
                 continue
-            
+
             # Check if input has ID that matches a label
             id_match = self._INPUT_WITH_ID.search(attrs)
             if id_match:
                 input_id = id_match.group("id").lower()
                 if input_id in label_for_ids:
                     continue  # Has associated label
-            
+
             # Check for aria-label
             if self._ARIA_LABEL.search(attrs):
                 continue  # Has accessible name
-            
+
             # Check for floating label pattern (common UI pattern)
             if self._FLOATING_LABEL.search(content):
                 continue  # Likely using floating label UI
-            
+
             # Check if wrapped in label
             # Look backwards for opening <label without closing </label>
             start = m.start()
@@ -115,7 +115,7 @@ class PlaceholderAsLabelRule(Rule):
                 continue  # Wrapped in label
 
             line = content.count("\n", 0, m.start()) + 1
-            
+
             findings.append(
                 self.create_finding(
                     title="Form field uses placeholder as only label",
@@ -145,7 +145,7 @@ class PlaceholderAsLabelRule(Rule):
                         f"placeholder={placeholder[:30]}",
                         "label_missing=true",
                     ],
-                )
+                ),
             )
 
         return findings

@@ -9,17 +9,16 @@ Analyzes raw Facts to compute derived metrics:
 """
 import logging
 from pathlib import Path
-from typing import Dict
 
 from schemas.facts import Facts, MethodInfo
-from schemas.metrics import MethodMetrics, FileMetrics, ProjectMetrics
+from schemas.metrics import FileMetrics, MethodMetrics, ProjectMetrics
 
 logger = logging.getLogger(__name__)
 
 
 class MetricsAnalyzer:
     """Computes derived metrics from raw facts."""
-    
+
     _QUERY_PATTERNS = (
         "::where", "::find", "::all", "::query", "db::",
         "->get(", "->first(", "->pluck(", "->paginate(", "->count(",
@@ -35,8 +34,8 @@ class MetricsAnalyzer:
     def __init__(self) -> None:
         self.file_metrics: dict[str, FileMetrics] = {}
         self.project_metrics = ProjectMetrics()
-    
-    def analyze(self, facts: Facts) -> Dict[str, MethodMetrics]:
+
+    def analyze(self, facts: Facts) -> dict[str, MethodMetrics]:
         """
         Analyze facts and return computed metrics.
         
@@ -73,18 +72,18 @@ class MetricsAnalyzer:
 
         # Per-file parsed trees cache
         file_cache: dict[str, tuple[bytes, object]] = {}
-        
+
         # 1. Analyze methods
         for method in facts.methods:
             m_metrics = self._analyze_method(method, facts, file_cache)
             metrics[method.method_fqn] = m_metrics
-            
+
         # 2. Analyze file-level aggregations for downstream reporting and diagnostics.
         self.file_metrics = self._analyze_files(facts, metrics)
 
         # 3. Analyze project-wide aggregations for dashboards and future rules.
         self.project_metrics = self._analyze_project(facts, metrics, self.file_metrics)
-        
+
         return metrics
 
     def _analyze_files(
@@ -184,11 +183,11 @@ class MetricsAnalyzer:
             duplicate_block_count=len(facts.duplicates),
             enum_candidate_count=len(facts.enums),
         )
-    
+
     def _analyze_method(self, method: MethodInfo, facts: Facts, file_cache: dict) -> MethodMetrics:
         """Compute metrics for a single method."""
         # Tree-sitter-first complexity when possible (derived metrics stage is allowed to parse).
-        
+
         call_sites_lc = [c.lower() for c in method.call_sites]
 
         # Coupling: count unique call sites as a rough outgoing dependency proxy.

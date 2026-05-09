@@ -6,10 +6,10 @@ Detects custom password reset handlers without obvious token hardening flow.
 
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts, MethodInfo, RouteInfo
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class PasswordResetTokenHardeningMissingRule(Rule):
@@ -75,7 +75,7 @@ class PasswordResetTokenHardeningMissingRule(Rule):
                     confidence=confidence,
                     tags=["laravel", "security", "password-reset", "token"],
                     evidence_signals=["password_reset_route=true", "broker_flow_missing=true"],
-                )
+                ),
             )
         return findings
 
@@ -89,7 +89,7 @@ class PasswordResetTokenHardeningMissingRule(Rule):
                 str(route.name or "").lower(),
                 str(route.action or "").lower(),
                 str(route.controller or "").lower(),
-            ]
+            ],
         )
         return any(token in payload for token in self._RESET_URI_TOKENS)
 

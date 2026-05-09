@@ -8,7 +8,6 @@ from core.rule_engine import (
     ALL_RULES,
     DISCOVERED_RULES,
     LEGACY_RULE_ALIASES,
-    INTERNAL_RULE_WRAPPERS,
     WRAPPED_INTERNAL_RULES,
     get_unaccounted_discovered_rule_ids,
 )

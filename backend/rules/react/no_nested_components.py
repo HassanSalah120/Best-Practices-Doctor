@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
+
 
 class NoNestedComponentsRule(Rule):
     id = "no-nested-components"
@@ -72,12 +73,12 @@ class NoNestedComponentsRule(Rule):
         # Dedup by name to avoid noise
         unique_names = sorted(list(set(n for n, _ in found_nested)))
         count = len(unique_names)
-        
+
         lines = []
         for name, idx in found_nested:
             line = content.count("\n", 0, idx) + 1
             lines.append(line)
-        
+
         first_line = lines[0]
 
         aggregated_finding = self.create_finding(
@@ -100,9 +101,9 @@ class NoNestedComponentsRule(Rule):
             ),
             tags=["react", "performance", "rendering"],
             confidence=0.85,
-            evidence_signals=[f"count={count}", f"names={','.join(unique_names)}"]
+            evidence_signals=[f"count={count}", f"names={','.join(unique_names)}"],
         )
-        
+
         for name, idx in found_nested:
              line = content.count("\n", 0, idx) + 1
              aggregated_finding.evidence_signals.append(f"nested_at_line={line}: {name}")

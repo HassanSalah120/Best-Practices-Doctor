@@ -10,7 +10,6 @@ from typing import Any
 
 from schemas.finding import Finding
 
-
 _LEVEL_BY_SEVERITY = {
     "critical": "error",
     "high": "error",
@@ -59,8 +58,8 @@ def findings_to_sarif(
                                 "startLine": int(f.line_start or 1),
                                 "endLine": int(f.line_end or f.line_start or 1),
                             },
-                        }
-                    }
+                        },
+                    },
                 ],
                 "fingerprints": {
                     "bpdoctorFingerprint": str(f.fingerprint or ""),
@@ -75,7 +74,7 @@ def findings_to_sarif(
                     "evidence_signals": list(getattr(f, "evidence_signals", []) or []),
                     "related_files": list(f.related_files or []),
                 },
-            }
+            },
         )
 
     sarif: dict[str, Any] = {
@@ -89,10 +88,10 @@ def findings_to_sarif(
                         "version": tool_version,
                         "informationUri": "https://github.com/bpdoctor",
                         "rules": [rules_index[k] for k in sorted(rules_index.keys())],
-                    }
+                    },
                 },
                 "results": results,
-            }
+            },
         ],
     }
     return sarif

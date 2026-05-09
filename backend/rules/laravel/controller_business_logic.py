@@ -4,16 +4,16 @@ Controller Business Logic Rule
 Flags complex/business logic inside controllers as a layering violation.
 Uses derived metrics (complexity + business logic heuristics); does not parse source.
 """
-from schemas.facts import Facts, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, FindingClassification, Category, Severity
-from rules.base import Rule
 from core.project_recommendations import (
     enabled_capabilities,
     enabled_team_standards,
     project_aware_guidance,
     recommendation_context_tags,
 )
+from rules.base import Rule
+from schemas.facts import Facts, MethodInfo
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ControllerBusinessLogicRule(Rule):
@@ -247,7 +247,7 @@ class ControllerBusinessLogicRule(Rule):
                         "overlap_rank": 200,
                         "overlap_role": "child",
                     },
-                )
+                ),
             )
 
         return findings

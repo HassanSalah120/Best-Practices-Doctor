@@ -6,12 +6,12 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Category, Finding, Severity
 from rules.base import Rule
 from rules.react.dialog_usage_helpers import tags_are_shared_dialog_consumers
 from rules.react.jsx_tree_sitter import JsxAttributeInfo, JsxTreeSitterHelper
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class _WcagAstRuleBase(Rule):
@@ -59,7 +59,7 @@ class _WcagAstRuleBase(Rule):
 
     def _has_keyboard_signal(self, attrs: dict[str, JsxAttributeInfo], text: str) -> bool:
         return any(k in attrs for k in ("onKeyDown", "onKeyUp", "onKeyPress")) or bool(
-            re.search(r"Arrow(?:Up|Down|Left|Right)|Home|End|Escape", text or "")
+            re.search(r"Arrow(?:Up|Down|Left|Right)|Home|End|Escape", text or ""),
         )
 
 
@@ -141,9 +141,9 @@ class SemanticWrapperBreakageRule(_WcagAstRuleBase):
                             "decision_profile": {
                                 "widget_type": "semantic_container",
                                 "missing_apg_signals": f"invalid_child:{parent_tag}>{child_tag}",
-                            }
+                            },
                         },
-                    )
+                    ),
                 )
                 if len(findings) >= max_findings:
                     break
@@ -243,9 +243,9 @@ class InteractiveAccessibleNameRequiredRule(_WcagAstRuleBase):
                         "decision_profile": {
                             "widget_type": "interactive_control",
                             "accessible_name_source": "missing",
-                        }
+                        },
                     },
-                )
+                ),
             )
         return findings
 
@@ -391,9 +391,9 @@ class JsxAriaAttributeFormatRule(_WcagAstRuleBase):
                             "decision_profile": {
                                 "widget_type": "aria_attribute",
                                 "missing_apg_signals": reason,
-                            }
+                            },
                         },
-                    )
+                    ),
                 )
                 if len(findings) >= max_findings:
                     break
@@ -456,7 +456,7 @@ class OutsideClickWithoutKeyboardFallbackRule(_WcagAstRuleBase):
                     "keyboard_contract_missing=true",
                 ],
                 metadata={"decision_profile": {"interaction_mode": "pointer_only", "keyboard_contract_missing": True}},
-            )
+            ),
         ]
 
 
@@ -557,9 +557,9 @@ class APGTabsKeyboardContractRule(_WcagAstRuleBase):
                         "widget_type": "tabs",
                         "missing_apg_signals": ",".join(missing),
                         "keyboard_contract_missing": bool(not has_keyboard),
-                    }
+                    },
                 },
-            )
+            ),
         ]
 
 
@@ -637,9 +637,9 @@ class APGAccordionDisclosureContractRule(_WcagAstRuleBase):
                             "widget_type": "accordion",
                             "missing_apg_signals": ",".join(missing),
                             "keyboard_contract_missing": "keyboard toggle handling" in missing,
-                        }
+                        },
                     },
-                )
+                ),
             )
         return findings
 
@@ -724,9 +724,9 @@ class APGMenuButtonContractRule(_WcagAstRuleBase):
                         "widget_type": "menu-button",
                         "missing_apg_signals": ",".join(missing),
                         "keyboard_contract_missing": "menu keyboard handling" in missing,
-                    }
+                    },
                 },
-            )
+            ),
         ]
 
 
@@ -812,9 +812,9 @@ class APGComboboxContractRule(_WcagAstRuleBase):
                         "widget_type": "combobox",
                         "missing_apg_signals": ",".join(missing),
                         "keyboard_contract_missing": "combobox keyboard handling" in missing,
-                    }
+                    },
                 },
-            )
+            ),
         ]
 
 
@@ -928,9 +928,9 @@ class DialogFocusRestoreMissingRule(_WcagAstRuleBase):
                     "decision_profile": {
                         "widget_type": "dialog",
                         "focus_restore_signal": False,
-                    }
+                    },
                 },
-            )
+            ),
         ]
 
     def _has_auto_restore_library(self, text: str) -> bool:

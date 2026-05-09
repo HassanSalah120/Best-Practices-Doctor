@@ -9,10 +9,10 @@ from __future__ import annotations
 import re
 from pathlib import PurePosixPath
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Category, Finding, FindingClassification, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ErrorPagesMissingRule(Rule):
@@ -109,9 +109,9 @@ class ErrorPagesMissingRule(Rule):
                         "decision_profile": {
                             "missing_core_4xx": missing_core_4xx,
                             "missing_core_5xx": missing_core_5xx,
-                        }
+                        },
                     },
-                )
+                ),
             )
 
         missing_recommended = missing_rec_4xx + missing_rec_5xx
@@ -145,7 +145,7 @@ class ErrorPagesMissingRule(Rule):
                     tags=["laravel", "errors", "ux"],
                     evidence_signals=[f"missing_recommended={','.join(missing_recommended)}"],
                     metadata={"decision_profile": {"missing_recommended": missing_recommended}},
-                )
+                ),
             )
 
         return findings
@@ -256,7 +256,7 @@ class ErrorPagesMissingRule(Rule):
     def _has_catch_all_route(self, text: str) -> bool:
         return bool(
             re.search(r"\bpath\s*=\s*['\"]\*['\"]", text or "")
-            or re.search(r"\bpath\s*:\s*['\"]\*['\"]", text or "")
+            or re.search(r"\bpath\s*:\s*['\"]\*['\"]", text or ""),
         )
 
     def _is_js_module(self, rel_path: str) -> bool:
@@ -299,7 +299,7 @@ class ErrorPagesMissingRule(Rule):
             return False
 
         project_type = str(
-            getattr(context, "project_type", None) or getattr(context, "project_business_context", "unknown")
+            getattr(context, "project_type", None) or getattr(context, "project_business_context", "unknown"),
         ).lower()
         if project_type != "api_backend":
             return False

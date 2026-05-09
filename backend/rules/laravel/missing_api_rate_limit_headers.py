@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class MissingApiRateLimitHeadersRule(Rule):
@@ -67,7 +67,7 @@ class MissingApiRateLimitHeadersRule(Rule):
                 confidence=0.45,
                 tags=["laravel", "api", "rate-limit"],
                 evidence_signals=["api_throttle_middleware=true", "rate_limit_header_signal=false"],
-            )
+            ),
         ]
 
     def _is_api_route(self, route: object) -> bool:

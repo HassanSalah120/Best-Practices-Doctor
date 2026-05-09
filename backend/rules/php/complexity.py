@@ -2,10 +2,10 @@
 High Complexity Rule
 Flags methods with high cyclomatic complexity.
 """
-from schemas.facts import Facts, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts, MethodInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class HighComplexityRule(Rule):
@@ -31,44 +31,44 @@ class HighComplexityRule(Rule):
     - Hard to understand
     - Bug-prone
     """
-    
+
     id = "high-complexity"
     name = "High Complexity Detection"
     description = "Flags methods with high cyclomatic complexity"
     category = Category.COMPLEXITY
     default_severity = Severity.MEDIUM
-    
+
     def analyze(
         self,
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings = []
-        
+
         max_cyclomatic = self.get_threshold("max_cyclomatic", 10)
-        
+
         if not metrics:
             return findings
-        
+
         for method_fqn, method_metrics in metrics.items():
             if method_metrics.cyclomatic_complexity > max_cyclomatic:
                 # Find the method info
                 method = next(
                     (m for m in facts.methods if m.method_fqn == method_fqn),
-                    None
+                    None,
                 )
-                
+
                 if not method:
                     continue
-                
+
                 # Skip middleware classes - they often have legitimate high complexity
                 if self._is_middleware(method, facts):
                     continue
-                
+
                 findings.append(self._create_finding(method, method_metrics, max_cyclomatic))
-        
+
         return findings
-    
+
     def _create_finding(
         self,
         method: MethodInfo,
@@ -109,7 +109,7 @@ class HighComplexityRule(Rule):
 
         finding.score_impact = impact
         return finding
-    
+
     def _generate_example(self, method_name: str) -> str:
         """Generate refactoring example."""
         return f"""// Before (high complexity)
@@ -147,14 +147,14 @@ public function {method_name}($input)
             path_lower = method.file_path.lower()
             if "/middleware/" in path_lower or "\\middleware\\" in path_lower:
                 return True
-        
+
         # Check if class name contains Middleware
         if method.class_name and "middleware" in method.class_name.lower():
             return True
-        
+
         # Check if the class extends a Middleware base class
         for cls in facts.middleware:
             if cls.name == method.class_name or cls.fqcn == method.class_fqcn:
                 return True
-        
+
         return False

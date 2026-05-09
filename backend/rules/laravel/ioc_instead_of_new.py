@@ -4,10 +4,10 @@ Suggests dependency injection instead of instantiating services in controllers.
 """
 from __future__ import annotations
 
-from schemas.facts import Facts, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts, MethodInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class IocInsteadOfNewRule(Rule):

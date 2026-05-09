@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts, RouteInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts, RouteInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MissingThrottleOnAuthApiRoutesRule(Rule):
@@ -120,7 +120,7 @@ class MissingThrottleOnAuthApiRoutesRule(Rule):
                     tags=["laravel", "routes", "security", "throttle"],
                     confidence=confidence,
                     evidence_signals=["route_file=routes/api.php", "auth_route_intent=regex", "throttle_middleware_missing"],
-                )
+                ),
             )
 
         return out
@@ -212,7 +212,7 @@ class MissingThrottleOnAuthApiRoutesRule(Rule):
                     confidence=confidence,
                     related_methods=[f"{controller}@{action}"] if controller and action else [],
                     evidence_signals=evidence,
-                )
+                ),
             )
 
         return out

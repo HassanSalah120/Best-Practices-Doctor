@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class AutocompleteMissingRule(Rule):
@@ -32,7 +32,7 @@ class AutocompleteMissingRule(Rule):
         "password": "current-password",
         "search": "search",
     }
-    
+
     # Input name/id patterns that suggest autocomplete value
     _NAME_PATTERNS = [
         (re.compile(r'\b(?:name|id)=["\'](?:email|e-mail)["\']', re.IGNORECASE), "email"),
@@ -48,17 +48,17 @@ class AutocompleteMissingRule(Rule):
         (re.compile(r'\b(?:name|id)=["\'](?:country)["\']', re.IGNORECASE), "country"),
         (re.compile(r'\b(?:name|id)=["\'](?:credit[_-]?card|cc[_-]?number)["\']', re.IGNORECASE), "cc-number"),
     ]
-    
+
     _INPUT_PATTERN = re.compile(
         r"<input\b(?P<attrs>[^>]*)>",
         re.IGNORECASE | re.DOTALL,
     )
-    
+
     _TEXTAREA_PATTERN = re.compile(
         r"<textarea\b(?P<attrs>[^>]*)>",
         re.IGNORECASE | re.DOTALL,
     )
-    
+
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
@@ -106,31 +106,31 @@ class AutocompleteMissingRule(Rule):
             line = content.count("\n", 0, m.start()) + 1
             if line in seen_lines:
                 continue
-            
+
             attrs = m.group("attrs") or ""
-            
+
             # Skip hidden, submit, button, reset, file, image types
             if re.search(r'type=["\'](?:hidden|submit|button|reset|file|image|checkbox|radio)["\']', attrs, re.IGNORECASE):
                 continue
-            
+
             # Check if already has autocomplete attribute
             if re.search(r'\bautocomplete=["\'][^"\']+["\']', attrs, re.IGNORECASE):
                 continue
-            
+
             # Skip if uses {...field} spread (react-hook-form) - autocomplete may be in spread
             if re.search(r'\{\s*\.\.\.\s*field\s*\}', attrs, re.IGNORECASE):
                 continue
-            
+
             # Skip custom Input components that handle autocomplete internally
             line_content = content.split("\n")[line - 1] if line > 0 else ""
             if re.search(r'<Input\b', line_content, re.IGNORECASE):
                 continue
-            
+
             # Determine suggested autocomplete value
             suggested = self._get_suggested_autocomplete(attrs)
             if not suggested:
                 continue
-            
+
             seen_lines.add(line)
             findings.append(
                 self.create_finding(
@@ -155,7 +155,7 @@ class AutocompleteMissingRule(Rule):
                     evidence_signals=[
                         f"suggested_autocomplete={suggested}",
                     ],
-                )
+                ),
             )
 
         return findings
@@ -168,12 +168,12 @@ class AutocompleteMissingRule(Rule):
             input_type = type_match.group(1).lower()
             if input_type in self._AUTOCOMPLETE_MAP:
                 return self._AUTOCOMPLETE_MAP[input_type]
-        
+
         # Check name/id patterns
         for pattern, value in self._NAME_PATTERNS:
             if pattern.search(attrs):
                 return value
-        
+
         return None
 
     def _is_allowlisted_path(self, file_path: str) -> bool:

@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class RedundantEntryRule(Rule):
@@ -33,21 +33,21 @@ class RedundantEntryRule(Rule):
         re.compile(r"(?:email|password|address)\s+again", re.IGNORECASE),
         re.compile(r"same\s+(?:email|password|address)", re.IGNORECASE),
     ]
-    
+
     # Autofill patterns (good - prevents redundant entry)
     _AUTOFILL_PATTERNS = [
         re.compile(r'autocomplete=["\'][^"\']+["\']', re.IGNORECASE),
         re.compile(r'defaultValue=', re.IGNORECASE),
         re.compile(r'value=\{[^}]+\}', re.IGNORECASE),
     ]
-    
+
     # Multi-step form patterns
     _MULTI_STEP_PATTERNS = [
         re.compile(r"step\s*\d+", re.IGNORECASE),
         re.compile(r"wizard", re.IGNORECASE),
         re.compile(r"multi.?step", re.IGNORECASE),
     ]
-    
+
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
@@ -99,14 +99,14 @@ class RedundantEntryRule(Rule):
                 line = content.count("\n", 0, m.start()) + 1
                 if line in seen_lines:
                     continue
-                
+
                 matched_text = m.group(0)
                 seen_lines.add(line)
-                
+
                 # Check if there's autofill nearby (which mitigates the issue)
                 nearby = content[max(0, m.start() - 200):min(len(content), m.end() + 200)]
                 has_autofill = any(p.search(nearby) for p in self._AUTOFILL_PATTERNS)
-                
+
                 if has_autofill:
                     continue  # Autofill present, likely mitigated
 
@@ -144,7 +144,7 @@ class RedundantEntryRule(Rule):
                             f"pattern={matched_text}",
                             "autofill_missing=true",
                         ],
-                    )
+                    ),
                 )
 
         return findings

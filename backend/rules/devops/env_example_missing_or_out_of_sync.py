@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 from ._helpers import is_laravel_project, parse_env_keys, project_file_exists, read_project_file
 
@@ -50,7 +50,7 @@ class EnvExampleMissingOrOutOfSyncRule(Rule):
                     confidence=0.96,
                     tags=["devops", "env", "onboarding"],
                     evidence_signals=["env_example_exists=false"],
-                )
+                ),
             ]
 
         if not project_file_exists(facts, ".env"):
@@ -75,5 +75,5 @@ class EnvExampleMissingOrOutOfSyncRule(Rule):
                 tags=["devops", "env", "configuration"],
                 evidence_signals=[f"missing_env_example_keys={','.join(missing[:10])}"],
                 metadata={"missing_keys": missing},
-            )
+            ),
         ]

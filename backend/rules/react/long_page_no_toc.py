@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class LongPageNoTocRule(Rule):
@@ -29,7 +29,7 @@ class LongPageNoTocRule(Rule):
         r"<h[1-6]\b[^>]*>",
         re.IGNORECASE,
     )
-    
+
     # TOC patterns (good)
     _TOC_PATTERNS = [
         re.compile(r"<nav\b[^>]*aria-label=[\"'][^\"']*contents[\"']", re.IGNORECASE),
@@ -41,7 +41,7 @@ class LongPageNoTocRule(Rule):
         re.compile(r"in-this-article", re.IGNORECASE),
         re.compile(r"jump-to", re.IGNORECASE),
     ]
-    
+
     # Landmark patterns (good)
     _LANDMARK_PATTERNS = [
         re.compile(r"<nav\b", re.IGNORECASE),
@@ -49,7 +49,7 @@ class LongPageNoTocRule(Rule):
         re.compile(r"<aside\b", re.IGNORECASE),
         re.compile(r'role=["\']complementary["\']', re.IGNORECASE),
     ]
-    
+
     # Page patterns
     _PAGE_PATTERNS = [
         re.compile(r"Page", re.IGNORECASE),
@@ -135,22 +135,22 @@ class LongPageNoTocRule(Rule):
         # Count headings
         headings = self._HEADING_PATTERN.findall(content)
         heading_count = len(headings)
-        
+
         if heading_count < self.MIN_HEADINGS:
             return findings
-        
+
         # Check for TOC
         has_toc = any(p.search(content) for p in self._TOC_PATTERNS)
         if has_toc:
             return findings
-        
+
         # Check for navigation landmarks
         has_landmark = any(p.search(content) for p in self._LANDMARK_PATTERNS)
-        
+
         # If there's a nav but not specifically a TOC, note it
         if has_landmark:
             return findings  # Has some navigation
-        
+
         findings.append(
             self.create_finding(
                 title="Long page without table of contents",
@@ -184,7 +184,7 @@ class LongPageNoTocRule(Rule):
                     f"heading_count={heading_count}",
                     "toc_missing=true",
                 ],
-            )
+            ),
         )
 
         return findings

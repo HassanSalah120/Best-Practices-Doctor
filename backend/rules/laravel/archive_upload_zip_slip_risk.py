@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class ArchiveUploadZipSlipRiskRule(Rule):
@@ -114,7 +114,7 @@ class ArchiveUploadZipSlipRiskRule(Rule):
                     "ziparchive_extract=true",
                     "path_normalization_missing=true",
                 ],
-            )
+            ),
         ]
 
     def _window(self, text: str, start_idx: int, before: int = 24, after: int = 12) -> str:

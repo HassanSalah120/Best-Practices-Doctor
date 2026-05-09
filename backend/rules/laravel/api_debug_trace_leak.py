@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class ApiDebugTraceLeakRule(Rule):
@@ -91,7 +91,7 @@ class ApiDebugTraceLeakRule(Rule):
                         confidence=0.92,
                         tags=["laravel", "security", "debug", "trace-leak"],
                         evidence_signals=["app_debug_enabled=true"],
-                    )
+                    ),
                 )
             elif self._DEBUG_DEFAULT_TRUE.search(line):
                 findings.append(
@@ -112,7 +112,7 @@ class ApiDebugTraceLeakRule(Rule):
                         confidence=0.88,
                         tags=["laravel", "security", "debug", "trace-leak"],
                         evidence_signals=["app_debug_default=true"],
-                    )
+                    ),
                 )
 
         if findings:
@@ -136,6 +136,6 @@ class ApiDebugTraceLeakRule(Rule):
                     confidence=0.74,
                     tags=["laravel", "security", "debug"],
                     evidence_signals=["app_debug_missing=true"],
-                )
+                ),
             ]
         return []

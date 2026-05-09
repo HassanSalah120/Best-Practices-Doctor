@@ -6,10 +6,10 @@ Detects XML parser usage without clear external-entity/network hardening.
 
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts, MethodInfo
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class XmlXxeRiskRule(Rule):
@@ -79,7 +79,7 @@ class XmlXxeRiskRule(Rule):
                         f"safe_signal={int(self._has_safe_signal(method))}",
                         f"unsafe_signal={int(self._has_unsafe_signal(method))}",
                     ],
-                )
+                ),
             )
         return findings
 

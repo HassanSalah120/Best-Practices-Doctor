@@ -11,14 +11,15 @@ Detection strategy:
   FALLBACK  — Regex for files where Tree-sitter was unavailable. Narrower
               pattern, lower confidence score to reduce false positives.
 """
-import re
 import os
+import re
 from pathlib import Path
+
 from core.path_utils import normalize_rel_path
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class NoInlineServicesRule(Rule):
@@ -278,7 +279,7 @@ class NoInlineServicesRule(Rule):
                     confidence=0.90,
                     evidence_signals=helper_profile["evidence_signals"],
                     metadata={"decision_profile": helper_profile},
-                )
+                ),
             )
 
         return findings
@@ -349,7 +350,7 @@ class NoInlineServicesRule(Rule):
                 ),
                 tags=["react", "srp", "services", "separation-of-concerns"],
                 confidence=0.72,  # Lower: regex fallback has higher FP risk
-            )
+            ),
         ]
 
     # ------------------------------------------------------------------ helpers
@@ -376,8 +377,8 @@ class NoInlineServicesRule(Rule):
             imp_lower = imp.lower().replace("\\", "/")
             # Check for imports from utility files
             if any(marker in imp_lower for marker in [
-                ".utils", ".hooks", "/utils/", "/hooks/", 
-                "/services/", "/helpers/", "/lib/"
+                ".utils", ".hooks", "/utils/", "/hooks/",
+                "/services/", "/helpers/", "/lib/",
             ]):
                 return True
         return False
@@ -405,7 +406,7 @@ class NoInlineServicesRule(Rule):
             or (has_custom_hook_import and local_component_imports >= 2)
         )
         react_structure_mode = str(
-            getattr(getattr(facts, "project_context", None), "react_structure_mode", "unknown") or "unknown"
+            getattr(getattr(facts, "project_context", None), "react_structure_mode", "unknown") or "unknown",
         ).lower()
         strong_service_helpers = sum(
             1 for name in helper_names if any(name.lower().startswith(prefix) for prefix in self._SERVICE_LIKE_PREFIXES)

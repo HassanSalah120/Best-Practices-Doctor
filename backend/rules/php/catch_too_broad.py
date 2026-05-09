@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class CatchTooBroadRule(Rule):
@@ -67,7 +67,7 @@ class CatchTooBroadRule(Rule):
                     confidence=0.74,
                     tags=["php", "exceptions", "observability"],
                     evidence_signals=["broad_catch=true", "generic_return=true", "exception_detail_logged=false"],
-                )
+                ),
             )
         return findings
 
@@ -75,7 +75,7 @@ class CatchTooBroadRule(Rule):
         escaped = re.escape(var_name)
         return bool(
             re.search(r"\b(Log::|logger\s*\(|report\s*\(|error_log\s*\()", body)
-            and re.search(rf"\${escaped}(?:->getMessage\s*\(|->getTrace|::class|\b)|get_class\s*\(\s*\${escaped}\s*\)", body)
+            and re.search(rf"\${escaped}(?:->getMessage\s*\(|->getTrace|::class|\b)|get_class\s*\(\s*\${escaped}\s*\)", body),
         )
 
     def _brace_body(self, content: str, brace_index: int) -> str:

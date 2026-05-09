@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class PageTitleMissingRule(Rule):
@@ -72,7 +72,7 @@ class PageTitleMissingRule(Rule):
         r"useTitle\s*\(|document\.title\s*=",
         re.IGNORECASE,
     )
-    
+
     # Page patterns - these indicate a page component
     _PAGE_PATTERNS = [
         re.compile(r"/Pages/", re.IGNORECASE),
@@ -240,7 +240,7 @@ class PageTitleMissingRule(Rule):
                         tags=["ux", "a11y", "title", "accessibility", "wcag"],
                         confidence=0.85,
                         evidence_signals=[f"title_text={title_text.strip()}"],
-                    )
+                    ),
                 ]
             return []
 
@@ -273,7 +273,7 @@ class PageTitleMissingRule(Rule):
                 tags=["ux", "a11y", "title", "accessibility", "wcag"],
                 confidence=0.90,
                 evidence_signals=["title_missing=true"],
-            )
+            ),
         ]
 
     def _is_allowlisted_path(self, file_path: str) -> bool:

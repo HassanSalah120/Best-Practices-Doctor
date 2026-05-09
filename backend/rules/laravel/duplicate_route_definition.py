@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from schemas.facts import Facts, RouteInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts, RouteInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class DuplicateRouteDefinitionRule(Rule):
@@ -102,7 +102,7 @@ class DuplicateRouteDefinitionRule(Rule):
                     related_files=sorted({r.file_path for r in routes if r.file_path}),
                     tags=["laravel", "routes", "architecture"],
                     confidence=0.95,
-                )
+                ),
             )
 
         return findings

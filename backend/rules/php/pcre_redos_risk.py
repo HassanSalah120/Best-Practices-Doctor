@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class PcreRedosRiskRule(Rule):
@@ -87,6 +87,6 @@ class PcreRedosRiskRule(Rule):
                     confidence=0.88,
                     tags=["php", "security", "regex", "redos"],
                     evidence_signals=["nested_quantifier_pattern=true"],
-                )
+                ),
             )
         return findings

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class QueueJobMissingFailureHandlingRule(Rule):
@@ -82,7 +82,7 @@ class QueueJobMissingFailureHandlingRule(Rule):
                 confidence=0.84,
                 tags=["laravel", "queues", "resilience", "failure-handling"],
                 evidence_signals=["should_queue=true", "side_effects=true", "failure_handling_missing=true"],
-            )
+            ),
         ]
 
     def _extract_handle_body(self, text: str) -> tuple[str, int]:

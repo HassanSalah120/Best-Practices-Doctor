@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 @dataclass(frozen=True)
@@ -92,7 +92,7 @@ class UseEffectDependencyArrayRule(Rule):
                     ),
                     tags=["react", "hooks", "useeffect", "performance", "correctness"],
                     confidence=0.85,
-                )
+                ),
             )
 
         return findings

@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class HardcodedUserFacingStringsRule(Rule):
@@ -47,7 +47,7 @@ class HardcodedUserFacingStringsRule(Rule):
         "/build/",
     )
     _ATTR_ALLOWLIST = {"data-testid", "id", "name", "value", "className"}
-    
+
     # Proper nouns (brand names, company names) - don't require translation
     _PROPER_NOUN_ALLOWLIST = {
         # Payment/SMS providers
@@ -64,7 +64,7 @@ class HardcodedUserFacingStringsRule(Rule):
         "mysql", "postgresql", "postgres", "mongodb", "redis", "elasticsearch",
         "firebase", "supabase",
     }
-    
+
     # Technical terms that don't require translation
     _TECHNICAL_TERMS = {
         "tls", "ssl", "ssh", "ftp", "http", "https", "api", "rest", "graphql",
@@ -200,7 +200,7 @@ class HardcodedUserFacingStringsRule(Rule):
                             f"line={i}",
                             ev,
                         ],
-                    )
+                    ),
                 )
 
         if not findings:
@@ -209,7 +209,7 @@ class HardcodedUserFacingStringsRule(Rule):
         # Aggregate into a single finding for the file to reduce noise
         first = findings[0]
         count = len(findings)
-        
+
         # Collect distinct bad strings for the description
         distinct_samples = sorted({f.description.split("(`")[1].split("`)")[0] for f in findings})
         sample_text = ", ".join(f"`{s}`" for s in distinct_samples[:3])
@@ -241,9 +241,9 @@ class HardcodedUserFacingStringsRule(Rule):
                 f"file={file_path}",
                 f"count={count}",
                 f"lines={lines_str}",
-            ]
+            ],
         )
-        
+
         # Add detailed evidence for each match
         for f in findings:
              aggregated_finding.evidence_signals.append(f"match_line={f.line_start}: {f.context}")
@@ -272,7 +272,7 @@ class HardcodedUserFacingStringsRule(Rule):
             return False
         if re.search(r"\b(testid|data-testid|classname|onClick|onChange|router\.)\b", s):
             return False
-        
+
         # Skip proper nouns (brand names, company names)
         if low in self._PROPER_NOUN_ALLOWLIST:
             return False
@@ -287,6 +287,6 @@ class HardcodedUserFacingStringsRule(Rule):
                 return False
             if s[0].isupper() and s[1:].islower() and len(s) <= 10:
                 return False
-        
+
         letters = sum(1 for c in s if c.isalpha())
         return letters >= 2

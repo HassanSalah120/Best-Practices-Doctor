@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class PathTraversalFileAccessRule(Rule):
@@ -120,7 +120,7 @@ class PathTraversalFileAccessRule(Rule):
                         tags=["laravel", "security", "path-traversal", "file-access"],
                         confidence=confidence,
                         evidence_signals=["path_source=request_input", "sink=file_access_api", "sanitizer_signal=false"],
-                    )
+                    ),
                 )
             return findings
 
@@ -166,7 +166,7 @@ class PathTraversalFileAccessRule(Rule):
                         "path_source=request_input",
                         "sanitizer_signal=false",
                     ],
-                )
+                ),
             )
             break
 

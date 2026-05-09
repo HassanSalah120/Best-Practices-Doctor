@@ -16,10 +16,10 @@ from __future__ import annotations
 import re
 
 from analysis.call_graph_index import get_call_graph_index
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class UnusedServiceClassRule(Rule):
@@ -148,7 +148,7 @@ class UnusedServiceClassRule(Rule):
                     ),
                     tags=["dead_code", "maintainability", "laravel"],
                     confidence=0.76,
-                )
+                ),
             )
 
         return findings

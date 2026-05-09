@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ButtonTextVagueRule(Rule):
@@ -50,22 +50,22 @@ class ButtonTextVagueRule(Rule):
         re.compile(r"^\w+\s+(button|action|form)$", re.IGNORECASE),  # object + type
         re.compile(r"^choose\s+\w+", re.IGNORECASE),  # "Choose Photo"
     ]
-    
+
     # Button patterns
     _BUTTON_PATTERN = re.compile(
         r"<button\b(?P<attrs>[^>]*)>(?P<text>.*?)</button>",
         re.IGNORECASE | re.DOTALL,
     )
-    
+
     # Input submit/button
     _INPUT_BUTTON = re.compile(
         r"<input\b(?P<attrs>[^>]*)(?:type=[\"'](?:submit|button|reset)[\"'])[^>]*>",
         re.IGNORECASE | re.DOTALL,
     )
-    
+
     # Check for aria-label
     _ARIA_LABEL = re.compile(r"aria-label=[\"'](?P<label>[^\"']+)[\"']", re.IGNORECASE)
-    
+
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
@@ -113,13 +113,13 @@ class ButtonTextVagueRule(Rule):
             line = content.count("\n", 0, m.start()) + 1
             if line in seen_lines:
                 continue
-            
+
             attrs = m.group("attrs") or ""
             text = m.group("text") or ""
-            
+
             # Strip JSX and HTML from button content
             plain_text = self._extract_plain_text(text).strip()
-            
+
             if not plain_text:
                 # Icon button - check aria-label
                 aria_match = self._ARIA_LABEL.search(attrs)
@@ -127,7 +127,7 @@ class ButtonTextVagueRule(Rule):
                     plain_text = aria_match.group("label")
                 else:
                     continue  # Icon button without label - different issue
-            
+
             # Check if text is vague
             is_vague, matched = self._is_vague_text(plain_text)
             if not is_vague:
@@ -148,7 +148,7 @@ class ButtonTextVagueRule(Rule):
             # Reduce confidence for buttons with visible text (vs icon-only)
             # Visible text provides context even if "vague"
             confidence = 0.50 if len(plain_text) > 2 else 0.75
-            
+
             seen_lines.add(line)
             findings.append(
                 self.create_finding(
@@ -179,7 +179,7 @@ class ButtonTextVagueRule(Rule):
                         f"button_text={plain_text}",
                         f"matched_pattern={matched}",
                     ],
-                )
+                ),
             )
 
         # Check <input type="submit/button">
@@ -187,20 +187,20 @@ class ButtonTextVagueRule(Rule):
             line = content.count("\n", 0, m.start()) + 1
             if line in seen_lines:
                 continue
-            
+
             attrs = m.group("attrs") or ""
-            
+
             # Get value attribute
             value_match = re.search(r'value=["\'](?P<value>[^"\']+)["\']', attrs)
             if not value_match:
                 continue  # No value - uses default "Submit"
-            
+
             value = value_match.group("value")
-            
+
             is_vague, matched = self._is_vague_text(value)
             if not is_vague:
                 continue
-            
+
             seen_lines.add(line)
             findings.append(
                 self.create_finding(
@@ -214,7 +214,7 @@ class ButtonTextVagueRule(Rule):
                     tags=["ux", "a11y", "buttons", "accessibility"],
                     confidence=0.75,
                     evidence_signals=[f"button_value={value}", f"matched_pattern={matched}"],
-                )
+                ),
             )
 
         return findings

@@ -11,7 +11,7 @@ import hashlib
 import json
 import os
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -124,7 +124,7 @@ class ProjectIntelligenceManager:
         return self.memory_dir / f"{project_hash}.json"
 
     def _now(self) -> str:
-        return datetime.now(timezone.utc).isoformat()
+        return datetime.now(UTC).isoformat()
 
     def get_project(self, project_path: str) -> ProjectIntelligence:
         p = str(project_path or "")

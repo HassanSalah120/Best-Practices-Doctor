@@ -139,7 +139,7 @@ class BuildFactsStage:
         project_type = str(
             getattr(getattr(project_info, "project_type", None), "value", "")
             or getattr(project_info, "project_type", "")
-            or ""
+            or "",
         ).lower()
         if project_type.startswith("laravel"):
             return load_laravel_context_matrix()

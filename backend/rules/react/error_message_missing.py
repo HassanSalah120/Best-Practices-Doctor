@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ErrorMessageMissingRule(Rule):
@@ -29,7 +29,7 @@ class ErrorMessageMissingRule(Rule):
         r"<(?P<tag>input|select|textarea)\b(?P<attrs>[^>]*)>",
         re.IGNORECASE | re.DOTALL,
     )
-    
+
     # Validation indicators
     _VALIDATION_PATTERNS = [
         re.compile(r'required', re.IGNORECASE),
@@ -40,7 +40,7 @@ class ErrorMessageMissingRule(Rule):
         re.compile(r'maxlength=', re.IGNORECASE),
         re.compile(r'type=["\'](?:email|url|tel|number)["\']', re.IGNORECASE),
     ]
-    
+
     # Error message patterns (good)
     _ERROR_PATTERNS = [
         re.compile(r'aria-errormessage=["\'][^"\']+["\']', re.IGNORECASE),
@@ -60,7 +60,7 @@ class ErrorMessageMissingRule(Rule):
         re.compile(r'<FormField\b', re.IGNORECASE),
         re.compile(r'<FormControl\b', re.IGNORECASE),
     ]
-    
+
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
@@ -102,7 +102,7 @@ class ErrorMessageMissingRule(Rule):
 
         findings: list[Finding] = []
         seen_lines: set[int] = set()
-        
+
         # Check if file has any error handling patterns
         file_has_error_handling = any(p.search(content) for p in self._ERROR_PATTERNS)
 
@@ -110,34 +110,34 @@ class ErrorMessageMissingRule(Rule):
             line = content.count("\n", 0, m.start()) + 1
             if line in seen_lines:
                 continue
-            
+
             tag = m.group("tag").lower()
             attrs = m.group("attrs") or ""
-            
+
             # Skip hidden/disabled
             if self._is_hidden_or_disabled(attrs):
                 continue
-            
+
             # Check if field has validation
             has_validation = any(p.search(attrs) for p in self._VALIDATION_PATTERNS)
             if not has_validation:
                 continue
-            
+
             # Skip custom input components that handle errors internally
             line_content = content.split("\n")[line - 1] if line > 0 else ""
             if any(p.search(line_content) for p in self._CUSTOM_INPUT_COMPONENTS):
                 continue
-            
+
             # Check if field has error message association
             has_error_association = any(p.search(attrs) for p in self._ERROR_PATTERNS[:2])  # aria-errormessage, aria-describedby
-            
+
             if has_error_association:
                 continue
-            
+
             # Check if there's error handling nearby in the file
             if file_has_error_handling:
                 continue  # Likely handled elsewhere
-            
+
             seen_lines.add(line)
             findings.append(
                 self.create_finding(
@@ -169,7 +169,7 @@ class ErrorMessageMissingRule(Rule):
                         "validation_present=true",
                         "error_message_association_missing=true",
                     ],
-                )
+                ),
             )
 
         return findings

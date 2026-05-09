@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class UseEffectCleanupMissingRule(Rule):
@@ -214,9 +214,9 @@ class UseEffectCleanupMissingRule(Rule):
                             "include_fetch_effects": include_fetch_effects,
                             "min_side_effect_signals": min_side_effect_signals,
                             "has_cleanup": has_cleanup,
-                        }
+                        },
                     },
-                )
+                ),
             )
 
         return findings
@@ -314,21 +314,20 @@ class UseEffectCleanupMissingRule(Rule):
         pattern_str = pattern.pattern
         if "subscribe" in pattern_str:
             return "subscription"
-        elif "addEventListener" in pattern_str:
+        if "addEventListener" in pattern_str:
             return "event listener"
-        elif "setInterval" in pattern_str:
+        if "setInterval" in pattern_str:
             return "setInterval"
-        elif "setTimeout" in pattern_str:
+        if "setTimeout" in pattern_str:
             return "setTimeout"
-        elif "requestAnimationFrame" in pattern_str:
+        if "requestAnimationFrame" in pattern_str:
             return "requestAnimationFrame"
-        elif "WebSocket" in pattern_str:
+        if "WebSocket" in pattern_str:
             return "WebSocket"
-        elif "EventSource" in pattern_str:
+        if "EventSource" in pattern_str:
             return "EventSource"
-        elif "fetch" in pattern_str:
+        if "fetch" in pattern_str:
             return "fetch"
-        elif ".on(" in pattern_str:
+        if ".on(" in pattern_str:
             return "event emitter"
-        else:
-            return None
+        return None

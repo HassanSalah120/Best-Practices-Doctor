@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import re
-from typing import TypedDict, Any
+from pathlib import Path
+from typing import TypedDict
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Category, Severity, Finding, FindingClassification
 from rules.base import Rule
-
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 _TEST_PATH_MARKERS = ("tests", "test", "__tests__", "stories", "storybook", "fixtures")
 _PAGE_PATH_MARKERS = ("pages", "screens", "views")
@@ -157,14 +156,14 @@ class _SeoRuleBase(Rule):
 
     # Common route entry basenames
     _ROUTE_ENTRIES = {
-        "index", "show", "edit", "create", "new", 
-        "home", "landing", "welcome", "dashboard", 
+        "index", "show", "edit", "create", "new",
+        "home", "landing", "welcome", "dashboard",
         "login", "register", "signin", "signup",
         "about", "pricing", "contact", "features", "security",
         "profile", "account", "settings", "search", "results",
-        "badpage"
+        "badpage",
     }
-    
+
     _ALWAYS_INDEXABLE_FOLDERS = {"welcome", "public", "marketing", "auth"}
 
     def analyze(
@@ -214,7 +213,7 @@ class _SeoRuleBase(Rule):
                 rf"{variable}\s*=\s*(?:[^;]*\b)?(?:url|secure_url|route)\s*\(",
                 content or "",
                 re.IGNORECASE | re.DOTALL,
-            )
+            ),
         )
 
     def _blade_echo_resolves_to_url(self, content: str, value: str) -> bool:
@@ -233,7 +232,7 @@ class _SeoRuleBase(Rule):
         ctx = getattr(facts, "project_context", None)
         if ctx is None:
             return False
-        
+
         # Use project_type and capabilities to determine if this project has public surfaces
         p_type = str(getattr(ctx, "project_type", "") or "").strip().lower()
         if p_type in {"public_website_with_dashboard", "portal_based_business_app", "saas_platform"}:
@@ -252,18 +251,18 @@ class _SeoRuleBase(Rule):
             re.search(r"<(?:Head|Helmet)\b", text)
             or re.search(r"<title\b", text, re.IGNORECASE)
             or re.search(r"document\.title\s*=", text)
-            or self._ROBOTS.search(text)
+            or self._ROBOTS.search(text),
         )
 
     def _looks_like_render_module(self, file_path: str, content: str) -> bool:
         segments = self._get_path_segments(file_path)
         if any(marker in segments for marker in _NON_RENDER_PATH_MARKERS):
             return False
-        
+
         text = content or ""
         if (file_path or "").lower().endswith(".blade.php"):
             return bool(self._HTML_TAG.search(text))
-        
+
         # Look for JSX-like elements or common React patterns
         return bool(self._JSX_ELEMENT.search(text) or self._HTML_TAG.search(text))
 
@@ -273,7 +272,7 @@ class _SeoRuleBase(Rule):
 
     def _is_internal_app_surface(self, file_path: str) -> bool:
         segments = self._get_path_segments(file_path)
-        
+
         # Portal and Auth pages are often public-facing (e.g. patient portal, login)
         # BUT specific sensitive auth pages or clearly internal segments should be skipped.
         if "auth" in segments:
@@ -282,10 +281,10 @@ class _SeoRuleBase(Rule):
             if any(s in segments for s in sensitive_auth):
                 return True
             return False
-            
+
         if "portal" in segments or "patientportal" in segments:
             return False
-            
+
         return any(marker in segments for marker in _INTERNAL_APP_PATH_MARKERS)
 
     def _is_thin_wrapper_module(self, content: str) -> bool:
@@ -293,13 +292,13 @@ class _SeoRuleBase(Rule):
         # If it has explicit SEO tags, it's not just a thin wrapper for SEO purposes
         if re.search(r"<(?:h1|link\b[^>]*rel=['\"]canonical['\"])", text, re.IGNORECASE) or self._META_DESC_PRESENT.search(text):
             return False
-            
+
         return bool(
             re.search(
                 r"return\s*(?:\(\s*)?<(?P<tag>[A-Z][A-Za-z0-9_]*(?:View|Page|Screen))\b[\s\S]*?(?:/?>)",
                 text,
                 re.IGNORECASE,
-            )
+            ),
         )
 
     def _has_heading_proxy(self, content: str) -> bool:
@@ -324,8 +323,8 @@ class _SeoRuleBase(Rule):
 
         stem = Path(file_path or "").stem
         low_stem = stem.lower()
-        
-        # New heuristic: If it's in a subdirectory of pages/ but not a known route entry, 
+
+        # New heuristic: If it's in a subdirectory of pages/ but not a known route entry,
         # and has no layout/head, it's likely a section component.
         if low_stem not in self._ROUTE_ENTRIES:
             if "pages" in segments:
@@ -356,7 +355,7 @@ class _SeoRuleBase(Rule):
         Uses a hierarchical decision model to reduce false positives.
         """
         text = content or ""
-        
+
         # 1. Hard exclusions (Non-indexable templates, shell templates, non-render modules)
         if self._is_non_indexable_template(file_path) or self._is_inertia_shell_template(file_path, text):
             return False
@@ -384,19 +383,19 @@ class _SeoRuleBase(Rule):
             # If it has Head or Layout, it's definitely a page.
             if self._explicit_indexability_signal(text):
                 return True
-            
+
             # If it's a standard route entry name, it's a page.
             stem = Path(file_path).stem.lower()
             if stem in self._ROUTE_ENTRIES:
                 return True
-            
+
             # If it's in a known "always public" folder, it's indexable if it's the leaf.
             segments = self._get_path_segments(file_path)
             if any(f in segments for f in self._ALWAYS_INDEXABLE_FOLDERS):
                 # If it's not a child composition (already checked), we assume it's indexable.
                 return True
-            
-            # Otherwise, if it has no Head/Layout and is not a standard name, 
+
+            # Otherwise, if it has no Head/Layout and is not a standard name,
             # we don't assume it's an indexable page even in a public project.
             return False
 
@@ -472,7 +471,7 @@ class MetaDescriptionMissingOrGenericRule(_SeoRuleBase):
                         "overlap_scope": file_path,
                         "decision_profile": {"seo_head_signal_missing": "meta_description"},
                     },
-                )
+                ),
             ]
 
         literal_match = self._META_DESC_LITERAL.search(text)
@@ -503,7 +502,7 @@ class MetaDescriptionMissingOrGenericRule(_SeoRuleBase):
                         "overlap_rank": 55,
                         "overlap_scope": file_path,
                     },
-                )
+                ),
             ]
         return []
 
@@ -568,7 +567,7 @@ class CanonicalMissingOrInvalidRule(_SeoRuleBase):
                         "overlap_scope": file_path,
                         "decision_profile": {"canonical_signal": "missing"},
                     },
-                )
+                ),
             ]
 
         # If it's a dynamic expression (e.g. href={route('...')}), we skip validation
@@ -598,7 +597,7 @@ class CanonicalMissingOrInvalidRule(_SeoRuleBase):
                         "overlap_scope": file_path,
                         "decision_profile": {"canonical_signal": "invalid"},
                     },
-                )
+                ),
             ]
         return []
 
@@ -666,7 +665,7 @@ class RobotsDirectiveRiskRule(_SeoRuleBase):
                     "overlap_scope": file_path,
                     "decision_profile": {"robots_signal": value},
                 },
-            )
+            ),
         ]
 
 
@@ -729,7 +728,7 @@ class CrawlableInternalNavigationRequiredRule(_SeoRuleBase):
                 tags=["seo", "navigation", "crawlability"],
                 evidence_signals=["seo_head_signal_missing=crawlable_link"],
                 metadata={"decision_profile": {"seo_head_signal_missing": "crawlable_link"}},
-            )
+            ),
         ]
 
 
@@ -798,7 +797,7 @@ class JsonLdStructuredDataInvalidOrMismatchedRule(_SeoRuleBase):
                         tags=["seo", "jsonld", "structured-data"],
                         evidence_signals=[f"jsonld_signal=parse_error:{parse_error[:80]}"],
                         metadata={"decision_profile": {"jsonld_signal": "parse_error"}},
-                    )
+                    ),
                 )
             elif isinstance(data, dict):
                 missing = []
@@ -820,7 +819,7 @@ class JsonLdStructuredDataInvalidOrMismatchedRule(_SeoRuleBase):
                             tags=["seo", "jsonld", "schema"],
                             evidence_signals=[f"jsonld_signal=missing:{','.join(missing)}"],
                             metadata={"decision_profile": {"jsonld_signal": "missing_core_fields"}},
-                        )
+                        ),
                     )
             if len(findings) >= max_findings:
                 break
@@ -868,11 +867,11 @@ class H1SingletonViolationRule(_SeoRuleBase):
         segments = self._get_path_segments(file_path)
         if any(marker in segments for marker in ("utils", "helpers", "hooks")):
             return True
-            
+
         low = (file_path or "").lower()
         if low.endswith((".d.ts", ".types.ts", ".types.tsx")):
             return True
-            
+
         basename = Path(file_path).name
         if self._HOOK_FILE_PATTERN.match(basename):
             return True
@@ -899,7 +898,7 @@ class H1SingletonViolationRule(_SeoRuleBase):
 
         route_entries = ("index.tsx", "index.jsx", "show.tsx", "show.jsx",
                         "edit.tsx", "edit.jsx", "create.tsx", "create.jsx")
-        
+
         # Check against facts.files instead of real filesystem
         for entry in route_entries:
             sibling_path = parent_dir + entry
@@ -1035,7 +1034,7 @@ class H1SingletonViolationRule(_SeoRuleBase):
                             "reason": "multiple_h1_hard_rule",
                         },
                     },
-                )
+                ),
             ]
 
         if h1_count == 1:
@@ -1091,7 +1090,7 @@ class H1SingletonViolationRule(_SeoRuleBase):
                     "decision_profile": {"indexability_conflict_signal": "h1_missing"},
                     "classification": classification_meta,
                 },
-            )
+            ),
         ]
 
 
@@ -1164,5 +1163,5 @@ class PageIndexabilityConflictRule(_SeoRuleBase):
                     "overlap_scope": file_path,
                     "decision_profile": {"indexability_conflict_signal": "robots_noindex_with_canonical"},
                 },
-            )
+            ),
         ]

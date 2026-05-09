@@ -6,10 +6,10 @@ Detects observers that appear to host too much business logic directly.
 
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class ObserverHeavyLogicRule(Rule):
@@ -96,7 +96,7 @@ class ObserverHeavyLogicRule(Rule):
                         f"oversized_hook_count={len(oversized)}",
                         f"side_effect_hook_count={len(side_effect_heavy)}",
                     ],
-                )
+                ),
             )
 
         return findings

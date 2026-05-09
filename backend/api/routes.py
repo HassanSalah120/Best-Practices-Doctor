@@ -3,22 +3,23 @@ API Routes
 REST endpoints with SSE progress streaming.
 """
 import io
-from pathlib import Path
 import os
 import zipfile
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException, Query, Depends
-from fastapi.responses import StreamingResponse
-from fastapi.responses import Response
+from pathlib import Path
 
-from core.job_manager import job_manager, CancellationToken, JobManager
-from core.pipeline import ScanPipelineRequest, run_scan_pipeline
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response, StreamingResponse
+from pydantic import BaseModel, Field
+
+from config import settings
 from core.detector import ProjectDetector
+from core.hashing import fast_hash_hex
+from core.job_manager import CancellationToken, JobManager, job_manager
+from core.pipeline import ScanPipelineRequest, run_scan_pipeline
 from core.ruleset import Ruleset
 from core.sarif import findings_to_sarif
-from core.hashing import fast_hash_hex
-from config import settings
-from schemas.report import RuntimeContractSummary, ScanJob, ScanReport
+from schemas.report import RuntimeContractSummary, ScanReport
+
 from .auth import verify_token
 
 router = APIRouter(prefix="/api", dependencies=[Depends(verify_token)])
@@ -223,6 +224,7 @@ async def suggest_project_context(request: ContextSuggestRequest):
     This powers the setup UI so users can accept/edit detected context before a full scan.
     """
     import asyncio
+
     from analysis.facts_builder import FactsBuilder
 
     path = Path(request.path)
@@ -344,13 +346,13 @@ async def start_scan(request: ScanRequest):
     path = Path(request.path)
     if not path.exists():
         raise HTTPException(status_code=400, detail=f"Path does not exist: {request.path}")
-    
+
     if not path.is_dir():
         raise HTTPException(status_code=400, detail=f"Path is not a directory: {request.path}")
-    
+
     # Create job
     job_id, token = job_manager.create_job(request.path)
-    
+
     # Start scan in background
     await job_manager.start_job(
         job_id,
@@ -370,7 +372,7 @@ async def start_scan(request: ScanRequest):
         request.runtime_allow_mutating_probes,
         request.runtime_manual_routes,
     )
-    
+
     return ScanResponse(job_id=job_id, status="running")
 
 
@@ -380,15 +382,15 @@ async def get_scan_status(job_id: str):
     job = job_manager.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
-    
+
     result = {"job": job.model_dump()}
-    
+
     # Include report if completed
     if job.status.value == "completed":
         report = job_manager.get_report(job_id)
         if report:
             result["report"] = report.model_dump()
-    
+
     return result
 
 
@@ -565,7 +567,7 @@ async def scan_events(job_id: str):
     job = job_manager.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
-    
+
     return StreamingResponse(
         job_manager.subscribe(job_id),
         media_type="text/event-stream",
@@ -573,7 +575,7 @@ async def scan_events(job_id: str):
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
-        }
+        },
     )
 
 
@@ -581,10 +583,10 @@ async def scan_events(job_id: str):
 async def cancel_scan(job_id: str):
     """Cancel a running scan."""
     success = await job_manager.cancel_job(job_id)
-    
+
     if not success:
         raise HTTPException(status_code=400, detail="Could not cancel job (may not be running)")
-    
+
     return {"status": "cancelled", "job_id": job_id}
 
 
@@ -659,7 +661,7 @@ async def get_scan_files(job_id: str):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     return {
         "files": report.file_summaries,
         "total": len(report.file_summaries),
@@ -672,10 +674,10 @@ async def get_file_issues(job_id: str, path: str = Query(..., description="File 
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     # Find findings for this file
     file_findings = [f for f in report.findings if f.file == path]
-    
+
     return {
         "path": path,
         "findings": [f.model_dump() for f in file_findings],
@@ -689,20 +691,20 @@ async def get_file_content(job_id: str, path: str = Query(..., description="File
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         file_path = Path(report.project_path) / path
         if not file_path.exists():
             raise HTTPException(status_code=404, detail=f"File not found: {path}")
-        
+
         # Security check - ensure file is within project
         try:
             file_path.resolve().relative_to(Path(report.project_path).resolve())
         except ValueError:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         content = file_path.read_text(encoding="utf-8", errors="replace")
-        
+
         return {
             "path": path,
             "content": content,
@@ -1020,8 +1022,8 @@ async def get_ruleset():
 async def list_rulesets():
     """List available ruleset profiles and the active one."""
     try:
-        from core.ruleset_profiles import list_profiles
         from core.app_settings import get_active_ruleset_profile
+        from core.ruleset_profiles import list_profiles
 
         profiles = list_profiles()
         active = get_active_ruleset_profile(default="balanced")
@@ -1053,8 +1055,8 @@ async def get_ruleset_profile_yaml(name: str):
 async def set_active_ruleset_profile(req: ActiveRulesetProfileRequest):
     """Set the active ruleset profile (persisted in app data settings.json)."""
     try:
-        from core.ruleset_profiles import list_profiles
         from core.app_settings import set_active_ruleset_profile
+        from core.ruleset_profiles import list_profiles
 
         name = (req.name or "").strip().lower()
         profiles = list_profiles()
@@ -1134,13 +1136,13 @@ async def list_suppressions(job_id: str):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.suppression import SuppressionManager
-        
+
         manager = SuppressionManager(report.project_path)
         suppressions = manager.list_suppressions()
-        
+
         return {
             "suppressions": [SuppressionResponse(
                 id=s.id,
@@ -1165,11 +1167,12 @@ async def add_suppression(job_id: str, request: SuppressionRequest):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
-        from core.suppression import SuppressionManager
         from datetime import date as date_type
-        
+
+        from core.suppression import SuppressionManager
+
         manager = SuppressionManager(report.project_path)
         finding = None
         if request.fingerprint:
@@ -1191,14 +1194,14 @@ async def add_suppression(job_id: str, request: SuppressionRequest):
             line_end = line_end if line_end is not None else finding.line_end
         if not rule_id:
             raise HTTPException(status_code=400, detail="Suppression requires rule_id or fingerprint")
-        
+
         until = None
         if request.until:
             try:
                 until = date_type.fromisoformat(request.until)
             except ValueError:
                 pass
-        
+
         rule = manager.add_suppression(
             rule_id=rule_id,
             file_pattern=file_pattern,
@@ -1217,7 +1220,7 @@ async def add_suppression(job_id: str, request: SuppressionRequest):
             )
         except Exception:
             pass
-        
+
         return SuppressionResponse(
             id=rule.id,
             rule_id=rule.rule_id,
@@ -1241,16 +1244,16 @@ async def remove_suppression(job_id: str, suppression_id: str):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.suppression import SuppressionManager
-        
+
         manager = SuppressionManager(report.project_path)
         removed = manager.remove_suppression(suppression_id)
-        
+
         if not removed:
             raise HTTPException(status_code=404, detail=f"Suppression not found: {suppression_id}")
-        
+
         return {"status": "removed", "id": suppression_id}
     except HTTPException:
         raise
@@ -1264,13 +1267,13 @@ async def clear_expired_suppressions(job_id: str):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.suppression import SuppressionManager
-        
+
         manager = SuppressionManager(report.project_path)
         removed_count = manager.clear_expired()
-        
+
         return {"status": "cleared", "removed_count": removed_count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to clear expired suppressions: {e}")
@@ -1303,20 +1306,20 @@ async def get_fix_suggestions(job_id: str):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.auto_fix import AutoFixEngine
-        
+
         project_context = {}
         if isinstance(getattr(report, "analysis_debug", None), dict):
             project_context = dict(report.analysis_debug.get("project_context") or {})
         engine = AutoFixEngine(project_context=project_context)
         fixes_by_file = engine.get_fixes_for_findings(report.findings, report.project_path)
-        
+
         result = {}
         for file_path, fixes in fixes_by_file.items():
             result[file_path] = [FixSuggestionResponse(**f.to_dict()).model_dump() for f in fixes]
-        
+
         return {
             "fixes": result,
             "total_files": len(result),
@@ -1417,32 +1420,32 @@ async def get_file_fix_suggestions(job_id: str, file_path: str):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.auto_fix import AutoFixEngine
-        
+
         # Get findings for this file
         file_findings = [f for f in report.findings if f.file == file_path]
         if not file_findings:
             return {"fixes": [], "total": 0}
-        
+
         project_context = {}
         if isinstance(getattr(report, "analysis_debug", None), dict):
             project_context = dict(report.analysis_debug.get("project_context") or {})
         engine = AutoFixEngine(project_context=project_context)
         file_content_path = _resolve_project_file(report.project_path, file_path)
-        
+
         if not file_content_path.exists():
             raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
-        
+
         content = file_content_path.read_text(encoding="utf-8", errors="replace")
-        
+
         fixes = []
         for finding in file_findings:
             fix = engine.get_fix_suggestion(finding, content)
             if fix:
                 fixes.append(FixSuggestionResponse(**fix.to_dict()).model_dump())
-        
+
         return {
             "file": file_path,
             "fixes": fixes,
@@ -1460,42 +1463,42 @@ async def apply_fix(job_id: str, file_path: str, line_start: int = Query(...), d
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.auto_fix import AutoFixEngine
-        
+
         project_context = {}
         if isinstance(getattr(report, "analysis_debug", None), dict):
             project_context = dict(report.analysis_debug.get("project_context") or {})
         engine = AutoFixEngine(project_context=project_context)
         full_path = _resolve_project_file(report.project_path, file_path)
-        
+
         if not full_path.exists():
             raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
-        
+
         content = full_path.read_text(encoding="utf-8", errors="replace")
-        
+
         # Find the finding for this line
         finding = next(
             (f for f in report.findings if f.file == file_path and f.line_start == line_start),
-            None
+            None,
         )
         if not finding:
             raise HTTPException(status_code=404, detail=f"No finding at line {line_start}")
-        
+
         fix = engine.get_fix_suggestion(finding, content)
         if not fix:
             raise HTTPException(status_code=400, detail="No fix available for this finding")
-        
+
         if (not fix.auto_applicable or fix.strategy != "safe") and not dry_run:
             raise HTTPException(
                 status_code=400,
                 detail="Only safe auto-applicable fixes can be applied automatically; use dry_run preview for risky/refactor fixes",
             )
-        
+
         before_content = content
         success, result = engine.apply_fix(full_path, fix, dry_run=dry_run)
-        
+
         if not success:
             raise HTTPException(status_code=500, detail=f"Failed to apply fix: {result}")
         history_entry = None
@@ -1511,7 +1514,7 @@ async def apply_fix(job_id: str, file_path: str, line_start: int = Query(...), d
                 before_content=before_content,
                 after_content=str(result),
             )
-        
+
         return {
             "status": "applied" if not dry_run else "preview",
             "file": file_path,
@@ -1535,10 +1538,10 @@ async def list_project_history():
     """List all projects with scan history."""
     try:
         from core.scan_history import ScanHistoryManager
-        
+
         manager = ScanHistoryManager()
         projects = manager.list_projects()
-        
+
         return {"projects": projects, "total": len(projects)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list projects: {e}")
@@ -1550,13 +1553,13 @@ async def get_scan_history(job_id: str, limit: int = Query(10, ge=1, le=50)):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.scan_history import ScanHistoryManager
-        
+
         manager = ScanHistoryManager()
         history = manager.get_history_by_path(report.project_path)
-        
+
         return {
             "project_path": report.project_path,
             "project_hash": history.project_hash,
@@ -1573,14 +1576,14 @@ async def get_scan_trends(job_id: str, limit: int = Query(10, ge=2, le=50)):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.scan_history import ScanHistoryManager
-        
+
         manager = ScanHistoryManager()
         history = manager.get_history_by_path(report.project_path)
         trend = manager.get_trend(history.project_hash, limit=limit)
-        
+
         return trend
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get trends: {e}")
@@ -1592,14 +1595,14 @@ async def get_category_trend(job_id: str, category: str, limit: int = Query(10, 
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.scan_history import ScanHistoryManager
-        
+
         manager = ScanHistoryManager()
         history = manager.get_history_by_path(report.project_path)
         trend = manager.get_category_trend(history.project_hash, category, limit=limit)
-        
+
         return trend
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get category trend: {e}")
@@ -1611,13 +1614,13 @@ async def save_scan_to_history(job_id: str):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.scan_history import ScanHistoryManager
-        
+
         manager = ScanHistoryManager()
         summary = manager.add_scan(report, profile=report.baseline_profile or "balanced")
-        
+
         return {
             "status": "saved",
             "job_id": job_id,
@@ -1635,14 +1638,14 @@ async def clear_scan_history(job_id: str):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.scan_history import ScanHistoryManager
-        
+
         manager = ScanHistoryManager()
         history = manager.get_history_by_path(report.project_path)
         cleared = manager.clear_history(history.project_hash)
-        
+
         return {"status": "cleared" if cleared else "not_found"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to clear history: {e}")
@@ -1656,13 +1659,13 @@ async def get_incremental_status(job_id: str):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.incremental import IncrementalScanManager
-        
+
         manager = IncrementalScanManager(report.project_path)
         stats = manager.get_stats()
-        
+
         return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get incremental status: {e}")
@@ -1674,21 +1677,21 @@ async def detect_file_changes(job_id: str, files: str = Query("", description="C
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.incremental import IncrementalScanManager
-        
+
         manager = IncrementalScanManager(report.project_path)
-        
+
         # Parse file list
         file_list = [f.strip() for f in files.split(",") if f.strip()] if files else []
-        
+
         # If no files provided, get from facts
         if not file_list and hasattr(report, "facts") and report.facts:
             file_list = getattr(report.facts, "files", [])
-        
+
         changes = manager.detect_changes(file_list)
-        
+
         return {
             "project_path": report.project_path,
             "changes": changes,
@@ -1705,24 +1708,24 @@ async def update_incremental_manifest(job_id: str, files: str = Query("", descri
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.incremental import IncrementalScanManager
-        
+
         manager = IncrementalScanManager(report.project_path)
-        
+
         # Parse file list
         file_list = [f.strip() for f in files.split(",") if f.strip()] if files else []
-        
+
         # If no files provided, get from report
         if not file_list:
             file_list = [f.file for f in report.findings if f.file]
             if hasattr(report, "facts") and report.facts:
                 file_list = list(set(file_list + list(getattr(report.facts, "files", []))))
-        
+
         manager.update_manifest(file_list)
         stats = manager.get_stats()
-        
+
         return {
             "status": "updated",
             "files_updated": len(file_list),
@@ -1738,13 +1741,13 @@ async def clear_incremental_manifest(job_id: str):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.incremental import IncrementalScanManager
-        
+
         manager = IncrementalScanManager(report.project_path)
         manager.clear_manifest()
-        
+
         return {"status": "cleared"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to clear manifest: {e}")
@@ -1758,13 +1761,13 @@ async def get_ast_cache_stats(job_id: str):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.ast_cache import ASTCacheManager
-        
+
         cache = ASTCacheManager(report.project_path)
         stats = cache.get_stats()
-        
+
         return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get AST cache stats: {e}")
@@ -1776,13 +1779,13 @@ async def clear_ast_cache(job_id: str):
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.ast_cache import ASTCacheManager
-        
+
         cache = ASTCacheManager(report.project_path)
         count = cache.clear_cache()
-        
+
         return {"status": "cleared", "files_removed": count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to clear AST cache: {e}")
@@ -1794,14 +1797,14 @@ async def invalidate_ast_cache_file(job_id: str, file_path: str = Query(..., des
     report = job_manager.get_report(job_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
-    
+
     try:
         from core.ast_cache import ASTCacheManager
-        
+
         cache = ASTCacheManager(report.project_path)
         invalidated = cache.invalidate(file_path)
         cache.save()
-        
+
         return {"status": "invalidated" if invalidated else "not_found", "file": file_path}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to invalidate cache: {e}")

@@ -3,10 +3,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class MissingModelObserverRegistrationRule(Rule):
@@ -60,7 +60,7 @@ class MissingModelObserverRegistrationRule(Rule):
                     confidence=0.78,
                     tags=["laravel", "observer", "service-provider"],
                     evidence_signals=["observer_class_exists=true", "observer_registration_missing=true"],
-                )
+                ),
             )
         return findings
 
@@ -99,5 +99,5 @@ class MissingModelObserverRegistrationRule(Rule):
         escaped = re.escape(class_name)
         return bool(
             re.search(rf"\b{escaped}::class\b", provider_text)
-            and (re.search(r"::observe\s*\(", provider_text) or "$observers" in provider_text)
+            and (re.search(r"::observe\s*\(", provider_text) or "$observers" in provider_text),
         )

@@ -16,13 +16,16 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
-from ._parse_utils import extract_paren_content, split_top_level_args, string_literal_is_interpolated
-
+from ._parse_utils import (
+    extract_paren_content,
+    split_top_level_args,
+    string_literal_is_interpolated,
+)
 
 _DB_RAW = re.compile(r"\bDB::\s*(select|statement|unprepared|raw)\s*\(", re.IGNORECASE)
 _RAW_CHAIN = re.compile(r"(?:->|::)\s*(whereRaw|orWhereRaw|havingRaw|orderByRaw|selectRaw)\s*\(", re.IGNORECASE)
@@ -166,7 +169,7 @@ class SqlInjectionRiskRule(Rule):
                     ),
                     tags=["security", "sql", "injection"],
                     confidence=conf,
-                )
+                ),
             )
 
         return findings

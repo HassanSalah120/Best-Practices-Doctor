@@ -14,14 +14,14 @@ import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from schemas.facts import ClassInfo, Facts, MethodInfo, RouteInfo, ValidationUsage
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.report import GeneratedContractTest, RouteContractIssue, RuntimeContractSummary
-
 
 MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 SAFE_RUNTIME_METHODS = {"GET", "HEAD"}
@@ -125,7 +125,7 @@ class RuntimeContractAnalyzer:
                 )
             else:
                 summary.warnings.append(
-                    "Runtime probes skipped because no confirmed local APP_URL/runtime_base_url was available."
+                    "Runtime probes skipped because no confirmed local APP_URL/runtime_base_url was available.",
                 )
                 summary.skipped["no_local_base_url"] = len(route_contracts)
 
@@ -178,7 +178,7 @@ class RuntimeContractAnalyzer:
             middleware = self._parse_middleware_payload(item.get("middleware"))
             for method in methods:
                 static_match = static_by_signature.get((method, uri, name or "")) or static_by_signature.get(
-                    (method, uri, "")
+                    (method, uri, ""),
                 )
                 imported.append(
                     RouteInfo(
@@ -191,7 +191,7 @@ class RuntimeContractAnalyzer:
                         file_path=str(getattr(static_match, "file_path", "") or ""),
                         line_number=int(getattr(static_match, "line_number", 0) or 0),
                         source="artisan",
-                    )
+                    ),
                 )
 
         return imported or static_routes, None
@@ -818,7 +818,7 @@ class RuntimeContractAnalyzer:
                     inertia_page=contract.inertia_page,
                     inertia_props=contract.page_required_props,
                     auth_required=self._route_needs_auth(route),
-                )
+                ),
             )
         return tests
 
@@ -833,7 +833,7 @@ class RuntimeContractAnalyzer:
                 inertia_page=contract.inertia_page,
                 inertia_props=contract.page_required_props,
                 auth_required=self._route_needs_auth(contract.route),
-            )
+            ),
         ]
 
     def _build_feature_test(
@@ -879,7 +879,7 @@ class RuntimeContractAnalyzer:
                 *assertions,
                 "});",
                 "",
-            ]
+            ],
         )
         return GeneratedContractTest(
             id=f"contract_test_{self._short_hash(route.method + route.uri + title + reason)}",
@@ -1045,7 +1045,7 @@ class RuntimeContractAnalyzer:
         return content
 
     def _extract_method_body_by_name(self, source: str, method_name: str) -> str:
-        pattern = r"function\s+{}\s*\([^)]*\)\s*(?::[^{{]+)?\{{".format(re.escape(method_name))
+        pattern = rf"function\s+{re.escape(method_name)}\s*\([^)]*\)\s*(?::[^{{]+)?\{{"
         match = re.search(pattern, source, flags=re.DOTALL)
         if not match:
             return ""
@@ -1092,7 +1092,7 @@ class RuntimeContractAnalyzer:
                 params.extend(
                     self._split_args(signature[signature.find("(") + 1 : signature.rfind(")")])
                     if "(" in signature and ")" in signature
-                    else []
+                    else [],
                 )
         for param in params:
             match = re.search(r"\$(?P<name>[A-Za-z_][A-Za-z0-9_]*)", str(param))

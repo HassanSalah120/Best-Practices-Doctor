@@ -4,12 +4,12 @@ Modal Trap Focus Rule (hardened contract checks).
 
 from __future__ import annotations
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
 from rules.react.dialog_usage_helpers import tags_are_shared_dialog_consumers
 from rules.react.jsx_tree_sitter import JsxTreeSitterHelper
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ModalTrapFocusRule(Rule):
@@ -192,9 +192,9 @@ class ModalTrapFocusRule(Rule):
                         "focus_entry_signal": bool(has_focus_entry_signal),
                         "focus_restore_signal": bool(has_focus_restore_signal),
                         "keyboard_contract_missing": bool(not has_close_signal),
-                    }
+                    },
                 },
-            )
+            ),
         ]
 
     def analyze_regex(

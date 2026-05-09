@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MissingApiResourceRule(Rule):
@@ -221,7 +221,7 @@ class MissingApiResourceRule(Rule):
                         "overlap_scope": f"{file_path}:{line_no}",
                         "overlap_rank": 95,
                     },
-                )
+                ),
             )
 
         return findings

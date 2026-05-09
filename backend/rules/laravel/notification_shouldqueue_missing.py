@@ -6,10 +6,10 @@ Detects notifications that use delivery channels but do not implement ShouldQueu
 
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class NotificationShouldQueueMissingRule(Rule):
@@ -78,7 +78,7 @@ class NotificationShouldQueueMissingRule(Rule):
                     str(method.name or "").lower()
                     for method in class_methods
                     if str(method.name or "").lower() in self._DELIVERY_METHODS
-                }
+                },
             )
             if not delivery_methods:
                 continue
@@ -107,7 +107,7 @@ class NotificationShouldQueueMissingRule(Rule):
                         "notification_shouldqueue_missing=true",
                         f"delivery_method_count={len(delivery_methods)}",
                     ],
-                )
+                ),
             )
 
         return findings

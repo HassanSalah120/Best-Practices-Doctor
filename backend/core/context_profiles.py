@@ -46,7 +46,7 @@ class ContextProfileMatrix(BaseModel):
     rule_behavior: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
     @classmethod
-    def load(cls, path: str | Path) -> "ContextProfileMatrix":
+    def load(cls, path: str | Path) -> ContextProfileMatrix:
         p = Path(path)
         if not p.exists():
             raise FileNotFoundError(f"Context profile matrix not found: {p}")
@@ -54,7 +54,7 @@ class ContextProfileMatrix(BaseModel):
         return cls(**data)
 
     @classmethod
-    def load_default(cls) -> "ContextProfileMatrix":
+    def load_default(cls) -> ContextProfileMatrix:
         backend_root = Path(__file__).resolve().parents[1]
         return cls.load(backend_root / "rulesets" / "laravel_context_matrix.yaml")
 

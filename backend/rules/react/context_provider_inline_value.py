@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ContextProviderInlineValueRule(Rule):
@@ -83,5 +83,5 @@ class ContextProviderInlineValueRule(Rule):
                 tags=["react", "context", "performance", "rerenders"],
                 confidence=0.9,
                 evidence_signals=["inline_provider_value=true", f"line={line}"],
-            )
+            ),
         ]

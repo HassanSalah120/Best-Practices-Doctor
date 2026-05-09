@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class ReactTimerCleanupRequiredRule(Rule):
@@ -104,7 +104,7 @@ class ReactTimerCleanupRequiredRule(Rule):
                     tags=["react", "useeffect", "timers", "cleanup"],
                     evidence_signals=[f"missing_pairs={','.join(missing)}", f"include_set_timeout={int(include_set_timeout)}"],
                     metadata={"decision_profile": {"missing_pairs": missing, "include_set_timeout": include_set_timeout}},
-                )
+                ),
             )
             if len(findings) >= max_findings_per_file:
                 break

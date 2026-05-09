@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class StatusMessageAnnouncementRule(Rule):
@@ -40,14 +40,14 @@ class StatusMessageAnnouncementRule(Rule):
         re.compile(r"<StatusMessage", re.IGNORECASE),  # <StatusMessage> component
         re.compile(r"<Alert[^>]*(success|error|warning|info)", re.IGNORECASE),  # <Alert type="error">
     ]
-    
+
     # Toast patterns - checked separately after sonner detection
     _TOAST_PATTERNS = [
         re.compile(r"toast\s*\(", re.IGNORECASE),
         re.compile(r"toast\.(success|error|warning|info|loading|promise)\s*\(", re.IGNORECASE),
         re.compile(r"toast\.custom\s*\(", re.IGNORECASE),
     ]
-    
+
     # ARIA live region patterns (good)
     _LIVE_REGION_PATTERNS = [
         re.compile(r'role=["\'](?:alert|status|log|marquee|timer)["\']', re.IGNORECASE),
@@ -62,7 +62,7 @@ class StatusMessageAnnouncementRule(Rule):
         re.compile(r'aria-invalid=["\']true["\']', re.IGNORECASE),
         re.compile(r'aria-errormessage', re.IGNORECASE),
     ]
-    
+
     # Common toast/notification libraries (usually have a11y built-in)
     _A11Y_LIBRARIES = [
         re.compile(r"react-hot-toast", re.IGNORECASE),
@@ -70,7 +70,7 @@ class StatusMessageAnnouncementRule(Rule):
         re.compile(r"@radix-ui/react-toast", re.IGNORECASE),
         re.compile(r"chakra-ui.*toast", re.IGNORECASE),
     ]
-    
+
     # Sonner-specific patterns (sonner has built-in accessibility)
     _SONNER_PATTERNS = [
         re.compile(r"from\s+['\"]sonner['\"]", re.IGNORECASE),  # Direct sonner import
@@ -80,7 +80,7 @@ class StatusMessageAnnouncementRule(Rule):
         re.compile(r"toast\.(success|error|warning|info|loading|promise|custom)\s*\(", re.IGNORECASE),  # sonner API
         re.compile(r"useFlashToast", re.IGNORECASE),  # Custom hook wrapping sonner
     ]
-    
+
     # Inertia/Laravel flash message patterns (handled by layout with toast)
     _INERTIA_FLASH_PATTERNS = [
         re.compile(r"page\.props\.flash", re.IGNORECASE),  # Inertia flash messages
@@ -88,7 +88,7 @@ class StatusMessageAnnouncementRule(Rule):
         re.compile(r"flash\.(success|error|warning|info)", re.IGNORECASE),  # Flash types
         re.compile(r"usePage\s*\(\s*\)\.props\.flash", re.IGNORECASE),  # usePage hook
     ]
-    
+
     # Files that should be excluded (don't render status messages)
     _NON_RENDERING_FILES = [
         re.compile(r"/hooks/", re.IGNORECASE),  # Hooks don't render
@@ -102,7 +102,7 @@ class StatusMessageAnnouncementRule(Rule):
         re.compile(r"/constants?/", re.IGNORECASE),
         re.compile(r"/config/", re.IGNORECASE),
     ]
-    
+
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
@@ -148,37 +148,37 @@ class StatusMessageAnnouncementRule(Rule):
             return []
 
         findings: list[Finding] = []
-        
+
         # Check if file uses sonner (has built-in accessibility)
         uses_sonner = any(p.search(content) for p in self._SONNER_PATTERNS)
         if uses_sonner:
             return findings
-        
-        
+
+
         # Check if file has status message patterns
         has_status = any(p.search(content) for p in self._STATUS_PATTERNS)
-        
+
         # Also check for generic toast() calls (but only if not using sonner)
         has_toast = any(p.search(content) for p in self._TOAST_PATTERNS)
-        
+
         if not has_status and not has_toast:
             return findings
-        
+
         # Check if file uses Inertia flash messages (handled by layout with toast)
         uses_inertia_flash = any(p.search(content) for p in self._INERTIA_FLASH_PATTERNS)
         if uses_inertia_flash:
             return findings
-        
+
         # Check if file uses accessible notification library
         uses_a11y_lib = any(p.search(content) for p in self._A11Y_LIBRARIES)
         if uses_a11y_lib:
             return findings
-        
+
         # Check if file has live region patterns
         has_live_region = any(p.search(content) for p in self._LIVE_REGION_PATTERNS)
         if has_live_region:
             return findings
-        
+
         # Find status message usage for line number
         line = 1
         for p in self._STATUS_PATTERNS:
@@ -186,7 +186,7 @@ class StatusMessageAnnouncementRule(Rule):
             if m:
                 line = content.count("\n", 0, m.start()) + 1
                 break
-        
+
         findings.append(
             self.create_finding(
                 title="Status messages may not be announced to screen readers",
@@ -220,7 +220,7 @@ class StatusMessageAnnouncementRule(Rule):
                     "status_patterns_detected=true",
                     "live_region_missing=true",
                 ],
-            )
+            ),
         )
 
         return findings

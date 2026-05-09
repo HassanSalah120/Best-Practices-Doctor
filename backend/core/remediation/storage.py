@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 from config import ensure_app_data_dir
 from core.hashing import fast_hash_hex
-
 
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9_-]{6,80}$")
 

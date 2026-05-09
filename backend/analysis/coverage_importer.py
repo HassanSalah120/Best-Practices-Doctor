@@ -12,10 +12,10 @@ The output is a simple mapping of normalized relative file path -> line coverage
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
-from pathlib import Path
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
+from pathlib import Path
 
 from core.path_utils import normalize_rel_path
 

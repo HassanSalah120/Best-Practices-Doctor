@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class AccessibleAuthenticationRule(Rule):
@@ -31,7 +31,7 @@ class AccessibleAuthenticationRule(Rule):
         re.compile(r"signin", re.IGNORECASE),
         re.compile(r"authenticate", re.IGNORECASE),
     ]
-    
+
     # Cognitive barrier patterns
     _COGNITIVE_BARRIER_PATTERNS = [
         re.compile(r"captcha", re.IGNORECASE),
@@ -45,7 +45,7 @@ class AccessibleAuthenticationRule(Rule):
         re.compile(r"first\s+car", re.IGNORECASE),
         re.compile(r"born\s+city", re.IGNORECASE),
     ]
-    
+
     # Accessible alternatives (good)
     _ACCESSIBLE_ALTERNATIVES = [
         re.compile(r"passwordless", re.IGNORECASE),
@@ -69,7 +69,7 @@ class AccessibleAuthenticationRule(Rule):
         re.compile(r"copy\s+password", re.IGNORECASE),
         re.compile(r"password\s+manager", re.IGNORECASE),
     ]
-    
+
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
@@ -110,7 +110,7 @@ class AccessibleAuthenticationRule(Rule):
             return []
 
         findings: list[Finding] = []
-        
+
         # Check if this is an authentication-related file
         is_auth_file = any(p.search(file_path.lower()) for p in [
             re.compile(r"login"),
@@ -119,10 +119,10 @@ class AccessibleAuthenticationRule(Rule):
             re.compile(r"register"),
             re.compile(r"signup"),
         ])
-        
+
         if not is_auth_file:
             return findings
-        
+
         # Check for cognitive barriers
         has_barrier = False
         barrier_type = None
@@ -132,22 +132,22 @@ class AccessibleAuthenticationRule(Rule):
                 has_barrier = True
                 barrier_type = m.group(0)
                 break
-        
+
         if not has_barrier:
             return findings
-        
+
         # Check for accessible alternatives
         has_alternative = any(p.search(content) for p in self._ACCESSIBLE_ALTERNATIVES)
         if has_alternative:
             return findings  # Has accessible alternative
-        
+
         line = 1
         for pattern in self._COGNITIVE_BARRIER_PATTERNS:
             m = pattern.search(content)
             if m:
                 line = content.count("\n", 0, m.start()) + 1
                 break
-        
+
         findings.append(
             self.create_finding(
                 title="Authentication may require excessive cognitive effort",
@@ -182,7 +182,7 @@ class AccessibleAuthenticationRule(Rule):
                     f"barrier={barrier_type}",
                     "accessible_alternative_missing=true",
                 ],
-            )
+            ),
         )
 
         return findings

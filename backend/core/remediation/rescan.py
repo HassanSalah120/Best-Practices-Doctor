@@ -6,7 +6,6 @@ from schemas.report import ScanReport
 
 from .models import RescanComparison
 
-
 SCORE_CATEGORIES = ["security", "performance", "architecture", "quality", "accessibility"]
 SEVERITIES = ["critical", "high", "medium", "low", "info"]
 
@@ -48,7 +47,7 @@ def _compute_severity_deltas(baseline_report: ScanReport, rescan_report: ScanRep
 
 
 def _severity_counts(report: ScanReport) -> dict[str, int]:
-    counts = {severity: 0 for severity in SEVERITIES}
+    counts = dict.fromkeys(SEVERITIES, 0)
     for finding in report.findings:
         severity = str(getattr(getattr(finding, "severity", ""), "value", getattr(finding, "severity", "")) or "").lower()
         if severity in counts:

@@ -8,13 +8,12 @@ thresholds to avoid policy spam.
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from collections.abc import Iterable
 
 from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-
 
 _CLASS_QUOTED_RE = re.compile(r"class(?:Name)?\s*=\s*(['\"])(.*?)\1", re.IGNORECASE | re.DOTALL)
 _CLASS_TEMPLATE_RE = re.compile(r"class(?:Name)?\s*=\s*`([^`]*)`", re.IGNORECASE | re.DOTALL)
@@ -139,8 +138,8 @@ class CssFontSizePxRule(Rule):
                     suggested_fix=f"Prefer rem for typography, e.g. `font-size: {rem}rem;`.",
                     confidence=0.9,
                     tags=["css", "typography", "units", "accessibility"],
-                    evidence_signals=[f"property=font-size", f"value={value}"],
-                )
+                    evidence_signals=["property=font-size", f"value={value}"],
+                ),
             )
         return findings
 
@@ -221,7 +220,7 @@ class CssSpacingPxRule(Rule):
                     confidence=0.88,
                     tags=["css", "spacing", "units", "design-system"],
                     evidence_signals=[f"property={prop}", f"value={value}"],
-                )
+                ),
             )
         return findings
 
@@ -294,7 +293,7 @@ class CssFixedLayoutPxRule(Rule):
                     confidence=0.86,
                     tags=["css", "layout", "responsive"],
                     evidence_signals=[f"property={prop}", f"value_px={px_value}"],
-                )
+                ),
             )
         return findings
 
@@ -361,7 +360,7 @@ class TailwindArbitraryValueOveruseRule(Rule):
                     confidence=0.9,
                     tags=["tailwind", "design-system", "maintainability"],
                     evidence_signals=[f"arbitrary_count={len(arbitrary_tokens)}", f"line={line}"],
-                )
+                ),
             )
         return findings
 
@@ -426,7 +425,7 @@ class TailwindArbitraryTextSizeRule(Rule):
                     confidence=0.9,
                     tags=["tailwind", "typography", "design-system"],
                     evidence_signals=[f"line={line}", f"token_count={len(bad)}"],
-                )
+                ),
             )
         return findings
 
@@ -494,7 +493,7 @@ class TailwindArbitrarySpacingRule(Rule):
                     confidence=0.89,
                     tags=["tailwind", "spacing", "design-system"],
                     evidence_signals=[f"line={line}", f"token_count={len(bad)}"],
-                )
+                ),
             )
         return findings
 
@@ -572,7 +571,7 @@ class TailwindArbitraryLayoutSizeRule(Rule):
                     confidence=0.88,
                     tags=["tailwind", "layout", "responsive"],
                     evidence_signals=[f"line={line}", f"token_count={len(bad)}"],
-                )
+                ),
             )
         return findings
 
@@ -640,6 +639,6 @@ class TailwindArbitraryRadiusShadowRule(Rule):
                     confidence=0.87,
                     tags=["tailwind", "surface", "design-system"],
                     evidence_signals=[f"line={line}", f"token_count={len(bad)}"],
-                )
+                ),
             )
         return findings

@@ -8,17 +8,15 @@ This is the most accurate approach - requires AST to properly track closure vari
 from __future__ import annotations
 
 import ast
-import re
-from typing import Any
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
 from rules.react.ast_utils import (
     ReactASTAnalyzer,
     parse_react_file,
 )
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ExhaustiveDepsASTRule(Rule):

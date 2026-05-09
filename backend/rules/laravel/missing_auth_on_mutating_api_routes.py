@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MissingAuthOnMutatingApiRoutesRule(Rule):
@@ -172,7 +172,7 @@ class MissingAuthOnMutatingApiRoutesRule(Rule):
                     confidence=confidence,
                     related_methods=[f"{controller}@{action}"] if controller and action else [],
                     evidence_signals=evidence,
-                )
+                ),
             )
 
         return out

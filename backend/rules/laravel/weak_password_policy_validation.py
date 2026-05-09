@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class WeakPasswordPolicyValidationRule(Rule):
@@ -115,7 +115,7 @@ class WeakPasswordPolicyValidationRule(Rule):
             rules_low = rules_text.lower()
             context_window = self._context_window(text, match.start(), match.end())
             if not self._is_validation_context(context_window) and not self._is_likely_validation_rules_string(
-                rules_low, low_path
+                rules_low, low_path,
             ):
                 continue
             if self._is_non_validation_password_mapping(rules_low):
@@ -157,7 +157,7 @@ class WeakPasswordPolicyValidationRule(Rule):
                         f"password_confirmed={int(has_confirmed)}",
                         "strong_password_signal=false",
                     ],
-                )
+                ),
             )
             break
         return findings

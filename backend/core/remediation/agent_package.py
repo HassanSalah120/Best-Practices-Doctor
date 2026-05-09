@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 from typing import Any
 
 from .models import RemediationRun, RemediationTask
 from .storage import project_mirror_dir
-
 
 CONSTRAINTS = [
     "Do not change public API routes or response shapes",
@@ -63,7 +61,7 @@ def build_markdown(run: RemediationRun) -> str:
         [
             "",
             "## Tasks",
-        ]
+        ],
     )
     for idx, task in enumerate(_ordered_tasks(run.tasks), start=1):
         top = task.fix_rankings[0]
@@ -85,7 +83,7 @@ def build_markdown(run: RemediationRun) -> str:
                 task.findings[0].fix_suggestion if task.findings else "",
                 "",
                 "**Acceptance checks:**",
-            ]
+            ],
         )
         lines.extend(f"- [ ] {check}" for check in top.acceptance_checks)
         notes = [f.false_positive_notes for f in task.findings if f.false_positive_notes]
@@ -104,7 +102,7 @@ def build_json_payload(run: RemediationRun) -> dict[str, Any]:
         "run_id": run.run_id,
         "project_hash": run.project_hash,
         "source_scan_id": run.source_job_id,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "constraints": CONSTRAINTS,
         "operating_protocol": OPERATING_PROTOCOL,
         "tasks": [

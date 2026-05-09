@@ -6,12 +6,12 @@ Flags direct setState-like calls executed in render flow.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Category, Finding, FindingClassification, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 try:
     import tree_sitter_javascript as tsjs
@@ -149,9 +149,9 @@ class StateUpdateInRenderRule(Rule):
                             "callee": callee_name,
                             "component_function": self._function_name(component_fn, content_bytes),
                             "nested_function": False,
-                        }
+                        },
                     },
-                )
+                ),
             )
 
         return findings

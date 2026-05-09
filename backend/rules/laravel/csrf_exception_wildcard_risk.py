@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class CsrfExceptionWildcardRiskRule(Rule):
@@ -95,6 +95,6 @@ class CsrfExceptionWildcardRiskRule(Rule):
                 confidence=confidence,
                 tags=["laravel", "security", "csrf"],
                 evidence_signals=["csrf_except_wildcard=true"],
-            )
+            ),
         ]
 

@@ -11,12 +11,12 @@ with the same responsive scope. The first version is intentionally conservative:
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from collections.abc import Iterable
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 try:
     import tree_sitter_javascript as tsjs
@@ -137,7 +137,7 @@ class ReactParentChildSpacingOverlapRule(Rule):
         max_findings_per_file = max(1, int(self.get_threshold("max_findings_per_file", 2)))
         require_same_value = bool(self.get_threshold("require_same_value", True))
         allowed_scopes = self._normalized_allowed_scopes(
-            self.get_threshold("allowed_responsive_scopes", ["base", "sm", "md", "lg", "xl", "2xl"])
+            self.get_threshold("allowed_responsive_scopes", ["base", "sm", "md", "lg", "xl", "2xl"]),
         )
         if not allowed_scopes:
             allowed_scopes = {"base"}
@@ -215,9 +215,9 @@ class ReactParentChildSpacingOverlapRule(Rule):
                                     "child_value": child_value,
                                     "require_same_value": require_same_value,
                                     "parser": "tree-sitter",
-                                }
+                                },
                             },
-                        )
+                        ),
                     )
                     if len(findings) >= max_findings_per_file:
                         break

@@ -3,24 +3,22 @@ Best Practices Doctor - FastAPI Application
 Main entry point with ephemeral port and lifecycle management.
 """
 import asyncio
-import secrets
-import time
-import uuid
-import sys
-import os
-import socket
 import logging
+import os
+import secrets
+import socket
+import sys
+import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse, ORJSONResponse
-from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, ORJSONResponse
 
-from config import settings, write_discovery_file, cleanup_port_file
 from api.routes import router
+from config import cleanup_port_file, settings, write_discovery_file
 from core.logging_setup import configure_logging
-
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -38,7 +36,7 @@ def get_ephemeral_port() -> int:
     """Get an available ephemeral port."""
     if settings.port != 0:
         return settings.port
-    
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((settings.host, 0))
         s.listen(1)
@@ -64,9 +62,9 @@ async def lifespan(app: FastAPI):
         logger.info("Backend started", extra={"host": settings.host, "port": port, "discovery": str(discovery_path)})
     else:
         logger.info("Backend started (standalone mode)")
-    
+
     yield
-    
+
     # Shutdown
     if discovery_path is not None and discovery_path.exists():
         # Windows can temporarily lock files (e.g., AV/indexer). Be resilient.
@@ -140,6 +138,7 @@ def handle_signal(signum, frame):
 
 import argparse
 
+
 def main() -> None:
     """Run the backend with an ephemeral port and discovery file."""
     # Parse CLI arguments
@@ -151,16 +150,16 @@ def main() -> None:
     # Use provided run_id (from Tauri) or fallback to random (dev mode)
     run_id = args.run_id if args.run_id else secrets.token_hex(8)
     token = secrets.token_urlsafe(32)
-    
+
     app.state.run_id = run_id
     app.state.token = token
     os.environ["APP_AUTH_TOKEN"] = token
     os.environ["BPD_STARTED_AT"] = str(int(time.time()))
-    
+
     # Get ephemeral port
     port = get_ephemeral_port()
     app.state.port = port
-    
+
     # Run server
     uvicorn.run(
         app,

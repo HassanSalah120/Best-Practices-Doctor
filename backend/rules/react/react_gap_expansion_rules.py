@@ -8,15 +8,14 @@ strong-signal detection and low-noise defaults.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Category, Finding, Severity, FindingClassification
 from rules.base import Rule
 from rules.react.jsx_tree_sitter import JsxAttributeInfo, JsxTreeSitterHelper
-
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 _TEST_PATH_MARKERS = ("tests", "test", "__tests__", "stories", "storybook", "fixtures")
 _PAGE_PATH_MARKERS = ("pages", "screens", "views")
@@ -178,7 +177,7 @@ class _ReactGapAstRuleBase(Rule):
         project_type = str(
             getattr(ctx, "project_type", "")
             or getattr(ctx, "project_business_context", "")
-            or ""
+            or "",
         ).strip().lower()
         if project_type in {"public_website_with_dashboard", "portal_based_business_app", "saas_platform"}:
             return True
@@ -276,7 +275,7 @@ class AvoidPropsToStateCopyRule(_ReactGapAstRuleBase):
                             "controlled_uncontrolled_flip_signal": False,
                         },
                     },
-                )
+                ),
             )
             if len(findings) >= max_findings:
                 return findings
@@ -324,7 +323,7 @@ class AvoidPropsToStateCopyRule(_ReactGapAstRuleBase):
                         "overlap_rank": 90,
                         "overlap_scope": f"{file_path}:{match.group('state')}",
                     },
-                )
+                ),
             )
             if len(findings) >= max_findings:
                 break
@@ -432,7 +431,7 @@ class PropsStateSyncEffectSmellRule(_ReactGapAstRuleBase):
                         "overlap_rank": 80,
                         "overlap_scope": f"{file_path}:{setter}",
                     },
-                )
+                ),
             )
             if len(findings) >= max_findings:
                 break
@@ -528,9 +527,9 @@ class ControlledUncontrolledInputMismatchRule(_ReactGapAstRuleBase):
                     metadata={
                         "decision_profile": {
                             "controlled_uncontrolled_flip_signal": mismatch,
-                        }
+                        },
                     },
-                )
+                ),
             )
             if len(findings) >= max_findings:
                 break
@@ -618,9 +617,9 @@ class UseMemoOveruseRule(_ReactGapAstRuleBase):
                     metadata={
                         "decision_profile": {
                             "memoization_benefit_missing": True,
-                        }
+                        },
                     },
-                )
+                ),
             )
             if len(findings) >= max_findings:
                 break
@@ -704,9 +703,9 @@ class UseCallbackOveruseRule(_ReactGapAstRuleBase):
                     metadata={
                         "decision_profile": {
                             "memoization_benefit_missing": True,
-                        }
+                        },
                     },
-                )
+                ),
             )
             if len(findings) >= max_findings:
                 break
@@ -773,7 +772,7 @@ class ContextOversizedProviderRule(_ReactGapAstRuleBase):
                     evidence_signals=[
                         f"provider_key_count={len(keys)}",
                     ],
-                )
+                ),
             )
         return findings[: max(1, int(self.get_threshold("max_findings_per_file", 2)))]
 
@@ -835,9 +834,9 @@ class LazyWithoutSuspenseRule(_ReactGapAstRuleBase):
                         metadata={
                             "decision_profile": {
                                 "suspense_boundary_missing": True,
-                            }
+                            },
                         },
-                    )
+                    ),
                 ]
         return []
 
@@ -885,7 +884,7 @@ class SuspenseFallbackMissingRule(_ReactGapAstRuleBase):
                     tags=["react", "suspense", "ux"],
                     evidence_signals=["suspense_boundary_missing=true"],
                     metadata={"decision_profile": {"suspense_boundary_missing": True}},
-                )
+                ),
             )
         return findings[: max(1, int(self.get_threshold("max_findings_per_file", 2)))]
 
@@ -957,7 +956,7 @@ class StaleClosureInTimerRule(_ReactGapAstRuleBase):
                             f"state_refs={','.join(stale_refs[:3])}",
                         ],
                         metadata={"decision_profile": {"stale_closure_signal": "timer"}},
-                    )
+                    ),
                 )
                 if len(findings) >= max(1, int(self.get_threshold("max_findings_per_file", 2))):
                     return findings
@@ -1026,7 +1025,7 @@ class StaleClosureInListenerRule(_ReactGapAstRuleBase):
                             f"state_refs={','.join(stale_refs[:3])}",
                         ],
                         metadata={"decision_profile": {"stale_closure_signal": "listener"}},
-                    )
+                    ),
                 )
                 if len(findings) >= max(1, int(self.get_threshold("max_findings_per_file", 2))):
                     return findings
@@ -1144,7 +1143,7 @@ class DuplicateKeySourceRule(_ReactGapAstRuleBase):
                         "overlap_rank": 70,
                         "overlap_scope": f"{file_path}:{line}",
                     },
-                )
+                ),
             )
         return findings[: max(1, int(self.get_threshold("max_findings_per_file", 2)))]
 
@@ -1262,7 +1261,7 @@ class MissingLoadingStateRule(_ReactGapAstRuleBase):
                 confidence=0.72,
                 tags=["react", "ux", "async"],
                 evidence_signals=["async_surface=true", "loading_branch_missing=true"],
-            )
+            ),
         ]
 
 
@@ -1344,7 +1343,7 @@ class MissingEmptyStateRule(_ReactGapAstRuleBase):
                 confidence=0.74,
                 tags=["react", "ux", "lists"],
                 evidence_signals=["empty_state_missing=true"],
-            )
+            ),
         ]
 
 
@@ -1417,7 +1416,7 @@ class RefAccessDuringRenderRule(_ReactGapAstRuleBase):
                     confidence=0.88,
                     tags=["react", "refs", "render"],
                     evidence_signals=["ref_render_access=true"],
-                )
+                ),
             )
         return findings[: max(1, int(self.get_threshold("max_findings_per_file", 2)))]
 
@@ -1491,5 +1490,5 @@ class RefUsedAsReactiveStateRule(_ReactGapAstRuleBase):
                 confidence=0.8,
                 tags=["react", "refs", "state"],
                 evidence_signals=[f"reactive_ref_candidates={','.join(shared[:3])}"],
-            )
+            ),
         ]

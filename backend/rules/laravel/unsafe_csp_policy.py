@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class UnsafeCspPolicyRule(Rule):
@@ -94,5 +94,5 @@ class UnsafeCspPolicyRule(Rule):
                 tags=["laravel", "security", "csp", "xss"],
                 confidence=0.9,
                 evidence_signals=[f"unsafe_token={token}", "csp_policy_weak=true"],
-            )
+            ),
         ]

@@ -9,10 +9,10 @@ from __future__ import annotations
 import os
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class AnonymousDefaultExportComponentRule(Rule):
@@ -95,5 +95,5 @@ class AnonymousDefaultExportComponentRule(Rule):
                 tags=["react", "structure", "exports", "debuggability"],
                 confidence=0.92,
                 evidence_signals=["anonymous_default_export=true", f"file={file_path}"],
-            )
+            ),
         ]

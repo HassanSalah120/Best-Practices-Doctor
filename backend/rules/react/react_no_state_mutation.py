@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class ReactNoStateMutationRule(Rule):
@@ -101,7 +101,7 @@ class ReactNoStateMutationRule(Rule):
                             tags=["react", "state", "immutability", "correctness"],
                             evidence_signals=[f"state_var={state_var}", f"pattern={pattern_name}"],
                             metadata={"decision_profile": {"state_var": state_var, "pattern": pattern_name}},
-                        )
+                        ),
                     )
                     if len(findings) >= max_findings_per_file:
                         return findings

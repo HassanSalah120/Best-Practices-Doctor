@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class LinkTextVagueRule(Rule):
@@ -37,16 +37,16 @@ class LinkTextVagueRule(Rule):
         re.compile(r"this\s*(?:page|link|article|post)", re.IGNORECASE),
         re.compile(r"^(?:here|more|link)$", re.IGNORECASE),
     ]
-    
+
     # Link patterns
     _LINK_PATTERN = re.compile(
         r"<a\b(?P<attrs>[^>]*)>(?P<text>[^<]*)</a>",
         re.IGNORECASE | re.DOTALL,
     )
-    
+
     # Check for aria-label that provides context
     _ARIA_LABEL = re.compile(r"aria-label=[\"'](?P<label>[^\"']+)[\"']", re.IGNORECASE)
-    
+
     _ALLOWLIST_PATHS = (
         "/tests/",
         "/test/",
@@ -91,10 +91,10 @@ class LinkTextVagueRule(Rule):
         for m in self._LINK_PATTERN.finditer(content):
             attrs = m.group("attrs") or ""
             text = m.group("text") or ""
-            
+
             # Strip JSX expressions and get plain text
             plain_text = re.sub(r"\{[^}]*\}", "", text).strip()
-            
+
             if not plain_text:
                 # Link might have icon or nested elements - check aria-label
                 aria_match = self._ARIA_LABEL.search(attrs)
@@ -102,7 +102,7 @@ class LinkTextVagueRule(Rule):
                     plain_text = aria_match.group("label")
                 else:
                     continue  # Icon link without aria-label - different issue
-            
+
             # Check if text matches vague patterns
             is_vague = False
             matched_pattern = None
@@ -111,10 +111,10 @@ class LinkTextVagueRule(Rule):
                     is_vague = True
                     matched_pattern = pattern.pattern
                     break
-            
+
             if not is_vague:
                 continue
-            
+
             # Check for aria-label that provides better context
             aria_match = self._ARIA_LABEL.search(attrs)
             if aria_match:
@@ -124,7 +124,7 @@ class LinkTextVagueRule(Rule):
                     continue
 
             line = content.count("\n", 0, m.start()) + 1
-            
+
             findings.append(
                 self.create_finding(
                     title="Link text is vague or lacks context",
@@ -153,7 +153,7 @@ class LinkTextVagueRule(Rule):
                         f"link_text={plain_text}",
                         f"matched_pattern={matched_pattern}",
                     ],
-                )
+                ),
             )
 
         return findings

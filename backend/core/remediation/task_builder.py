@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +23,6 @@ from .models import (
     RemediationTask,
     TaskState,
 )
-
 
 CONFIDENCE_SCORE = {"high": 1.0, "medium": 0.6, "low": 0.3}
 SAFETY_SCORE = {
@@ -69,7 +68,7 @@ def build_tasks(
     enriched = _enrich_findings(report, selected, feedback_by_key)
     groups = _group_findings(enriched)
     commands = infer_verification_commands(Path(report.project_path))
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     tasks: list[RemediationTask] = []
     for group_key, group_strategy, items in groups:
         for idx, chunk in enumerate(_chunks(items, 10), start=1):

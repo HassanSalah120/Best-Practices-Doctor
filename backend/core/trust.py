@@ -10,7 +10,7 @@ This layer runs centrally after rule execution.
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from schemas.finding import Finding, FindingClassification
 
@@ -58,7 +58,7 @@ def enrich_findings_with_trust(
             decision_profile.get("decision_summary")
             or decision_profile.get("decision")
             or finding.description
-            or ""
+            or "",
         ).strip()
         if len(trigger_summary) > 220:
             trigger_summary = trigger_summary[:217].rstrip() + "..."

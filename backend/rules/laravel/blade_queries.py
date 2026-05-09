@@ -2,10 +2,10 @@
 Blade Queries Rule
 Detects Eloquent queries in Blade templates (performance anti-pattern).
 """
-from schemas.facts import Facts, BladeQuery
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import BladeQuery, Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class BladeQueriesRule(Rule):
@@ -32,7 +32,7 @@ class BladeQueriesRule(Rule):
     - Cannot use eager loading properly
     - Views should only display data, not fetch it
     """
-    
+
     id = "blade-queries"
     name = "Blade Queries Detection"
     description = "Detects database queries in Blade templates"
@@ -42,20 +42,20 @@ class BladeQueriesRule(Rule):
         "laravel_blade",
         "laravel_livewire",
     ]
-    
+
     def analyze(
         self,
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings = []
-        
+
         # Check detected blade queries
         for blade_query in facts.blade_queries:
             findings.append(self._create_finding(blade_query))
-        
+
         return findings
-    
+
     def _create_finding(self, blade_query: BladeQuery) -> Finding:
         """Create finding for Blade query."""
         return self.create_finding(
@@ -83,7 +83,7 @@ class BladeQueriesRule(Rule):
             code_example=self._generate_example(blade_query),
             tags=["performance", "n+1", "blade", "architecture"],
         )
-    
+
     def _generate_example(self, blade_query: BladeQuery) -> str:
         """Generate before/after example."""
         return """// BEFORE (query in Blade) (avoid)

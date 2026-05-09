@@ -3,10 +3,10 @@ Custom Exception Suggestion Rule
 
 Suggests creating domain-specific exceptions instead of generic Exceptions.
 """
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class CustomExceptionSuggestionRule(Rule):
@@ -32,7 +32,7 @@ class CustomExceptionSuggestionRule(Rule):
     - Code catches generic `\\Exception` or `Exception` (maybe separately)
     - Exception message is hardcoded string
     """
-    
+
     id = "custom-exception-suggestion"
     name = "Custom Exception Usage"
     description = "Suggests using specific exceptions instead of generic ones"
@@ -57,7 +57,7 @@ class CustomExceptionSuggestionRule(Rule):
         "/repositories/",
         "/http/controllers/",
     )
-    
+
     def analyze(
         self,
         facts: Facts,
@@ -69,7 +69,7 @@ class CustomExceptionSuggestionRule(Rule):
             str(root or "").lower().replace("\\", "/")
             for root in (getattr(getattr(facts, "project_context", None), "shared_infra_roots", []) or [])
         )
-        
+
         for method in facts.methods:
             if self._is_allowlisted_method(method, shared_infra_roots):
                 continue
@@ -133,13 +133,13 @@ class CustomExceptionSuggestionRule(Rule):
         if len(getattr(method, "call_sites", []) or []) >= 2:
             confidence += 0.05
         return min(0.92, confidence)
-    
+
     def _generate_throw_example(self, method_name: str) -> str:
-        return f"""// Before: Generic Exception
+        return """// Before: Generic Exception
 throw new Exception("User not found");
 
 // After: Domain Exception
 throw new UserNotFoundException("User not found");
 
 // app/Exceptions/UserNotFoundException.php
-class UserNotFoundException extends Exception {{}}"""
+class UserNotFoundException extends Exception {}"""

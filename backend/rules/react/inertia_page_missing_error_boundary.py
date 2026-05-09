@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class InertiaPageMissingErrorBoundaryRule(Rule):
@@ -62,14 +62,14 @@ class InertiaPageMissingErrorBoundaryRule(Rule):
                 confidence=0.72,
                 tags=["react", "inertia", "stability"],
                 evidence_signals=["inertia_import=true", "error_boundary=false", "page_data_signal=true"],
-            )
+            ),
         ]
 
     def _has_page_data_signal(self, content: str) -> bool:
         return bool(
             re.search(r"\busePage\s*\(|\buseForm\s*\(", content)
             or re.search(r"function\s+[A-Z][A-Za-z0-9_]*\s*\(\s*\{", content)
-            or re.search(r"const\s+[A-Z][A-Za-z0-9_]*\s*=\s*\(\s*\{", content)
+            or re.search(r"const\s+[A-Z][A-Za-z0-9_]*\s*=\s*\(\s*\{", content),
         )
 
     def _first_signal_line(self, content: str) -> int:

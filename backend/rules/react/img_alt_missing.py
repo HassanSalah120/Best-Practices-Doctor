@@ -6,10 +6,12 @@ Detects <img> tags without alt attribute or with empty alt attribute.
 from __future__ import annotations
 
 import re
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
+
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
+
 
 class ImageAltMissingRule(Rule):
     id = "img-alt-missing"
@@ -58,18 +60,18 @@ class ImageAltMissingRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings = []
-        
+
         for start, end, attrs in self._iter_img_tags(content):
-            
+
             # Check for alt attribute
             # We want to catch:
             # 1. Missing alt
             # 2. empty alt="" (unless role="presentation" or aria-hidden="true" is present)
-            
+
             has_alt = bool(self._ALT_ATTR.search(attrs))
             is_decorative = bool(self._DECORATIVE.search(attrs))
             has_empty_alt = bool(self._EMPTY_ALT.search(attrs))
-            
+
             if (not has_alt or has_empty_alt) and not is_decorative:
                 line = content.count("\n", 0, start) + 1
                 missing_text = "without an `alt` attribute" if not has_alt else "with an empty `alt` attribute"
@@ -87,7 +89,7 @@ class ImageAltMissingRule(Rule):
                         suggested_fix='Add `alt="Description of image"` or `alt=""` with `role="presentation"` if decorative.',
                         tags=["react", "a11y", "accessibility", "images"],
                         confidence=0.9,
-                    )
+                    ),
                 )
 
         return findings

@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class SsrfRiskHttpClientRule(Rule):
@@ -119,9 +119,9 @@ class SsrfRiskHttpClientRule(Rule):
                                 "decision": "emit",
                                 "decision_summary": "request-derived URL used directly in outbound HTTP client call.",
                                 "require_external_integrations_capability": require_external_integrations,
-                            }
+                            },
                         },
-                    )
+                    ),
                 )
             return findings
 
@@ -169,9 +169,9 @@ class SsrfRiskHttpClientRule(Rule):
                             "decision_summary": "request-derived URL variable reaches outbound HTTP client call.",
                             "url_var": var_name,
                             "require_external_integrations_capability": require_external_integrations,
-                        }
+                        },
                     },
-                )
+                ),
             )
             if findings:
                 break

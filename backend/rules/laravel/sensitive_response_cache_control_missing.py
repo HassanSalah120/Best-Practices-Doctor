@@ -6,10 +6,10 @@ Detects sensitive authenticated routes without explicit no-store style cache con
 
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts, MethodInfo, RouteInfo
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class SensitiveResponseCacheControlMissingRule(Rule):
@@ -85,7 +85,7 @@ class SensitiveResponseCacheControlMissingRule(Rule):
                     confidence=confidence,
                     tags=["laravel", "security", "cache-control", "privacy"],
                     evidence_signals=["sensitive_route=true", "cache_control_header_missing=true"],
-                )
+                ),
             )
         return findings
 

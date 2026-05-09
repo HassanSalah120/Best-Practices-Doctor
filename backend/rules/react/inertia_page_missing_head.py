@@ -6,15 +6,13 @@ Detects Inertia React page components that do not render a `Head` element.
 
 from __future__ import annotations
 
-import os
 import re
 from pathlib import Path
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
-
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 PAGE_EXPORT_RE = re.compile(
     r"\bexport\s+default\b|\bexport\s+function\s+[A-Z]\w*\b|\bexport\s+const\s+[A-Z]\w*\b",
@@ -197,7 +195,7 @@ class InertiaPageMissingHeadRule(Rule):
                 tags=["react", "inertia", "head", "seo"],
                 confidence=0.84,
                 evidence_signals=[f"file={file_path}", "head_component_missing=true"],
-            )
+            ),
         ]
 
     def _is_likely_page_partial(self, file_path: str, facts: Facts) -> bool:

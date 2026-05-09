@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts, RouteInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ControllerReturningViewInApiRule(Rule):
@@ -176,7 +176,7 @@ class ControllerReturningViewInApiRule(Rule):
                     ),
                     confidence=0.75,
                     tags=["architecture", "api", "rest", "laravel"],
-                )
+                ),
             )
 
         return findings

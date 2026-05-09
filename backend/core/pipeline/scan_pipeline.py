@@ -5,13 +5,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 from schemas.report import ScanReport
 
-from .stage_cache import StageCacheManager
 from .errors import ReportingError, ScanError
 from .models import ScanPipelineContext, ScanPipelineRequest, ScanPipelineState
+from .stage_cache import StageCacheManager
 from .stages import (
     BuildFactsStage,
     ContractChecksStage,

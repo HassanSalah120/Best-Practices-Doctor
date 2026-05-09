@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class LanguageAttributeMissingRule(Rule):
@@ -29,26 +29,26 @@ class LanguageAttributeMissingRule(Rule):
         r"<html[^>]*\blang=[\"'](?P<lang>[^\"']+)[\"'][^>]*>",
         re.IGNORECASE | re.DOTALL,
     )
-    
+
     # HTML without lang
     _HTML_NO_LANG_PATTERN = re.compile(
         r"<html(?![^>]*\blang=)[^>]*>",
         re.IGNORECASE,
     )
-    
+
     # Document.documentElement.lang or setAttribute('lang')
     _JS_LANG_PATTERN = re.compile(
         r"document\.documentElement\.lang\s*=|"
         r"setAttribute\s*\(\s*[\"']lang[\"']",
         re.IGNORECASE,
     )
-    
+
     # Next.js _document or layout with lang
     _NEXT_LANG_PATTERN = re.compile(
         r"<html[^>]*lang=\{[^}]+\}",
         re.IGNORECASE,
     )
-    
+
     # Patterns that should NEVER be flagged (non-page/non-layout files)
     _NON_HTML_FILES = [
         re.compile(r"\.types\.tsx?$", re.IGNORECASE),  # Type definition files
@@ -75,7 +75,7 @@ class LanguageAttributeMissingRule(Rule):
         re.compile(r"/screens/", re.IGNORECASE),  # Screen components use layouts
         re.compile(r"/views/", re.IGNORECASE),  # View components use layouts
     ]
-    
+
     # Only these files should be checked for lang attribute
     _HTML_ROOT_FILES = [
         re.compile(r"/layouts?/", re.IGNORECASE),  # Layout files define <html>
@@ -144,12 +144,12 @@ class LanguageAttributeMissingRule(Rule):
         has_html = "<html" in content.lower()
         if not has_html:
             return findings
-        
+
         # Check for lang attribute
         has_lang = bool(self._HTML_LANG_PATTERN.search(content))
         has_js_lang = bool(self._JS_LANG_PATTERN.search(content))
         has_next_lang = bool(self._NEXT_LANG_PATTERN.search(content))
-        
+
         if has_lang or has_js_lang or has_next_lang:
             # Check if lang value is valid (not empty)
             lang_match = self._HTML_LANG_PATTERN.search(content)
@@ -183,10 +183,10 @@ class LanguageAttributeMissingRule(Rule):
                         tags=["ux", "a11y", "language", "accessibility", "wcag"],
                         confidence=0.90,
                         evidence_signals=[f"lang_value={lang}"],
-                    )
+                    ),
                 )
             return findings
-        
+
         # No lang attribute found
         html_match = self._HTML_NO_LANG_PATTERN.search(content)
         if html_match:
@@ -216,7 +216,7 @@ class LanguageAttributeMissingRule(Rule):
                     tags=["ux", "a11y", "language", "accessibility", "wcag"],
                     confidence=0.95,
                     evidence_signals=["lang_missing=true"],
-                )
+                ),
             )
 
         return findings

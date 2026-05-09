@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MissingKeyOnListRenderRule(Rule):
@@ -62,7 +62,7 @@ class MissingKeyOnListRenderRule(Rule):
             idx = m.start()
             # Look for common JSX return patterns in a small window after .map(
             window = content[idx : idx + 150]
-            
+
             # Pattern: => <Tag or return <Tag
             # This is more precise than just looking for "<" anywhere.
             jsx_return_pattern = re.search(r"(=>\s*<|return\s+<)", window)
@@ -84,7 +84,7 @@ class MissingKeyOnListRenderRule(Rule):
                 continue
 
             line = content.count("\n", 0, idx) + 1
-            
+
             findings.append(
                 self.create_finding(
                     title="List render root element is missing `key` prop",
@@ -108,8 +108,8 @@ class MissingKeyOnListRenderRule(Rule):
                         f"file={file_path}",
                         f"line={line}",
                         f"jsx_tag={tag}",
-                    ]
-                )
+                    ],
+                ),
             )
 
         # Deduplicate: Only one "missing key" finding per unique Tag type per file.

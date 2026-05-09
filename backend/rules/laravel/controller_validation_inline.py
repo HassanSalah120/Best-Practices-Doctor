@@ -3,16 +3,16 @@ Controller Inline Validation Rule
 
 Flags inline validation inside controllers as a violation (suggest FormRequest).
 """
-from schemas.facts import Facts, ValidationUsage
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, FindingClassification, Category, Severity
-from rules.base import Rule
 from core.project_recommendations import (
     enabled_capabilities,
     enabled_team_standards,
     project_aware_guidance,
     recommendation_context_tags,
 )
+from rules.base import Rule
+from schemas.facts import Facts, ValidationUsage
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ControllerInlineValidationRule(Rule):
@@ -180,7 +180,7 @@ class ControllerInlineValidationRule(Rule):
                         "overlap_rank": 130,
                         "overlap_role": "child",
                     },
-                )
+                ),
             )
 
         return findings

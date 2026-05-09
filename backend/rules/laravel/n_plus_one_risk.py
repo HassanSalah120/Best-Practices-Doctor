@@ -9,10 +9,10 @@ from AST nodes (foreach + collection ->each/map callbacks). This rule only reads
 import re
 from collections import defaultdict
 
-from schemas.facts import Facts, RelationAccess, QueryUsage
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts, QueryUsage, RelationAccess
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class NPlusOneRiskRule(Rule):
@@ -282,7 +282,7 @@ class NPlusOneRiskRule(Rule):
         min_confidence = float(self.get_threshold("min_confidence", 0.55))
         require_model_match = bool(self.get_threshold("require_model_match", False))
         require_local_or_strong = bool(
-            self.get_threshold("require_local_query_context_or_strong_relation_signal", False)
+            self.get_threshold("require_local_query_context_or_strong_relation_signal", False),
         )
         require_select_query_context = bool(self.get_threshold("require_select_query_context", False))
         min_evidence_signals = int(self.get_threshold("min_evidence_signals", 1) or 1)
@@ -471,7 +471,7 @@ class NPlusOneRiskRule(Rule):
                     confidence=confidence,
                     tags=["performance", "n+1", "eloquent", "eager-loading"],
                     evidence_signals=evidence,
-                )
+                ),
             )
 
         return findings

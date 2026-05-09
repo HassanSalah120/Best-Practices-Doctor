@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class ApiEndpointMissingIdempotencyKeyRule(Rule):
@@ -89,7 +89,7 @@ class ApiEndpointMissingIdempotencyKeyRule(Rule):
                     confidence=0.86,
                     tags=["laravel", "api", "idempotency", "distributed-systems"],
                     evidence_signals=["mutating_endpoint=true", "durable_write=true", "idempotency_guard_missing=true"],
-                )
+                ),
             )
         return findings
 

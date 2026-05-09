@@ -9,10 +9,10 @@ from __future__ import annotations
 import os
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Category, Finding, FindingClassification, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 class LargeCustomHookRule(Rule):
@@ -83,7 +83,7 @@ class LargeCustomHookRule(Rule):
         has_hook_name = bool(
             self._FUNCTION_DECL.search(content or "")
             or self._FUNCTION_ARROW.search(content or "")
-            or os.path.basename(normalized_path).startswith("use")
+            or os.path.basename(normalized_path).startswith("use"),
         )
         if not has_hook_name:
             return []
@@ -132,7 +132,7 @@ class LargeCustomHookRule(Rule):
                     "min_overflow_lines": min_overflow,
                     "logic_signals": logic_signals,
                     "min_logic_signals": min_logic_signals,
-                }
+                },
             },
         )
         return [finding]

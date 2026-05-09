@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class ModelHiddenSensitiveAttributesMissingRule(Rule):
@@ -133,7 +133,7 @@ class ModelHiddenSensitiveAttributesMissingRule(Rule):
                         "hidden_sensitive_attribute_missing=true",
                         f"missing_count={len(missing)}",
                     ],
-                )
+                ),
             )
 
         return findings

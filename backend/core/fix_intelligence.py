@@ -62,14 +62,14 @@ def _infer_project_fit(
     framework = str(
         profile.get("backend_framework")
         or ctx.get("backend_framework")
-        or "unknown"
+        or "unknown",
     ).strip().lower()
     project_type = str(
         profile.get("project_type")
         or profile.get("project_business_context")
         or ctx.get("project_type")
         or ctx.get("project_business_context")
-        or "unknown"
+        or "unknown",
     ).strip().lower()
 
     rid = str(finding.rule_id or "").strip().lower()

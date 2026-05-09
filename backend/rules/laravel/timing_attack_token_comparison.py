@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class TimingAttackTokenComparisonRule(Rule):
@@ -81,6 +81,6 @@ class TimingAttackTokenComparisonRule(Rule):
                         confidence=0.9,
                         tags=["laravel", "security", "timing-attack", "hash_equals"],
                         evidence_signals=["sensitive_equality_operator=true"],
-                    )
+                    ),
                 )
         return findings

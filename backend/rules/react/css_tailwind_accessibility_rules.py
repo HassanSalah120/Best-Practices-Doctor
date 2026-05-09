@@ -5,13 +5,12 @@ Accessibility-focused CSS/Tailwind rules.
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from collections.abc import Iterable
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Category, Finding, Severity
 from rules.base import Rule
-
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 _CLASS_QUOTED_RE = re.compile(r"class(?:Name)?\s*=\s*(['\"])(.*?)\1", re.IGNORECASE | re.DOTALL)
 _CLASS_TEMPLATE_RE = re.compile(r"class(?:Name)?\s*=\s*`([^`]*)`", re.IGNORECASE | re.DOTALL)
@@ -75,7 +74,7 @@ class TailwindMotionReduceMissingRule(Rule):
             # We flag 'animate-' explicitly, and only 'transition' if it's likely a layout-shifter.
             animation_tokens = [t for t in tokens if t.startswith("animate-")]
             transition_tokens = [t for t in tokens if t.startswith("transition-") or t == "transition"]
-            
+
             # If it's ONLY a simple transition (no explicit transform/all/layout), we skip to avoid noise.
             # Most devs use simple 'transition' for hover fades, which don't cause vestibular issues.
             if not animation_tokens:
@@ -103,7 +102,7 @@ class TailwindMotionReduceMissingRule(Rule):
                     tags=["tailwind", "a11y", "motion", "wcag"],
                     confidence=0.9,
                     evidence_signals=["animation_tokens_present=true", "motion_reduce_variant_missing=true"],
-                )
+                ),
             )
         return findings
 
@@ -166,7 +165,7 @@ class TailwindAppearanceNoneRiskRule(Rule):
                     tags=["tailwind", "a11y", "forms", "wcag"],
                     confidence=0.88,
                     evidence_signals=[f"focus_affordance_present={int(has_focus)}", f"visual_affordance_present={int(has_visual)}"],
-                )
+                ),
             )
         return findings
 
@@ -227,7 +226,7 @@ class CssFocusOutlineWithoutReplacementRule(Rule):
                     tags=["css", "a11y", "focus", "wcag"],
                     confidence=0.95,
                     evidence_signals=["focus_outline_removed=true", "focus_replacement_missing=true"],
-                )
+                ),
             )
         return findings
 
@@ -288,7 +287,7 @@ class CssHoverOnlyInteractionRule(Rule):
                 tags=["css", "a11y", "keyboard", "wcag"],
                 confidence=0.88,
                 evidence_signals=["hover_styles_present=true", "focus_equivalent_missing=true"],
-            )
+            ),
         ]
 
 
@@ -362,6 +361,6 @@ class CssColorOnlyStateIndicatorRule(Rule):
                     tags=["css", "a11y", "wcag", "contrast"],
                     confidence=0.84,
                     evidence_signals=["state_selector_detected=true", "color_only_signal=true"],
-                )
+                ),
             )
         return findings

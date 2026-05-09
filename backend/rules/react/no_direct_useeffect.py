@@ -8,13 +8,13 @@ resolved from real JS/TS structure rather than text heuristics.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 try:
     import tree_sitter_javascript as tsjs
@@ -152,9 +152,9 @@ class NoDirectUseEffectRule(Rule):
                             "allow_mount_only_without_wrapper": allow_mount_only_without_wrapper,
                             "replacement_reason": reason,
                             "parser": "tree-sitter",
-                        }
+                        },
                     },
-                )
+                ),
             )
 
         return findings
@@ -217,7 +217,7 @@ class NoDirectUseEffectRule(Rule):
                     callee=callee,
                     callback_text=callback_text,
                     dep_arg_text=dep_arg_text,
-                )
+                ),
             )
         return out
 

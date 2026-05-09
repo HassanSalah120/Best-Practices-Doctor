@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class AuthorizationBypassRiskRule(Rule):
@@ -150,7 +150,7 @@ class AuthorizationBypassRiskRule(Rule):
                     tags=["laravel", "security", "authorization", "idor"],
                     confidence=confidence if has_write else max(0.7, confidence - 0.08),
                     evidence_signals=evidence,
-                )
+                ),
             )
 
         return findings
@@ -191,7 +191,7 @@ class AuthorizationBypassRiskRule(Rule):
                 continue
             if m.name != "__construct":
                 continue
-            lc_calls = " ".join((m.call_sites or [])).lower()
+            lc_calls = " ".join(m.call_sites or []).lower()
             if "authorizeresource(" in lc_calls:
                 out[m.class_name] = True
                 continue

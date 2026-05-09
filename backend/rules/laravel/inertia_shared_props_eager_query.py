@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class InertiaSharedPropsEagerQueryRule(Rule):
@@ -131,7 +131,7 @@ class InertiaSharedPropsEagerQueryRule(Rule):
                     "shared_props_eager_query=true",
                     f"query_token={query_token}",
                     f"line={line_no}",
-                ]
+                ],
             )
             if delegated_method:
                 evidence.append(f"delegated_method={delegated_method}")
@@ -157,7 +157,7 @@ class InertiaSharedPropsEagerQueryRule(Rule):
                     tags=["laravel", "inertia", "performance", "shared-props"],
                     confidence=confidence,
                     evidence_signals=evidence,
-                )
+                ),
             ]
         return []
 

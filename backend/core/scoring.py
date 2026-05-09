@@ -4,21 +4,21 @@ Scoring Engine
 Computes quality scores from findings and metrics.
 """
 import logging
-from dataclasses import dataclass, field
-from enum import Enum
+from dataclasses import dataclass
+from datetime import UTC
 
+from core.fix_intelligence import get_fix_strategy
+from core.project_memory import ProjectIntelligenceManager
+from core.ruleset import Ruleset
 from schemas.facts import Facts
 from schemas.finding import (
+    Category,
     Finding,
     FindingClassification,
-    Category,
     Severity,
     get_classification_weight,
 )
 from schemas.report import CategoryScore, QualityScores, ScanReport, ScanScore
-from core.ruleset import Ruleset
-from core.fix_intelligence import get_fix_strategy
-from core.project_memory import ProjectIntelligenceManager
 
 logger = logging.getLogger(__name__)
 
@@ -102,11 +102,11 @@ class ScoringEngine:
     3. Weight categories and aggregate
     4. Apply minimum score floor of 0
     """
-    
+
     def __init__(self, ruleset: Ruleset | None = None):
         self.ruleset = ruleset
         self._weights_explicit = False
-        
+
         # Load weights from ruleset or use defaults
         if ruleset and ruleset.scoring:
             self.category_weights, self._weights_explicit = self._normalize_category_weights(ruleset.scoring.weights)
@@ -162,7 +162,7 @@ class ScoringEngine:
             normalized = {k: v * 100.0 for k, v in normalized.items()}
 
         return (normalized, True)
-    
+
     def calculate(
         self,
         findings: list[Finding],
@@ -186,21 +186,21 @@ class ScoringEngine:
             if finding.category not in category_findings:
                 category_findings[finding.category] = []
             category_findings[finding.category].append(finding)
-        
+
         # Calculate per-category scores
         category_scores: dict[str, CategoryScore] = {}
         total_weighted_score = 0.0
         total_weight = 0.0
         total_improvement = 0.0
-        
+
         for category in Category:
             cat_findings = category_findings.get(category, [])
             raw_score = self._calculate_category_score(cat_findings, file_count)
-            
+
             # Get weight for this category
             weight = self._get_weight(category)
             has_weight = weight > 0
-            
+
             category_scores[category.value] = CategoryScore(
                 category=category.value,
                 score=raw_score if has_weight else None,
@@ -209,28 +209,28 @@ class ScoringEngine:
                 has_weight=has_weight,
                 finding_count=len(cat_findings),
             )
-            
+
             total_weighted_score += raw_score * weight
             total_weight += weight
-            
+
             # Calculate improvement potential
             improvement = (100 - raw_score) * (weight / 100)
             total_improvement += improvement
-        
+
         # Calculate overall score
         overall_score = total_weighted_score / total_weight if total_weight > 0 else 100.0
         overall_score = min(100, max(0, overall_score))
-        
+
         # Determine grade
         grade = self._calculate_grade(overall_score)
-        
+
         return ScoringResult(
             overall_score=round(overall_score, 1),
             category_scores=category_scores,
             grade=grade,
             improvement_potential=round(total_improvement, 1),
         )
-    
+
     def _calculate_category_score(
         self,
         findings: list[Finding],
@@ -239,7 +239,7 @@ class ScoringEngine:
         """Calculate score for a single category."""
         if not findings:
             return 100.0
-        
+
         # Calculate total penalty
         total_penalty = 0.0
         cap_low_info = bool(getattr(getattr(self.ruleset, "scoring", None), "cap_low_info_per_file_rule", True))
@@ -265,18 +265,18 @@ class ScoringEngine:
 
         if cap_low_info and low_info_caps:
             total_penalty += sum(low_info_caps.values())
-        
+
         # Normalize by file count if available
         if file_count > 0:
             # More lenient for larger codebases
             normalization_factor = min(1.0, 50 / file_count)
             total_penalty *= normalization_factor
-        
+
         # Cap penalty at 100
         score = max(0, 100 - total_penalty)
-        
+
         return round(score, 1)
-    
+
     def _get_weight(self, category: Category) -> float:
         """Get weight for a category."""
         if isinstance(self.category_weights, dict):
@@ -293,7 +293,7 @@ class ScoringEngine:
                 return 0.0
 
         return DEFAULT_CATEGORY_WEIGHTS.get(category, 10)
-    
+
     def _get_severity_penalty(self, severity: Severity) -> float:
         """Get penalty for a severity level."""
         if isinstance(self.severity_penalties, dict):
@@ -301,7 +301,7 @@ class ScoringEngine:
                 return self.severity_penalties[severity]
             if severity.value in self.severity_penalties:
                 return self.severity_penalties[severity.value]
-        
+
         return DEFAULT_SEVERITY_PENALTIES.get(severity, 2)
 
     def _get_classification_multiplier(self, classification: FindingClassification | str) -> float:
@@ -319,20 +319,19 @@ class ScoringEngine:
             return get_classification_weight(enum_value)
         except Exception:
             return 0.35
-    
+
     def _calculate_grade(self, score: float) -> str:
         """Calculate letter grade from score."""
         if score >= 90:
             return "A"
-        elif score >= 80:
+        if score >= 80:
             return "B"
-        elif score >= 70:
+        if score >= 70:
             return "C"
-        elif score >= 60:
+        if score >= 60:
             return "D"
-        else:
-            return "F"
-    
+        return "F"
+
     def create_quality_scores(self, result: ScoringResult) -> QualityScores:
         """Convert ScoringResult to QualityScores schema."""
         return QualityScores(
@@ -361,7 +360,7 @@ class ScoringEngine:
         if not enabled_rule_ids and self.ruleset is not None:
             enabled_rule_ids = [rule_id for rule_id in RUNTIME_RULES if self.ruleset.is_rule_enabled(rule_id)]
 
-        max_possible = {bucket: 0 for bucket in V2_SCORE_BUCKETS}
+        max_possible = dict.fromkeys(V2_SCORE_BUCKETS, 0)
         for rule_id in enabled_rule_ids:
             rule_class = RUNTIME_RULES.get(rule_id)
             if rule_class is None:
@@ -371,7 +370,7 @@ class ScoringEngine:
                 continue
             max_possible[bucket] += self._v2_rule_weight(rule_class)
 
-        actual_penalty = {bucket: 0 for bucket in V2_SCORE_BUCKETS}
+        actual_penalty = dict.fromkeys(V2_SCORE_BUCKETS, 0)
         # Count each stable finding once. The previous rule-level de-dupe treated
         # dozens of distinct high-severity findings as a single penalty, which
         # made the dashboard look healthy while the report was clearly not.
@@ -389,14 +388,14 @@ class ScoringEngine:
                     str(getattr(finding, "file", "") or ""),
                     str(getattr(finding, "context", "") or ""),
                     str(getattr(finding, "line_start", "") or ""),
-                ]
+                ],
             )
             key = (bucket, fingerprint or fallback_identity)
             if key in seen_fired:
                 continue
             seen_fired.add(key)
             classification_weight = self._get_classification_multiplier(
-                getattr(finding, "classification", FindingClassification.ADVISORY)
+                getattr(finding, "classification", FindingClassification.ADVISORY),
             )
             actual_penalty[bucket] += classification_weight * (
                 self._v2_rule_weight(rule_class)
@@ -479,20 +478,21 @@ class ScoringEngine:
         """
         Generate a full ScanReport from findings and facts.
         """
-        from datetime import datetime, timezone
         import hashlib
-        from schemas.report import ScanReport, FileSummary, ActionItem, TriageItem
+        from datetime import datetime
+
         from schemas.project_type import ProjectInfo
-        
+        from schemas.report import ActionItem, FileSummary, ScanReport, TriageItem
+
         # Calculate scores
         scoring_result = self.calculate(
             findings,
             # Use scanned file count for normalization. Classes/routes can be 0 for non-Laravel projects
             # or when structural extraction is partially disabled by ignore globs.
             file_count=len(getattr(facts, "files", []) or []),
-            method_count=len(facts.methods)
+            method_count=len(facts.methods),
         )
-        
+
         scores = self.create_quality_scores(scoring_result)
         v2_score = self.calculate_v2_score(findings, rules_executed=rules_executed)
 
@@ -501,11 +501,11 @@ class ScoringEngine:
         for finding in findings:
             if finding.file not in file_map:
                 file_map[finding.file] = FileSummary(path=finding.file)
-            
+
             summary = file_map[finding.file]
             summary.finding_count += 1
             summary.issue_count += 1
-            
+
             if finding.severity == Severity.CRITICAL:
                 summary.critical_count += 1
             elif finding.severity == Severity.HIGH:
@@ -514,7 +514,7 @@ class ScoringEngine:
                 summary.medium_count += 1
             elif finding.severity == Severity.LOW:
                 summary.low_count += 1
-        
+
         # Sort files by finding count (descending)
         file_summaries = sorted(file_map.values(), key=lambda x: x.finding_count, reverse=True)
 
@@ -599,7 +599,7 @@ class ScoringEngine:
                     classification=max_classification,
                     finding_fingerprints=fingerprints,
                     files=files,
-                )
+                ),
             )
 
             # Multi-factor triage scoring (additive; action_plan stays unchanged)
@@ -691,7 +691,7 @@ class ScoringEngine:
                     classification=max_classification,
                     finding_fingerprints=fingerprints,
                     files=files,
-                )
+                ),
             )
 
         action_plan.sort(
@@ -701,7 +701,7 @@ class ScoringEngine:
                 a.category,
                 a.rule_id,
                 a.id,
-            )
+            ),
         )
         triage_plan.sort(
             key=lambda t: (
@@ -710,16 +710,16 @@ class ScoringEngine:
                 t.category,
                 t.rule_id,
                 t.id,
-            )
+            ),
         )
         top_5_first = [item.id for item in triage_plan[:5]]
         safe_to_defer = [item.id for item in triage_plan if item.recommendation == "ignore_safely_candidate"]
-        
+
         report = ScanReport(
             id=job_id,
             project_path=project_path,
             project_info=project_info if project_info is not None else ProjectInfo(root_path=project_path),
-            scanned_at=datetime.now(timezone.utc),
+            scanned_at=datetime.now(UTC),
             duration_ms=0, # Filled by job manager usually
             files_scanned=len(facts.files) if getattr(facts, "files", None) else 0,
             classes_found=len(facts.classes),
@@ -743,8 +743,8 @@ class ScoringEngine:
                 },
             },
         )
-        
+
         # Populate other computed fields
         report.compute_groups()
-        
+
         return report

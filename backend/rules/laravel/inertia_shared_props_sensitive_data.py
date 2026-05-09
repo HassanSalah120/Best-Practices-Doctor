@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class InertiaSharedPropsSensitiveDataRule(Rule):
@@ -116,7 +116,7 @@ class InertiaSharedPropsSensitiveDataRule(Rule):
                 tags=["laravel", "inertia", "security", "shared-props"],
                 confidence=confidence,
                 evidence_signals=evidence,
-            )
+            ),
         ]
 
     def _detect_context(self, norm_path: str, content_lower: str) -> tuple[bool, bool, list[str]]:

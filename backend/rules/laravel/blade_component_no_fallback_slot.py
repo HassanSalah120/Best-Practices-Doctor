@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class BladeComponentNoFallbackSlotRule(Rule):
@@ -64,5 +64,5 @@ class BladeComponentNoFallbackSlotRule(Rule):
                 confidence=0.45,
                 tags=["laravel", "blade", "component"],
                 evidence_signals=["slot_rendered=true", "fallback_guard=false"],
-            )
+            ),
         ]

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 import tree_sitter
 import tree_sitter_php
@@ -141,7 +141,7 @@ class HttpCallMissingFallbackRule(Rule):
             return len(node.children) >= 3 and self._text(node.children[0], source) == "Http"
         for child in node.children:
             if child.type in {"scoped_call_expression", "member_call_expression"} and self._chain_contains_http_root(
-                child, source
+                child, source,
             ):
                 return True
         return False

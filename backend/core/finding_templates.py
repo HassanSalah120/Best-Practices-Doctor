@@ -7,7 +7,6 @@ Used when a rule does not provide a specific suggested_fix text.
 
 from __future__ import annotations
 
-
 FIX_TEMPLATES: dict[str, str] = {
     "policy-coverage-on-mutations": (
         "Add explicit authorization in mutation actions (`$this->authorize(...)`) and keep auth/can middleware on routes."

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class ConsoleLogInProductionCodeRule(Rule):
@@ -62,7 +62,7 @@ class ConsoleLogInProductionCodeRule(Rule):
                     confidence=0.92,
                     tags=["react", "frontend", "logging"],
                     evidence_signals=["console_call=true", "test_file=false"],
-                )
+                ),
             )
         return findings
 
@@ -84,7 +84,7 @@ class ConsoleLogInProductionCodeRule(Rule):
         return bool(
             re.search(r"\bprocess\.argv\b", text)
             or re.search(r"\bprocess\.exit\s*\(", text)
-            or re.search(r"\b(?:readline|commander|yargs|inquirer)\b", text)
+            or re.search(r"\b(?:readline|commander|yargs|inquirer)\b", text),
         )
 
     def _is_error_boundary_logging(self, content: str, position: int) -> bool:

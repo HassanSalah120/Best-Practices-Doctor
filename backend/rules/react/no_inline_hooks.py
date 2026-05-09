@@ -3,12 +3,14 @@ No Inline Hooks Rule
 
 Enforces that custom hooks are defined in separate files, not inside UI component files.
 """
-import re
 import os
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
+import re
+
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
+
 
 class NoInlineHooksRule(Rule):
     id = "no-inline-hooks"
@@ -24,7 +26,7 @@ class NoInlineHooksRule(Rule):
     # We want to avoid matching *calls* to hooks, only *definitions*.
     _HOOK_DEF = re.compile(
         r"^(export\s+)?(function\s+use[A-Z][a-zA-Z0-9]*|const\s+use[A-Z][a-zA-Z0-9]*\s*=\s*(\(|async))",
-        re.MULTILINE
+        re.MULTILINE,
     )
     severity_weight = 0
     confidence = 'high'
@@ -56,12 +58,12 @@ class NoInlineHooksRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings = []
-        
+
         # 1. Skip if the file itself is a hook file (starts with `use` or is in a `hooks` dir)
         filename = os.path.basename(file_path).lower()
         if filename.startswith("use"):
             return []
-        
+
         # 2. Skip test files
         if any(x in file_path.lower() for x in [".test.", ".spec.", "__tests__"]):
             return []
@@ -71,7 +73,7 @@ class NoInlineHooksRule(Rule):
             # If we find a hook definition in a non-hook file, flag it.
             # We assume a file is a "UI Component file" if it's not a hook file.
             # Even if it's a utility file, defining a hook there is suspicious if it's not named `use...`.
-            
+
             hook_name = m.group(0).split()[-1].split("(")[0].split("=")[0]
             # Clean up name from regex match
             if "function" in m.group(0):
@@ -83,7 +85,7 @@ class NoInlineHooksRule(Rule):
                 continue
 
             line = content.count("\n", 0, m.start()) + 1
-            
+
             findings.append(
                 self.create_finding(
                     title="Inline custom hook definition detected",
@@ -103,7 +105,7 @@ class NoInlineHooksRule(Rule):
                     ),
                     tags=["react", "hooks", "separation-of-concerns", "structure"],
                     confidence=0.95,
-                )
+                ),
             )
 
         return findings

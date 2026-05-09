@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class UselessSuspenseBoundaryRule(Rule):
@@ -61,5 +61,5 @@ class UselessSuspenseBoundaryRule(Rule):
                 confidence=0.46,
                 tags=["react", "suspense", "stability"],
                 evidence_signals=["suspense_boundary=true", "lazy_or_suspense_data_signal=false"],
-            )
+            ),
         ]

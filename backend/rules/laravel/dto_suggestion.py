@@ -3,10 +3,10 @@ DTO Suggestion Rule
 
 Flags large associative arrays being passed around between layers and suggests DTOs.
 """
-from schemas.facts import Facts, AssocArrayLiteral
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity, FindingClassification
 from rules.base import Rule
+from schemas.facts import AssocArrayLiteral, Facts
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 class DtoSuggestionRule(Rule):
@@ -64,7 +64,7 @@ class DtoSuggestionRule(Rule):
 
         min_keys = int(self.get_threshold("min_keys", 14))
         ignore_targets = {
-            "validate", "make", "json", "view", "compact", 
+            "validate", "make", "json", "view", "compact",
             "create", "update", "insert", "forceCreate", "updateOrCreate",
             "render", "share", "inertia", "response", "with",
             "config", "settings", "mapping", "allowedTransitions",
@@ -78,8 +78,8 @@ class DtoSuggestionRule(Rule):
             # Global File Path Exclusions
             lower_path = str(a.file_path or "").replace("\\", "/").lower()
             if any(p in lower_path for p in [
-                "app/dtos/", 
-                "app/http/requests/", 
+                "app/dtos/",
+                "app/http/requests/",
                 "app/http/middleware/",
                 "app/services/mappers/",
                 "app/mappers/",
@@ -87,7 +87,7 @@ class DtoSuggestionRule(Rule):
                 "app/providers/",
                 "app/repositories/",
                 "database/seeders/",
-                "database/factories/"
+                "database/factories/",
             ]):
                 continue
             if str(a.file_path) in dto_import_files:
@@ -95,7 +95,7 @@ class DtoSuggestionRule(Rule):
 
             # Method Name Exclusions
             ignores_methods = {
-                "rules", "toArray", "toResponse", "jsonSerialize", 
+                "rules", "toArray", "toResponse", "jsonSerialize",
                 "toModelAttributes", "getAttributes", "definition",
                 "share", "props", "map", "transform", "fields",
             }
@@ -125,14 +125,14 @@ class DtoSuggestionRule(Rule):
 
         # Group by file_path for aggregation
         by_file: dict[str, list[dict]] = {}
-        
+
         for (file_path, method_name, used_as, target), arrs in grouped.items():
             sample = arrs[0]
             line_start = min(a.line_number for a in arrs)
             max_keys = max(a.key_count for a in arrs)
             count = len(arrs)
             ctx_cls = sample.class_fqcn or ""
-            
+
             # Store raw data for aggregation
             by_file.setdefault(file_path, []).append({
                 "method": method_name,
@@ -141,18 +141,18 @@ class DtoSuggestionRule(Rule):
                 "line": line_start,
                 "max_keys": max_keys,
                 "count": count,
-                "context": f"{ctx_cls}::{method_name}:{used_as}:{target or ''}:{max_keys}"
+                "context": f"{ctx_cls}::{method_name}:{used_as}:{target or ''}:{max_keys}",
             })
 
         # Generate findings (aggregated per file)
         for file_path, items in by_file.items():
             if not items:
                 continue
-                
+
             items.sort(key=lambda x: x["line"])
             first = items[0]
             total_arrays = sum(i["count"] for i in items)
-            
+
             # If only one distinct issue site, report normally
             if len(items) == 1:
                 ctx = first["context"]
@@ -191,7 +191,7 @@ class DtoSuggestionRule(Rule):
                         ),
                         tags=["maintainability", "dto", "typing", "architecture"],
                         confidence=0.7,
-                    )
+                    ),
                 )
             else:
                 # Multiple sites in one file -> Aggregate
@@ -217,12 +217,12 @@ class DtoSuggestionRule(Rule):
                     ),
                     tags=["maintainability", "dto", "typing", "architecture"],
                     confidence=0.7,
-                    evidence_signals=[f"count={total_arrays}", f"file={file_path}"]
+                    evidence_signals=[f"count={total_arrays}", f"file={file_path}"],
                 )
-                
+
                 for i in items:
                     aggregated.evidence_signals.append(f"match_line={i['line']}: {i['method']} (keys={i['max_keys']})")
-                
+
                 findings.append(aggregated)
 
         return findings

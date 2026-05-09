@@ -3,12 +3,11 @@ Scan Report and Job Status Schema
 """
 from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel, Field
 from typing import Any
 
-from .finding import Finding
-from .finding import FindingClassification
-from .finding import Severity
+from pydantic import BaseModel, Field
+
+from .finding import Finding, FindingClassification, Severity
 from .project_type import ProjectInfo
 
 
@@ -30,7 +29,7 @@ class ScanJob(BaseModel):
     current_file: str | None = None
     files_processed: int = 0
     files_total: int = 0
-    
+
     started_at: datetime | None = None
     completed_at: datetime | None = None
     error: str | None = None
@@ -64,7 +63,7 @@ class QualityScores(BaseModel):
     """Complete quality scores with grade."""
     overall: float = 100.0
     grade: str = "A"
-    
+
     # Category scores
     architecture: float = 100.0
     dry: float = 100.0
@@ -222,22 +221,22 @@ class ScanReport(BaseModel):
     id: str
     project_path: str
     project_info: ProjectInfo = Field(default_factory=ProjectInfo)
-    
+
     # Timing
     scanned_at: datetime = Field(default_factory=datetime.now)
     duration_ms: int = 0
-    
+
     # Counts
     files_scanned: int = 0
     classes_found: int = 0
     methods_found: int = 0
-    
+
     # Scores (stable API contract for UI)
     scores: QualityScores = Field(default_factory=QualityScores)
 
     # Rule metadata v2 score. Additive; `scores` remains the stable legacy contract.
     score: ScanScore = Field(default_factory=ScanScore)
-    
+
     # Findings
     findings: list[Finding] = Field(default_factory=list)
 
@@ -255,13 +254,13 @@ class ScanReport(BaseModel):
     baseline_new_counts_by_severity: dict[str, int] = Field(default_factory=dict)
     baseline_resolved_counts_by_severity: dict[str, int] = Field(default_factory=dict)
     baseline_unchanged_counts_by_severity: dict[str, int] = Field(default_factory=dict)
-    
+
     # Grouped views (computed)
     findings_by_file: dict[str, list[str]] = Field(default_factory=dict)  # file -> finding IDs
     findings_by_category: dict[str, list[str]] = Field(default_factory=dict)  # category -> finding IDs
     findings_by_severity: dict[str, int] = Field(default_factory=dict)  # severity -> count
     findings_by_classification: dict[str, int] = Field(default_factory=dict)  # classification -> count
-    
+
     # File summaries
     file_summaries: list[FileSummary] = Field(default_factory=list)
 
@@ -271,17 +270,17 @@ class ScanReport(BaseModel):
     top_5_first: list[str] = Field(default_factory=list)
     safe_to_defer: list[str] = Field(default_factory=list)
     pipeline_cache: dict[str, Any] = Field(default_factory=dict)
-    
+
     # Human-readable summary
     summary: str = ""
 
     # Debug-friendly analysis context for explainability.
     analysis_debug: dict[str, Any] = Field(default_factory=dict)
-    
+
     # Ruleset used
     ruleset_path: str | None = None
     rules_executed: list[str] = Field(default_factory=list)
-    
+
     # Category breakdown
     category_breakdown: dict[str, CategoryScore] = Field(default_factory=dict)
 
@@ -294,26 +293,26 @@ class ScanReport(BaseModel):
 
     # Optional Runtime Contract Guard payload for Laravel route/DTO/Inertia contracts.
     runtime_contracts: RuntimeContractSummary | None = None
-    
+
     def compute_groups(self) -> None:
         """Compute grouped views from findings."""
         self.findings_by_file.clear()
         self.findings_by_category.clear()
         self.findings_by_severity.clear()
         self.findings_by_classification.clear()
-        
+
         for finding in self.findings:
             # By file
             if finding.file not in self.findings_by_file:
                 self.findings_by_file[finding.file] = []
             self.findings_by_file[finding.file].append(finding.id)
-            
+
             # By category
             cat = finding.category.value
             if cat not in self.findings_by_category:
                 self.findings_by_category[cat] = []
             self.findings_by_category[cat].append(finding.id)
-            
+
             # By severity
             sev = finding.severity.value
             self.findings_by_severity[sev] = self.findings_by_severity.get(sev, 0) + 1

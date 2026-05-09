@@ -17,12 +17,11 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from schemas.finding import Finding
-
 
 _SCHEMA_VERSION = 2
 _PROFILE_RE = re.compile(r"[^a-z0-9._-]+", re.IGNORECASE)
@@ -177,7 +176,7 @@ def _snapshot_from_findings(
                 file=str(r.get("file", "") or ""),
                 line_start=int(r.get("line_start", 1) or 1),
                 confidence=float(r.get("confidence", 0.0) or 0.0),
-            )
+            ),
         )
 
     p = _baseline_path(project_path, profile)
@@ -192,7 +191,7 @@ def _snapshot_from_findings(
         findings=baseline_findings,
         counts_by_severity=dict(sorted(counts_by_severity.items())),
         counts_by_rule=dict(sorted(counts_by_rule.items())),
-        updated_at=updated_at or datetime.now(timezone.utc).isoformat(),
+        updated_at=updated_at or datetime.now(UTC).isoformat(),
         path=str(p),
     )
 
@@ -243,7 +242,7 @@ def _snapshot_from_json_dict(project_path: str, profile: str, data: dict[str, An
                     file=str(r.get("file", "") or ""),
                     line_start=int(r.get("line_start", 1) or 1),
                     confidence=float(r.get("confidence", 0.0) or 0.0),
-                )
+                ),
             )
 
     if not findings:
@@ -402,16 +401,16 @@ def update_report_baseline_metadata(report, profile: str | None = None, *, save_
 
     # Extended metadata (added defensively to avoid tight coupling).
     try:
-        setattr(report, "baseline_profile", diff.baseline_profile)
-        setattr(report, "baseline_path", diff.baseline_path)
-        setattr(report, "baseline_has_previous", diff.has_baseline)
-        setattr(report, "resolved_finding_fingerprints", list(diff.resolved_fingerprints))
-        setattr(report, "resolved_findings_count", len(diff.resolved_fingerprints))
-        setattr(report, "unchanged_finding_fingerprints", list(diff.unchanged_fingerprints))
-        setattr(report, "unchanged_findings_count", len(diff.unchanged_fingerprints))
-        setattr(report, "baseline_new_counts_by_severity", dict(diff.new_counts_by_severity))
-        setattr(report, "baseline_resolved_counts_by_severity", dict(diff.resolved_counts_by_severity))
-        setattr(report, "baseline_unchanged_counts_by_severity", dict(diff.unchanged_counts_by_severity))
+        report.baseline_profile = diff.baseline_profile
+        report.baseline_path = diff.baseline_path
+        report.baseline_has_previous = diff.has_baseline
+        report.resolved_finding_fingerprints = list(diff.resolved_fingerprints)
+        report.resolved_findings_count = len(diff.resolved_fingerprints)
+        report.unchanged_finding_fingerprints = list(diff.unchanged_fingerprints)
+        report.unchanged_findings_count = len(diff.unchanged_fingerprints)
+        report.baseline_new_counts_by_severity = dict(diff.new_counts_by_severity)
+        report.baseline_resolved_counts_by_severity = dict(diff.resolved_counts_by_severity)
+        report.baseline_unchanged_counts_by_severity = dict(diff.unchanged_counts_by_severity)
     except Exception:
         pass
 
@@ -441,13 +440,13 @@ def reset_baseline_to_report(report, profile: str | None = None) -> None:
     try:
         report.new_finding_fingerprints = []
         report.new_findings_count = 0
-        setattr(report, "baseline_profile", prof)
-        setattr(report, "baseline_path", str(_baseline_path(project_path, prof)))
-        setattr(report, "baseline_has_previous", True)
-        setattr(report, "resolved_finding_fingerprints", [])
-        setattr(report, "resolved_findings_count", 0)
-        setattr(report, "unchanged_finding_fingerprints", [])
-        setattr(report, "unchanged_findings_count", 0)
+        report.baseline_profile = prof
+        report.baseline_path = str(_baseline_path(project_path, prof))
+        report.baseline_has_previous = True
+        report.resolved_finding_fingerprints = []
+        report.resolved_findings_count = 0
+        report.unchanged_finding_fingerprints = []
+        report.unchanged_findings_count = 0
     except Exception:
         pass
 
@@ -519,7 +518,7 @@ def save_baseline(project_path: str, fingerprints: list[str], profile: str | Non
                 why_it_matters="Compatibility data for previous baseline format.",
                 suggested_fix="No action needed.",
                 confidence=1.0,
-            )
+            ),
         )
 
     snap = save_baseline_snapshot(project_path, pseudo_findings, profile=profile)

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 from ._helpers import env_value, is_laravel_project, line_for_key, read_project_file
 
@@ -52,7 +52,7 @@ class AppEnvNotSetToProductionRule(Rule):
                     confidence=0.78,
                     tags=["devops", "env", "laravel"],
                     evidence_signals=[f"env_example_app_env={value}"],
-                )
+                ),
             )
 
         app_config = read_project_file(facts, "config/app.php")
@@ -70,6 +70,6 @@ class AppEnvNotSetToProductionRule(Rule):
                     confidence=0.8,
                     tags=["devops", "env", "laravel"],
                     evidence_signals=["config_env_literal_local=true"],
-                )
+                ),
             )
         return findings

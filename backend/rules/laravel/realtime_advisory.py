@@ -4,11 +4,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from rules.base import Rule
 from schemas.facts import Facts, RouteInfo
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
-
 
 _MUTATING_METHODS = {"post", "put", "patch", "delete", "any", "match"}
 _REALTIME_HINTS = (
@@ -172,7 +171,7 @@ class RealtimeInMemoryStateScalabilityRule(_RealtimeAdvisoryRule):
                 tags=["laravel", "realtime", "websocket", "scalability"],
                 evidence_signals=evidence,
                 metadata={"advisory_lane": "realtime", "score_intent": "light"},
-            )
+            ),
         ]
 
     def _inmemory_state_file(self, facts: Facts) -> str | None:
@@ -280,7 +279,7 @@ class WebSocketHandlerIntegrationTestsMissingRule(_RealtimeAdvisoryRule):
             [
                 f"test_files_count={int(getattr(facts, 'test_files_count', 0) or 0)}",
                 "handler_integration_test_missing=true",
-            ]
+            ],
         )
         return [
             self.create_finding(
@@ -302,7 +301,7 @@ class WebSocketHandlerIntegrationTestsMissingRule(_RealtimeAdvisoryRule):
                 tags=["laravel", "realtime", "websocket", "testing"],
                 evidence_signals=evidence,
                 metadata={"advisory_lane": "realtime", "score_intent": "light"},
-            )
+            ),
         ]
 
     def _has_socket_handler(self, facts: Facts) -> bool:
@@ -400,7 +399,7 @@ class RealtimeConfigOutsideLaravelConfigRule(_RealtimeAdvisoryRule):
                 tags=["laravel", "realtime", "configuration"],
                 evidence_signals=evidence,
                 metadata={"advisory_lane": "realtime", "score_intent": "light"},
-            )
+            ),
         ]
 
     def _standalone_config_file(self, facts: Facts) -> str | None:
@@ -492,7 +491,7 @@ class PublicAnonymousMutationAbuseReadinessRule(_RealtimeAdvisoryRule):
                     f"throttle={int(has_throttle)}",
                     f"named_rate_limiter={int(has_configured_named_limiter)}",
                     f"csrf_or_token={int(has_csrf or has_token_control)}",
-                ]
+                ],
             )
             findings.append(
                 self.create_finding(
@@ -512,7 +511,7 @@ class PublicAnonymousMutationAbuseReadinessRule(_RealtimeAdvisoryRule):
                     tags=["laravel", "realtime", "anonymous-flow", "abuse-readiness"],
                     evidence_signals=evidence,
                     metadata={"advisory_lane": "realtime", "score_intent": "light"},
-                )
+                ),
             )
         return findings
 
@@ -525,7 +524,7 @@ class PublicAnonymousMutationAbuseReadinessRule(_RealtimeAdvisoryRule):
         controller = str(route.controller or "").lower()
         return bool(
             re.search(r"(^|/)(room|rooms|game|games|join|restore|session|sessions)(/|$)", uri)
-            or any(token in controller for token in ("room", "game", "socket", "realtime"))
+            or any(token in controller for token in ("room", "game", "socket", "realtime")),
         )
 
     def _is_mutating(self, route: RouteInfo) -> bool:
@@ -555,7 +554,7 @@ class PublicAnonymousMutationAbuseReadinessRule(_RealtimeAdvisoryRule):
         escaped = re.escape(name)
         return bool(
             re.search(rf"RateLimiter::for\s*\(\s*['\"]{escaped}['\"]", provider)
-            and re.search(r"\bLimit::per(?:Minute|Second|Hour|Day)\s*\(", provider)
+            and re.search(r"\bLimit::per(?:Minute|Second|Hour|Day)\s*\(", provider),
         )
 
     def _web_route_has_csrf(self, facts: Facts, route: RouteInfo) -> bool:

@@ -10,10 +10,10 @@ from __future__ import annotations
 import re
 
 from core.regex_scan import regex_scan
-from schemas.facts import Facts, RouteInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts, RouteInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ApiResourceUsageRule(Rule):
@@ -161,7 +161,7 @@ class ApiResourceUsageRule(Rule):
                         "overlap_scope": f"{file_path}:{hit.line_number}",
                         "overlap_rank": 70,
                     },
-                )
+                ),
             )
         return out
 

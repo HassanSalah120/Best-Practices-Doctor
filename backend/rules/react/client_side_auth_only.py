@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts, RouteInfo
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class ClientSideAuthOnlyRule(Rule):
@@ -126,7 +126,7 @@ class ClientSideAuthOnlyRule(Rule):
                     confidence=0.84,
                     tags=["react", "security", "authorization", "frontend"],
                     evidence_signals=["client_only_auth_guard=true"],
-                )
+                ),
             )
         return findings
 
@@ -145,7 +145,7 @@ class ClientSideAuthOnlyRule(Rule):
 
         return bool(
             re.search(r"\b(?:to|href)\s*=", text)
-            or re.search(r"\b(?:badge|role|label|display|avatar|menu|nav)\b", text, re.IGNORECASE)
+            or re.search(r"\b(?:badge|role|label|display|avatar|menu|nav)\b", text, re.IGNORECASE),
         )
 
     def _has_matching_backend_authorization(self, guard_name: str, window: str, facts: Facts) -> bool:

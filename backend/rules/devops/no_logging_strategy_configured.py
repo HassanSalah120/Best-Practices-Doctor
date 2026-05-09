@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 from ._helpers import env_value, is_laravel_project, project_file_exists, read_project_file
 
@@ -62,13 +62,13 @@ class NoLoggingStrategyConfiguredRule(Rule):
                 confidence=0.48,
                 tags=["devops", "logging", "observability"],
                 evidence_signals=["logging_stack_local_only=true"],
-            )
+            ),
         ]
 
     def _default_is_stack(self, content: str) -> bool:
         return bool(
             re.search(r"['\"]default['\"]\s*=>\s*['\"]stack['\"]", content or "", re.IGNORECASE)
-            or re.search(r"env\s*\(\s*['\"]LOG_CHANNEL['\"]\s*,\s*['\"]stack['\"]", content or "", re.IGNORECASE)
+            or re.search(r"env\s*\(\s*['\"]LOG_CHANNEL['\"]\s*,\s*['\"]stack['\"]", content or "", re.IGNORECASE),
         )
 
     def _stack_is_local_only(self, content: str) -> bool:

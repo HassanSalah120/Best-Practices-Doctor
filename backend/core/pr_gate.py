@@ -6,16 +6,15 @@ Evaluates baseline regressions against policy presets for CI/PR workflows.
 
 from __future__ import annotations
 
+import fnmatch
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-import fnmatch
 
 import yaml
 
 from core.baseline import BaselineDiff, compare_baseline_snapshot
 from schemas.finding import Finding
-
 
 _SEVERITY_RANK = {
     "info": 1,

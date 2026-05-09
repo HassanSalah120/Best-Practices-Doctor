@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class CorsMisconfigurationRule(Rule):
@@ -35,19 +35,19 @@ class CorsMisconfigurationRule(Rule):
         r"['\"]allowed_origins['\"]\s*=>\s*\[\s*['\"]\*['\"]\s*\]|"
         r"['\"]allowed_origins['\"]\s*=>\s*\[\s*['\"]\*['\"]\s*,|"
         r"['\"]supports_credentials['\"]\s*=>\s*true",
-        re.IGNORECASE
+        re.IGNORECASE,
     )
-    
+
     _WILDCARD_WITH_CREDENTIALS = re.compile(
         r"['\"]supports_credentials['\"]\s*=>\s*(true|1)",
-        re.IGNORECASE
+        re.IGNORECASE,
     )
-    
+
     _WILDCARD_ORIGIN_PATTERN = re.compile(
         r"['\"]allowed_origins['\"]\s*=>\s*\[[^\]]*['\"]\*['\"][^\]]*\]",
-        re.IGNORECASE
+        re.IGNORECASE,
     )
-    
+
     _PATHS_CONFIG = ("config/cors.php", "config/sanctum.php")
 
     _ALLOWLIST_PATHS = (
@@ -158,7 +158,7 @@ class CorsMisconfigurationRule(Rule):
                     ),
                     confidence=0.95,
                     tags=["security", "cors", "api", "owasp-a1", "credentials"],
-                )
+                ),
             )
         elif has_wildcard_origin:
             # Warning: wildcard origin (less severe but still worth noting)
@@ -196,7 +196,7 @@ class CorsMisconfigurationRule(Rule):
                     confidence=0.70,
                     severity=Severity.MEDIUM,
                     tags=["security", "cors", "api"],
-                )
+                ),
             )
 
         return findings

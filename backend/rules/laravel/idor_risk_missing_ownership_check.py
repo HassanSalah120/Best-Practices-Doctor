@@ -7,10 +7,10 @@ without visible ownership/policy checks.
 
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts, MethodInfo, QueryUsage, RouteInfo
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class IdorRiskMissingOwnershipCheckRule(Rule):
@@ -130,7 +130,7 @@ class IdorRiskMissingOwnershipCheckRule(Rule):
                         "auth_route=true",
                         "ownership_guard_missing=true",
                     ],
-                )
+                ),
             )
 
         return findings

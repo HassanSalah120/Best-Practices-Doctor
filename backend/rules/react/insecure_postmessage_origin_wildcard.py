@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class InsecurePostMessageOriginWildcardRule(Rule):
@@ -94,7 +94,7 @@ class InsecurePostMessageOriginWildcardRule(Rule):
                 tags=["react", "security", "postmessage", "origin"],
                 confidence=confidence,
                 evidence_signals=["postmessage_wildcard=true"],
-            )
+            ),
         ]
 
     def _has_public_surface_capability(self, facts: Facts) -> bool:

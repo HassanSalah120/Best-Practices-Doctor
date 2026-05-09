@@ -6,9 +6,6 @@ Detects Composer dependencies pinned below curated secure minimum versions.
 
 from __future__ import annotations
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
 from rules.laravel._dependency_versioning import (
     COMPOSER_ADVISORIES,
@@ -18,6 +15,9 @@ from rules.laravel._dependency_versioning import (
     is_version_below_minimum,
     parse_json_object,
 )
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ComposerDependencyBelowSecureVersionRule(Rule):
@@ -94,6 +94,6 @@ class ComposerDependencyBelowSecureVersionRule(Rule):
                     tags=["security", "dependencies", "composer", name],
                     confidence=0.96,
                     evidence_signals=[f"package={name}", f"version={version}", f"minimum={advisory.minimum_version}"],
-                )
+                ),
             )
         return findings

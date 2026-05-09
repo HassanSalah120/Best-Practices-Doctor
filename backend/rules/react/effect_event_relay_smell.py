@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Category, Finding, FindingClassification, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 class EffectEventRelaySmellRule(Rule):
@@ -149,7 +149,7 @@ class EffectEventRelaySmellRule(Rule):
                             "pattern=relay-flag-effect-reset",
                         ],
                         metadata={"decision_profile": {"flag": flag_var}},
-                    )
+                    ),
                 )
                 seen_flags.add(flag_var)
                 break

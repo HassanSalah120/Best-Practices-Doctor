@@ -4,10 +4,10 @@ import json
 import re
 from pathlib import Path
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class MissingFeatureFlagPatternRule(Rule):
@@ -49,7 +49,7 @@ class MissingFeatureFlagPatternRule(Rule):
                 confidence=0.46,
                 tags=["laravel", "architecture", "deployment"],
                 evidence_signals=[f"route_count={route_count}", "feature_flag_signal=false"],
-            )
+            ),
         ]
 
     def _has_feature_flag_mechanism(self, facts: Facts) -> bool:

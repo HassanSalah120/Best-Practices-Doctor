@@ -7,10 +7,10 @@ Detects common mass-assignment anti-patterns like:
 
 This is heuristic-based and uses AST-extracted call_sites (Tree-sitter primary).
 """
-from schemas.facts import Facts, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MassAssignmentRiskRule(Rule):
@@ -94,7 +94,7 @@ class MassAssignmentRiskRule(Rule):
                     ),
                     tags=["security", "mass-assignment", "laravel", "validation"],
                     confidence=0.7,
-                )
+                ),
             )
 
         return findings

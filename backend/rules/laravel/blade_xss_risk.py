@@ -6,10 +6,10 @@ Flags raw Blade output `{!! ... !!}` when it appears to output request-derived d
 
 from __future__ import annotations
 
-from schemas.facts import Facts, BladeRawEcho
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class BladeXssRiskRule(Rule):
@@ -75,7 +75,7 @@ class BladeXssRiskRule(Rule):
                     ),
                     tags=["security", "xss", "blade"],
                     confidence=0.7,
-                )
+                ),
             )
 
         return findings

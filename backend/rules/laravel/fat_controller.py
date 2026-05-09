@@ -2,11 +2,11 @@
 Fat Controller Detection Rule
 Detects controllers that violate SRP by containing validation, queries, and business logic.
 """
-from schemas.facts import Facts, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, FindingClassification, Category, Severity
-from rules.base import Rule
 from core.project_recommendations import enabled_team_standards
+from rules.base import Rule
+from schemas.facts import Facts, MethodInfo
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 class FatControllerRule(Rule):
@@ -32,7 +32,7 @@ class FatControllerRule(Rule):
     - Database queries (should use Repository/Service)
     - Complex business logic (should use Service)
     """
-    
+
     id = "fat-controller"
     name = "Fat Controller Detection"
     description = "Detects controllers with too many responsibilities"
@@ -61,14 +61,14 @@ class FatControllerRule(Rule):
         "redirector->",
         "validator->",
     )
-    
+
     def analyze(
         self,
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings = []
-        
+
         # Get thresholds
         max_method_loc = self.get_threshold("max_method_loc", self.get_threshold("max_loc", 30))
         max_queries = self.get_threshold("max_queries", 3)
@@ -82,15 +82,15 @@ class FatControllerRule(Rule):
         team_standards = enabled_team_standards(facts)
         if architecture_profile == "mvc" and "thin_controllers" not in team_standards:
             min_problem_count = max(min_problem_count, 3)
-        
+
         # Analyze each controller
         for controller in facts.controllers:
             controller_issues = []
-            
+
             # Skip if controller already delegates to services
             if self._delegates_to_services(controller, facts):
                 continue
-            
+
             # Get methods for this controller
             controller_methods = [
                 m for m in facts.methods
@@ -112,7 +112,7 @@ class FatControllerRule(Rule):
                         method_count=len(public_like),
                         threshold=max_methods,
                     ))
-            
+
             for method in controller_methods:
                 issues = self._analyze_method(
                     method,
@@ -125,11 +125,11 @@ class FatControllerRule(Rule):
                     architecture_profile,
                 )
                 controller_issues.extend(issues)
-            
+
             # Create findings for significant issues
             for issue in controller_issues:
                 findings.append(issue)
-        
+
         return findings
 
     def _create_controller_size_finding(
@@ -161,21 +161,21 @@ class FatControllerRule(Rule):
             ),
             tags=["srp", "architecture", "controller"],
         )
-    
+
     def _delegates_to_services(self, controller, facts: Facts) -> bool:
         """Check if controller already delegates to services (thin controller)."""
         # Check constructor parameters for Service classes
         constructor = next(
-            (m for m in facts.methods 
+            (m for m in facts.methods
              if m.class_name == controller.name and m.name == "__construct"),
-            None
+            None,
         )
-        
+
         if constructor:
             for param in constructor.parameters:
                 if "Service" in param:
                     return True
-        
+
         # Check if methods only call services (no direct DB queries)
         controller_methods = [
             m for m in facts.methods
@@ -184,14 +184,14 @@ class FatControllerRule(Rule):
                 or (m.file_path == controller.file_path and m.class_name == controller.name)
             )
         ]
-        
+
         # If all public methods are short and call service-like methods, consider it thin
         public_methods = [m for m in controller_methods if not m.name.startswith("__") and m.visibility == "public"]
         if public_methods and all(m.loc <= 5 for m in public_methods):
             return True
-        
+
         return False
-    
+
     def _analyze_method(
         self,
         method: MethodInfo,
@@ -209,16 +209,16 @@ class FatControllerRule(Rule):
         findings = []
         problems = []
         problem_kinds: set[str] = set()
-        
+
         # Skip magic methods and constructors
         if method.name.startswith("__"):
             return findings
-        
+
         # Check method length
         if method.loc > max_loc:
             problems.append(f"Method has {method.loc} lines (max: {max_loc})")
             problem_kinds.add("loc")
-        
+
         # Check for validation (prefer extracted facts; fallback to call-sites).
         # If the method already uses a FormRequest (typed param ending with *Request but not Request itself),
         # `$request->validated()` should not be counted as inline validation.
@@ -247,7 +247,7 @@ class FatControllerRule(Rule):
         if validation_count > max_validations:
             problems.append(f"Contains {validation_count} validation call(s)")
             problem_kinds.add("validation")
-        
+
         # Check for query patterns in call sites and extracted facts.
         queries_in_method = [
             q for q in facts.queries
@@ -270,7 +270,7 @@ class FatControllerRule(Rule):
             else:
                 problems.append(f"Contains {query_count} database operation(s)")
             problem_kinds.add("query")
-        
+
         # Check metrics if available
         if metrics:
             method_metrics = metrics.get(method.method_fqn)
@@ -292,7 +292,7 @@ class FatControllerRule(Rule):
         # If multiple problems, this is a fat controller method
         if len(problem_kinds) >= min_problem_count and has_strong_problem_combo:
             findings.append(self.create_finding(
-                title=f"Controller logic should be moved to service layers",
+                title="Controller logic should be moved to service layers",
                 context=method.method_fqn,
                 file=method.file_path,
                 line_start=method.line_start,
@@ -325,33 +325,33 @@ class FatControllerRule(Rule):
                     "overlap_role": "parent",
                 },
             ))
-        
+
         return findings
-    
+
     def _generate_fix_suggestion(self, method: MethodInfo, problems: list[str]) -> str:
         """Generate specific fix suggestions based on detected problems."""
         suggestions = []
-        
+
         for problem in problems:
             if "validation" in problem.lower():
                 suggestions.append(
                     f"1. Create `App\\Http\\Requests\\{method.class_name.replace('Controller', '')}"
-                    f"{method.name.title()}Request` for validation"
+                    f"{method.name.title()}Request` for validation",
                 )
             if "database" in problem.lower() or "queries" in problem.lower():
                 suggestions.append(
-                    f"2. Extract queries to a Repository or use a Service class"
+                    "2. Extract queries to a Repository or use a Service class",
                 )
             if "business logic" in problem.lower():
                 suggestions.append(
                     f"3. Create `App\\Services\\{method.class_name.replace('Controller', '')}Service` "
-                    f"for business logic"
+                    f"for business logic",
                 )
             if "lines" in problem.lower():
                 suggestions.append(
-                    f"4. Break down the method into smaller, focused methods"
+                    "4. Break down the method into smaller, focused methods",
                 )
-        
+
         return "\n".join(suggestions) if suggestions else "Refactor to follow SRP"
 
     def _is_thin_delegation_orchestration(
@@ -365,13 +365,13 @@ class FatControllerRule(Rule):
         if not has_delegation:
             return False
         return query_count <= 1 and validation_count <= 1 and int(getattr(method, "loc", 0) or 0) <= 65
-    
+
     def _generate_code_example(self, method: MethodInfo) -> str:
         """Generate before/after code example."""
         controller_name = method.class_name
         method_name = method.name
         base_name = controller_name.replace("Controller", "")
-        
+
         return f"""// Before (Fat Controller)
 public function {method_name}(Request $request)
 {{

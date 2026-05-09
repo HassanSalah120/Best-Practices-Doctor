@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class MissingReturnTypeNullableRule(Rule):
@@ -69,7 +69,7 @@ class MissingReturnTypeNullableRule(Rule):
                     confidence=0.9,
                     tags=["php", "types", "runtime"],
                     evidence_signals=["return_type_non_nullable=true", "null_return_path=true"],
-                )
+                ),
             )
         return findings
 

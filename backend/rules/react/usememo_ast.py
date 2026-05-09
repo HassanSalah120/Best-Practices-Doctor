@@ -8,17 +8,15 @@ More accurate than regex - detects chained operations, context, and dependencies
 from __future__ import annotations
 
 import ast
-import re
-from typing import Any
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
 from rules.react.ast_utils import (
     ReactASTAnalyzer,
     parse_react_file,
 )
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class UseMemoASTRule(Rule):
@@ -171,10 +169,7 @@ class UseMemoASTRule(Rule):
             return False
 
         for parent in ast.walk(analyzer.tree):
-            if isinstance(parent, ast.Assign):
-                if parent.value is node:
-                    return True
-            elif isinstance(parent, ast.AnnAssign):
+            if isinstance(parent, ast.Assign) or isinstance(parent, ast.AnnAssign):
                 if parent.value is node:
                     return True
 
@@ -260,7 +255,7 @@ class UseMemoASTRule(Rule):
                 # Higher confidence if in list context
                 if in_list_context:
                     return True, f"{chain[0]}() in list context with dependencies", 0.75
-                elif is_assignment:
+                if is_assignment:
                     return True, f"{chain[0]}() with dependencies: {', '.join(dependencies[:3])}", 0.65
 
         # JSON.parse on potentially large strings

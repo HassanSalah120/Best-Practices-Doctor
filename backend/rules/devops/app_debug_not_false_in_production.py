@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 from ._helpers import env_value, is_laravel_project, line_for_key, read_project_file
 
@@ -52,7 +52,7 @@ class AppDebugNotFalseInProductionRule(Rule):
                     confidence=0.96,
                     tags=["devops", "debug", "laravel"],
                     evidence_signals=["config_debug_literal_true=true"],
-                )
+                ),
             )
 
         env_example = read_project_file(facts, ".env.example")
@@ -69,6 +69,6 @@ class AppDebugNotFalseInProductionRule(Rule):
                     confidence=0.94,
                     tags=["devops", "debug", "env"],
                     evidence_signals=["env_example_app_debug=true"],
-                )
+                ),
             )
         return findings

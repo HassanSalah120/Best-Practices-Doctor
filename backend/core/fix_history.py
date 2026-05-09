@@ -64,7 +64,7 @@ class FixHistoryEntry:
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "FixHistoryEntry":
+    def from_dict(cls, data: dict[str, Any]) -> FixHistoryEntry:
         return cls(
             id=str(data.get("id") or ""),
             job_id=str(data.get("job_id") or ""),
@@ -97,7 +97,7 @@ class FixHistoryFile:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "FixHistoryFile":
+    def from_dict(cls, data: dict[str, Any]) -> FixHistoryFile:
         entries = [
             FixHistoryEntry.from_dict(item)
             for item in data.get("entries", [])
@@ -180,7 +180,7 @@ class FixHistoryManager:
         current = file_path.read_text(encoding="utf-8", errors="replace")
         if _content_hash(current) != entry.after_hash:
             raise FixHistoryConflictError(
-                "Cannot undo because the file changed after the fix was applied."
+                "Cannot undo because the file changed after the fix was applied.",
             )
         file_path.write_text(entry.before_content, encoding="utf-8")
         entry.undone = True
@@ -194,7 +194,7 @@ class FixHistoryManager:
         current = file_path.read_text(encoding="utf-8", errors="replace")
         if _content_hash(current) != entry.before_hash:
             raise FixHistoryConflictError(
-                "Cannot redo because the file no longer matches the recorded pre-fix content."
+                "Cannot redo because the file no longer matches the recorded pre-fix content.",
             )
         file_path.write_text(entry.after_content, encoding="utf-8")
         entry.undone = False

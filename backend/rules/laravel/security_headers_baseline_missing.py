@@ -6,10 +6,10 @@ Detects projects without visible baseline security-header middleware/config.
 
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class SecurityHeadersBaselineMissingRule(Rule):
@@ -77,7 +77,7 @@ class SecurityHeadersBaselineMissingRule(Rule):
                 confidence=confidence,
                 tags=["laravel", "security", "headers", "hardening"],
                 evidence_signals=["security_headers_baseline_missing=true"],
-            )
+            ),
         ]
 
     def _has_security_headers_handling(self, facts: Facts) -> bool:

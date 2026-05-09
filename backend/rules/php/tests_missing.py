@@ -12,10 +12,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class TestsMissingRule(Rule):
@@ -113,7 +113,7 @@ class TestsMissingRule(Rule):
                 suggested_fix=self._suggested_fix(facts),
                 tags=["quality_gate", "testing"],
                 confidence=0.9,
-            )
+            ),
         ]
 
     def _suggested_fix(self, facts: Facts) -> str:
@@ -131,18 +131,18 @@ class TestsMissingRule(Rule):
 
         if has_react:
             steps.append(
-                "3. For React: use Vitest or Jest with React Testing Library for component and interaction tests"
+                "3. For React: use Vitest or Jest with React Testing Library for component and interaction tests",
             )
             steps.append("4. Add Playwright or Cypress for the highest-risk browser flows")
             if has_php:
                 steps.append(
-                    "5. For Laravel/PHP: use PHPUnit or Pest for feature, integration, and domain-level tests"
+                    "5. For Laravel/PHP: use PHPUnit or Pest for feature, integration, and domain-level tests",
                 )
             return "\n".join(steps)
 
         if has_php:
             steps.append(
-                "3. For Laravel/PHP: use PHPUnit or Pest and cover controllers/services with integration tests"
+                "3. For Laravel/PHP: use PHPUnit or Pest and cover controllers/services with integration tests",
             )
             steps.append("4. Add unit tests around pure domain logic and critical edge cases")
             return "\n".join(steps)

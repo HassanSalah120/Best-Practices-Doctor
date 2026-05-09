@@ -7,10 +7,10 @@ Flags classes with too many outgoing dependencies in the App\\* namespace.
 from __future__ import annotations
 
 from analysis.dependency_graph import get_dependency_graph
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class HighCouplingClassRule(Rule):
@@ -94,7 +94,7 @@ class HighCouplingClassRule(Rule):
                     related_methods=deps,  # evidence: dependencies
                     tags=["architecture", "coupling"],
                     confidence=0.6,
-                )
+                ),
             )
 
         return findings

@@ -4,12 +4,12 @@ Unified debug exposure risk rule.
 
 from __future__ import annotations
 
-from schemas.facts import Facts
-from schemas.finding import Category, Finding, FindingClassification, Severity
-from schemas.metrics import MethodMetrics
 from rules.base import Rule
 from rules.laravel.api_debug_trace_leak import ApiDebugTraceLeakRule
 from rules.laravel.debug_mode_exposure import DebugModeExposureRule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 class DebugExposureRiskRule(Rule):
@@ -72,7 +72,7 @@ class DebugExposureRiskRule(Rule):
                         "Debug-related configuration appears unsafe for production and may expose traces or sensitive internals."
                     ),
                     "metadata": metadata,
-                }
+                },
             )
             fp = updated.compute_fingerprint()
             if fp in seen:

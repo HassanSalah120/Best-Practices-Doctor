@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts, MethodInfo, RouteInfo
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class WebhookReplayProtectionMissingRule(Rule):
@@ -90,7 +90,7 @@ class WebhookReplayProtectionMissingRule(Rule):
                     confidence=confidence,
                     tags=["laravel", "security", "webhook", "replay"],
                     evidence_signals=["signature_validation=true", "replay_guard=false"],
-                )
+                ),
             )
         return findings
 
@@ -104,7 +104,7 @@ class WebhookReplayProtectionMissingRule(Rule):
                 str(route.name or "").lower(),
                 str(route.controller or "").lower(),
                 str(route.action or "").lower(),
-            ]
+            ],
         )
         return any(token in payload for token in self._WEBHOOK_TOKENS)
 

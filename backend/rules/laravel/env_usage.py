@@ -2,10 +2,10 @@
 Env Usage Rule
 Flags direct `env()` calls outside Laravel config files.
 """
-from schemas.facts import Facts, EnvUsage
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import EnvUsage, Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class EnvOutsideConfigRule(Rule):

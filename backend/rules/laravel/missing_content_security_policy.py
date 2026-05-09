@@ -7,10 +7,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class MissingContentSecurityPolicyRule(Rule):
@@ -94,7 +94,7 @@ class MissingContentSecurityPolicyRule(Rule):
                     "csp_header_missing=true",
                     "scan_scope=project_security_headers",
                 ],
-            )
+            ),
         ]
 
     def _is_primary_target(self, normalized_path: str, facts: Facts) -> bool:

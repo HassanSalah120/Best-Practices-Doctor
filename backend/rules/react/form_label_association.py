@@ -6,11 +6,11 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
 from rules.react.jsx_tree_sitter import JsxTreeSitterHelper
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class FormLabelAssociationRule(Rule):
@@ -132,7 +132,7 @@ class FormLabelAssociationRule(Rule):
                         "embedded_control_missing=true",
                         "aria_labelledby_link_missing=true",
                     ],
-                )
+                ),
             )
 
         return findings

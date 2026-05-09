@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class WebhookSignatureParameterUnusedRule(Rule):
@@ -104,7 +104,7 @@ class WebhookSignatureParameterUnusedRule(Rule):
                         suggested_fix=self.fix_suggestion,
                         tags=["laravel", "security", "webhook", "authenticity"],
                         confidence=0.95,
-                    )
+                    ),
                 )
         return findings
 

@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class PasswordHashWeakAlgorithmRule(Rule):
@@ -78,6 +78,6 @@ class PasswordHashWeakAlgorithmRule(Rule):
                     confidence=0.96,
                     tags=["laravel", "security", "password", "hashing"],
                     evidence_signals=[f"weak_hash_algo={algo}", "password_hint_in_argument=true"],
-                )
+                ),
             )
         return findings

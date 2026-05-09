@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import re
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 
 class UploadMimeExtensionMismatchRule(Rule):
@@ -110,7 +110,7 @@ class UploadMimeExtensionMismatchRule(Rule):
                     f"has_extension_usage={int(has_extension_usage)}",
                     f"runtime_mime_check={int(has_runtime_mime_check)}",
                 ],
-            )
+            ),
         ]
 
     def _capability_enabled(self, facts: Facts, key: str) -> bool:

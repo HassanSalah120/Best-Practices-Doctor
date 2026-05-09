@@ -13,13 +13,12 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts, MethodInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
-from ._parse_utils import extract_paren_content, split_top_level_args, is_simple_string_literal
-
+from ._parse_utils import extract_paren_content, is_simple_string_literal, split_top_level_args
 
 _EVAL = re.compile(r"\beval\s*\(", re.IGNORECASE)
 _ASSERT = re.compile(r"\bassert\s*\(", re.IGNORECASE)
@@ -131,7 +130,7 @@ class UnsafeEvalRule(Rule):
                     ),
                     tags=["security", "rce", "eval"],
                     confidence=0.85,
-                )
+                ),
             )
 
         return findings

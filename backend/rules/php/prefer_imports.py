@@ -14,10 +14,10 @@ It MUST NOT read from disk or run regex parsing.
 
 from __future__ import annotations
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class PreferImportsRule(Rule):
@@ -145,7 +145,7 @@ class PreferImportsRule(Rule):
                     code_example=code_example,
                     tags=["imports", "fqcn", "psr12", "readability"],
                     confidence=0.9,
-                )
+                ),
             )
 
         return findings

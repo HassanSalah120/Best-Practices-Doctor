@@ -3,10 +3,10 @@ Large React Component Rule
 Detects React components that are too large.
 """
 from core.path_utils import normalize_rel_path
-from schemas.facts import Facts, ReactComponentInfo
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts, ReactComponentInfo
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class LargeComponentRule(Rule):
@@ -32,7 +32,7 @@ class LargeComponentRule(Rule):
     - Are hard to test
     - Should be split into smaller components
     """
-    
+
     id = "large-react-component"
     name = "Large React Component Detection"
     description = "Detects oversized React components"
@@ -60,19 +60,19 @@ class LargeComponentRule(Rule):
         "@/features",
     )
     _SHELL_NAME_MARKERS = ("dashboard", "portal", "panel", "modal", "board", "workspace", "shell", "layout", "screen", "view")
-    
+
     def analyze(
         self,
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings = []
-        
+
         # Backwards/forwards compatible threshold keys.
         max_lines = self.get_threshold("max_lines", self.get_threshold("max_loc", 200))
         min_loc_to_consider = max(120, int(self.get_threshold("min_loc_to_consider", 240)))
         min_overflow_lines = max(0, int(self.get_threshold("min_overflow_lines", 20)))
-        
+
         for component in facts.react_components:
             if component.loc < min_loc_to_consider:
                 continue
@@ -80,7 +80,7 @@ class LargeComponentRule(Rule):
             threshold = int(profile["threshold"])
             if component.loc >= (threshold + min_overflow_lines):
                 findings.append(self._create_finding(component, threshold, profile))
-        
+
         return findings
 
     def _component_profile(self, component: ReactComponentInfo, base_threshold: int, facts: Facts) -> dict[str, object]:
@@ -102,7 +102,7 @@ class LargeComponentRule(Rule):
         is_complex_ui_shell = is_feature_shell or any(token in name_low for token in self._SHELL_NAME_MARKERS)
         project_type = str(getattr(getattr(facts, "project_context", None), "project_type", "unknown") or "unknown")
         react_mode = str(
-            getattr(getattr(facts, "project_context", None), "react_structure_mode", "unknown") or "unknown"
+            getattr(getattr(facts, "project_context", None), "react_structure_mode", "unknown") or "unknown",
         ).lower()
         capabilities = getattr(getattr(facts, "project_context", None), "capabilities", {}) or {}
         has_realtime = bool((capabilities.get("realtime") or {}).get("enabled", False))
@@ -171,7 +171,7 @@ class LargeComponentRule(Rule):
         if not isinstance(payload, dict):
             return []
         return [str(imp or "") for imp in (payload.get("imports", []) or []) if str(imp or "").strip()]
-    
+
     def _create_finding(self, component: ReactComponentInfo, threshold: int, profile: dict[str, object]) -> Finding:
         """Create finding for large component."""
         return self.create_finding(
@@ -200,7 +200,7 @@ class LargeComponentRule(Rule):
             evidence_signals=profile["evidence_signals"],
             metadata={"decision_profile": profile},
         )
-    
+
     def _generate_example(self, name: str) -> str:
         """Generate refactoring example."""
         return f"""// Before (300+ lines in {name})

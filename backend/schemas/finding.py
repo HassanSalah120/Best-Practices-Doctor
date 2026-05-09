@@ -3,6 +3,7 @@ Finding Schema - Standardized issue format with fingerprints for deduplication.
 """
 import hashlib
 from enum import Enum
+
 from pydantic import BaseModel, Field
 
 
@@ -47,18 +48,18 @@ class Finding(BaseModel):
     rule_id: str
     fingerprint: str = ""  # Stable hash for deduplication across runs
     context: str = ""      # Specific context (e.g. method name) for fingerprint stability
-    
+
     # Classification
     title: str
     category: Category
     severity: Severity
     classification: FindingClassification = FindingClassification.RISK
-    
+
     # Location
     file: str  # Relative path
     line_start: int
     line_end: int | None = None
-    
+
     # Explanation (the "senior architect" value)
     description: str
     why_it_matters: str
@@ -66,23 +67,23 @@ class Finding(BaseModel):
     # Additive trust/explainability fields (optional, populated centrally post-rule execution)
     why_flagged: str | None = None
     why_not_ignored: str | None = None
-    
+
     # Code example (before/after)
     code_example: str | None = None
-    
+
     # Scoring
     score_impact: int = 0  # Points deducted (0-10)
-    
+
     # Related items
     related_files: list[str] = Field(default_factory=list)
     related_methods: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     evidence_signals: list[str] = Field(default_factory=list)
     metadata: dict[str, object] = Field(default_factory=dict)
-    
+
     # Confidence for heuristic-based findings
     confidence: float = 1.0  # 0-1
-    
+
     def compute_fingerprint(self) -> str:
         """
         Compute stable fingerprint for deduplication across runs.
@@ -90,7 +91,7 @@ class Finding(BaseModel):
         """
         content = f"{self.rule_id}:{self.file}:{self.context or self.title}"
         return hashlib.sha1(content.encode()).hexdigest()[:12]
-    
+
     def model_post_init(self, __context) -> None:
         """Auto-generate ID and fingerprint if not set."""
         if not self.fingerprint:

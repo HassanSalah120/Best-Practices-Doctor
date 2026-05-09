@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class SensitiveDataLoggingRule(Rule):
@@ -169,7 +169,7 @@ class SensitiveDataLoggingRule(Rule):
                     ),
                     confidence=0.90,
                     tags=["security", "logging", "sensitive-data", "compliance", "owasp-a3"],
-                )
+                ),
             )
 
         return findings

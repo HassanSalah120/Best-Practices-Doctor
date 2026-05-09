@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +32,7 @@ class RemediationLedger:
                 last = self.get_last_entry()
                 seq = 1 if last is None else last.seq + 1
                 prev_hash = "genesis" if last is None else last.self_hash
-                timestamp = datetime.now(timezone.utc)
+                timestamp = datetime.now(UTC)
                 self_hash = ledger_entry_hash(
                     seq=seq,
                     timestamp=timestamp,

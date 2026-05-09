@@ -4,10 +4,10 @@ Config In Loop Rule
 Detects `config()` calls inside loops (performance smell).
 Uses ConfigUsage facts extracted from AST (Tree-sitter primary).
 """
-from schemas.facts import Facts, ConfigUsage
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import ConfigUsage, Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class ConfigInLoopRule(Rule):
@@ -76,7 +76,7 @@ class ConfigInLoopRule(Rule):
                     ),
                     tags=["performance", "config", "loops"],
                     confidence=0.7,
-                )
+                ),
             )
 
         return findings

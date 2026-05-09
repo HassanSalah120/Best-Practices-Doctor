@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 from ._helpers import is_laravel_project, read_project_file
 
@@ -58,7 +58,7 @@ class StoragePathsNotInGitignoreRule(Rule):
                 tags=["devops", "gitignore", "storage"],
                 evidence_signals=[f"missing_gitignore_paths={','.join(missing)}"],
                 metadata={"missing_paths": missing},
-            )
+            ),
         ]
 
     def _normalized_lines(self, content: str) -> set[str]:

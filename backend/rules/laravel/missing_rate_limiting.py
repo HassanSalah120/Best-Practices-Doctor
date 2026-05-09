@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts, RouteInfo
-from schemas.finding import Category, Finding, FindingClassification, Severity
-from schemas.metrics import MethodMetrics
 from rules.base import Rule
 from rules.laravel.missing_throttle_on_auth_api_routes import MissingThrottleOnAuthApiRoutesRule
 from rules.laravel.sensitive_route_rate_limit_missing import SensitiveRouteRateLimitMissingRule
+from schemas.facts import Facts, RouteInfo
+from schemas.finding import Category, Finding, FindingClassification, Severity
+from schemas.metrics import MethodMetrics
 
 
 class MissingRateLimitingRule(Rule):
@@ -96,7 +96,7 @@ class MissingRateLimitingRule(Rule):
                         "rate_limit_middleware_missing=true",
                     ],
                     metadata={"endpoint_type": endpoint_type, "source_detector": "route-heuristic"},
-                )
+                ),
             )
 
         normalized: list[Finding] = []
@@ -120,7 +120,7 @@ class MissingRateLimitingRule(Rule):
                     "title": "Rate limiting missing on sensitive endpoint",
                     "description": self._description_for_endpoint(endpoint_type, finding),
                     "metadata": metadata,
-                }
+                },
             )
             fp = updated.compute_fingerprint()
             if fp in seen:

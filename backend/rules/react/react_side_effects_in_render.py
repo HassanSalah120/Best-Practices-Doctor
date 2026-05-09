@@ -6,12 +6,12 @@ Detects side-effectful operations executed directly in component render flow.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
+from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
-from rules.base import Rule
 
 try:
     import tree_sitter_javascript as tsjs
@@ -176,9 +176,9 @@ class ReactSideEffectsInRenderRule(Rule):
                             "callee": callee_name,
                             "pattern": pattern_name,
                             "nested_function": False,
-                        }
+                        },
                     },
-                )
+                ),
             )
             if len(findings) >= max_findings_per_file:
                 break

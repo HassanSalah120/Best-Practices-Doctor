@@ -10,13 +10,14 @@ Detection strategy:
   FALLBACK  — Regex for files where Tree-sitter was unavailable (parser absent
               or parse error). Regex is deliberately narrower to avoid FPs.
 """
-import re
 import os
+import re
 from pathlib import Path
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
+
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class NoInlineTypesRule(Rule):
@@ -142,7 +143,7 @@ class NoInlineTypesRule(Rule):
                     tags=["react", "typescript", "types", "separation-of-concerns", "srp"],
                     confidence=0.92,
                     evidence_signals=[f"count={count}", f"names={','.join(type_names[:5])}"],
-                )
+                ),
             )
 
         return findings
@@ -210,7 +211,7 @@ class NoInlineTypesRule(Rule):
                 ),
                 tags=["react", "typescript", "types", "separation-of-concerns", "srp"],
                 confidence=0.78,  # Lower: regex fallback has higher FP risk
-            )
+            ),
         ]
 
     # ------------------------------------------------------------------ helpers

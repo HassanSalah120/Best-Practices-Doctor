@@ -3,16 +3,16 @@ Repository Suggestion Rule
 
 Suggests extracting database logic to Repositories when controllers use Eloquent directly.
 """
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
-from rules.base import Rule
 from core.project_recommendations import (
     enabled_capabilities,
     enabled_team_standards,
     project_aware_guidance,
     recommendation_context_tags,
 )
+from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 
 class RepositorySuggestionRule(Rule):
@@ -37,7 +37,7 @@ class RepositorySuggestionRule(Rule):
     - Controller methods use Eloquent directly (::where, ::find, etc)
     - Controller methods have high query counts
     """
-    
+
     id = "repository-suggestion"
     name = "Repository Pattern Suggestion"
     description = "Suggests extracting database queries to Repository classes"
@@ -46,7 +46,7 @@ class RepositorySuggestionRule(Rule):
     applicable_project_types = ["laravel_api", "laravel_blade", "laravel_inertia_react", "laravel_inertia_vue"]
     _WRITE_QUERY_TOKENS = ("create", "insert", "update", "upsert", "delete", "save", "sync", "attach", "detach")
     _RESTFUL_READ_METHODS = {"index", "show", "list", "search", "create", "edit"}
-    
+
     def analyze(
         self,
         facts: Facts,
@@ -89,7 +89,7 @@ class RepositorySuggestionRule(Rule):
                 # This prevents collisions when two controllers share the same short name in different namespaces.
                 if method.class_fqcn not in set(controller_fqcn_by_file.get(method.file_path, [])):
                     continue
-            
+
             # Skip if controller already uses service layer abstraction
             if self._has_service_layer_injection(method, facts):
                 continue
@@ -97,7 +97,7 @@ class RepositorySuggestionRule(Rule):
             # Use metrics if available
             method_metrics = metrics.get(method.method_fqn) if metrics else None
             method_queries = [q for q in facts.queries if q.file_path == method.file_path and q.method_name == method.name]
-            
+
             # Count queries (either from metrics or raw facts)
             if method_metrics:
                 query_count = method_metrics.query_count
@@ -124,7 +124,7 @@ class RepositorySuggestionRule(Rule):
                 continue
             if min_write_queries > 0 and write_query_count < min_write_queries:
                 continue
-            
+
             # Check criteria
             if query_count >= min_query_count and complexity >= min_complexity:
                 guidance = project_aware_guidance(facts, focus="service_boundaries")
@@ -177,7 +177,7 @@ class RepositorySuggestionRule(Rule):
                         "overlap_role": "child",
                     },
                 ))
-        
+
         return findings
 
     def _calibrated_severity(
@@ -198,13 +198,13 @@ class RepositorySuggestionRule(Rule):
         if "multi_tenant" in capabilities:
             return Severity.MEDIUM
         return self.severity
-    
+
     def _generate_example(self, controller_name: str) -> str:
         """Generate before/after example."""
         model_name = controller_name.replace("Controller", "")
         repo_name = f"{model_name}Repository"
         variable_name = model_name.lower()
-        
+
         return f"""// Before: Direct Eloquent in Controller
 public function index()
 {{
@@ -236,7 +236,7 @@ public function index()
                 continue
             if m.class_fqcn != method.class_fqcn and m.class_name != method.class_name:
                 continue
-            
+
             # Check constructor parameters for service interfaces
             for param in m.parameters or []:
                 param_lower = param.lower()
@@ -247,14 +247,14 @@ public function index()
                 if "service" in param_lower and ("interface" in param_lower or param_lower.endswith("service")):
                     return True
             break
-        
+
         # Check if method delegates to service layer via call sites
         call_sites_lower = " ".join(method.call_sites or []).lower()
         if "->" in call_sites_lower and "service->" in call_sites_lower:
             return True
         if "this->" in call_sites_lower and any(s in call_sites_lower for s in ["service->", "services->"]):
             return True
-        
+
         return False
 
     def _is_orchestrated_read_method(self, method) -> bool:

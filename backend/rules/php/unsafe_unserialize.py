@@ -8,13 +8,12 @@ from __future__ import annotations
 
 import re
 
-from schemas.facts import Facts
-from schemas.metrics import MethodMetrics
-from schemas.finding import Finding, Category, Severity
 from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
 
 from ._parse_utils import extract_paren_content, split_top_level_args
-
 
 _UNSER = re.compile(r"\bunserialize\s*\(", re.IGNORECASE)
 _REQUESTISH = re.compile(r"(\$request\b|request\s*\(|\$_(get|post|request)\b)", re.IGNORECASE)
@@ -128,7 +127,7 @@ class UnsafeUnserializeRule(Rule):
                     ),
                     tags=["security", "deserialization", "object_injection"],
                     confidence=conf,
-                )
+                ),
             )
 
         return findings
