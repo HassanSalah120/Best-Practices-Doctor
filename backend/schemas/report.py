@@ -2,7 +2,7 @@
 Scan Report and Job Status Schema
 """
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -11,7 +11,7 @@ from .finding import Finding, FindingClassification, Severity
 from .project_type import ProjectInfo
 
 
-class ScanStatus(str, Enum):
+class ScanStatus(StrEnum):
     """Scan job status."""
     PENDING = "pending"
     RUNNING = "running"

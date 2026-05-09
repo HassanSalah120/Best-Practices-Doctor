@@ -1,12 +1,12 @@
 """
 Project Type Detection Schema
 """
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class ProjectType(str, Enum):
+class ProjectType(StrEnum):
     """Detected project types."""
     LARAVEL_BLADE = "laravel_blade"
     LARAVEL_INERTIA_REACT = "laravel_inertia_react"
