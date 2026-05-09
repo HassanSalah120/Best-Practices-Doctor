@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "bpdoctor"
 version = "1.0.0"
 description = "Best Practices Doctor - Code quality analysis for Laravel/React projects"
-readme = "../README.md"
+readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
 authors = [
