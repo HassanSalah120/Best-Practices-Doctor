@@ -1,0 +1,7 @@
+{
+  "name": "tests/laravel-blade-mini",
+  "require": {
+    "laravel/framework": "^10.0"
+  }
+}
+

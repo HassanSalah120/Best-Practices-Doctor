@@ -1,0 +1,191 @@
+"""
+Tenant Access Middleware Missing Rule
+
+Detects tenant/clinic-sensitive routes that are authenticated but missing route-level
+tenant access middleware.
+"""
+
+from __future__ import annotations
+
+from schemas.facts import Facts
+from schemas.metrics import MethodMetrics
+from schemas.finding import Finding, Category, Severity
+from rules.base import Rule
+from core.project_recommendations import (
+    enabled_capabilities,
+    enabled_team_standards,
+    project_aware_guidance,
+    recommendation_context_tags,
+)
+
+
+class TenantAccessMiddlewareMissingRule(Rule):
+    id = "tenant-access-middleware-missing"
+    name = "Tenant Access Middleware Missing"
+    description = "Detects tenant-sensitive routes missing clinic/tenant access middleware"
+    category = Category.SECURITY
+    default_severity = Severity.HIGH
+    applicable_project_types = [
+        "laravel_blade",
+        "laravel_inertia_react",
+        "laravel_inertia_vue",
+        "laravel_api",
+        "laravel_livewire",
+    ]
+
+    _STRONG_TENANT_MARKERS = (
+        "clinic",
+        "clinic_id",
+        "tenant",
+        "tenant_id",
+        "workspace",
+        "workspace_id",
+        "organization",
+        "organization_id",
+    )
+    _WEAK_TENANT_MARKERS = ("account", "account_id", "practice", "branch")
+    _ACCESS_TOKENS = (
+        "clinic_access",
+        "tenant_access",
+        "workspace_access",
+        "organization_access",
+        "account_access",
+        "scope",
+        "can:",
+        "permission:",
+        "role:",
+    )
+    _AUTH_TOKENS = ("auth", "sanctum", "passport", "verified")
+    _PUBLIC_ROUTE_TOKENS = ("login", "logout", "register", "password", "reset", "forgot", "webhook", "health", "status")
+    severity_weight = 0
+    confidence = 'high'
+    fix_suggestion = 'Remove the tenant access middleware missing risk and enforce the relevant Laravel/React security control at the boundary. Add a regression test that proves unsafe input or configuration is rejected.'
+    examples = {}
+    priority = 1
+    group = 'Access Control'
+    applies_to = ['middleware']
+    references = ['OWASP A05:2021 - Security Misconfiguration']
+    related_rules = []
+    false_positive_notes = 'May be a false positive when protection is enforced by upstream middleware, shared policy, or infrastructure not visible to the scanner.'
+    detection_type = 'cross-file'
+    analysis_cost = 'high'
+    auto_fixable = False
+    tags = {'domain': 'laravel', 'type': 'security', 'concern': 'tenant-access-middleware'}
+
+    def analyze(
+        self,
+        facts: Facts,
+        metrics: dict[str, MethodMetrics] | None = None,
+    ) -> list[Finding]:
+        findings: list[Finding] = []
+        min_signals = int(self.get_threshold("min_project_signals", 5) or 5)
+        min_confidence = float(self.get_threshold("min_confidence", 0.7) or 0.7)
+        require_multi_tenant_capability = bool(self.get_threshold("require_multi_tenant_capability", False))
+        tenant_mode = str(getattr(getattr(facts, "project_context", None), "tenant_mode", "unknown") or "unknown").lower()
+        capabilities = enabled_capabilities(facts)
+        team_standards = enabled_team_standards(facts)
+        if require_multi_tenant_capability and "multi_tenant" not in capabilities and tenant_mode != "tenant":
+            return findings
+        if tenant_mode == "non_tenant":
+            return findings
+        project_signal_score, project_strong_hits = self._project_tenant_signals(facts)
+        if tenant_mode != "tenant" and project_strong_hits == 0:
+            return findings
+
+        for route in facts.routes or []:
+            descriptor = " ".join(
+                [
+                    str(route.uri or "").lower(),
+                    str(route.controller or "").lower(),
+                    str(route.action or "").lower(),
+                    str(route.name or "").lower(),
+                ]
+            )
+            route_score, route_strong_hits = self._tenant_marker_score(descriptor)
+            if route_strong_hits == 0:
+                continue
+            if project_signal_score < min_signals and route_score < 2:
+                continue
+            if any(tok in descriptor for tok in self._PUBLIC_ROUTE_TOKENS):
+                continue
+
+            mw_text = " ".join(str(x).lower() for x in (route.middleware or []))
+            if not any(tok in mw_text for tok in self._AUTH_TOKENS):
+                continue
+            if any(tok in mw_text for tok in self._ACCESS_TOKENS):
+                continue
+
+            confidence = min(0.9, 0.68 + (0.05 * min(route_strong_hits, 3)) + (0.02 if "verified" in mw_text else 0.0))
+            if confidence < min_confidence:
+                continue
+            guidance = project_aware_guidance(facts, focus="orchestration_boundaries")
+            findings.append(
+                self.create_finding(
+                    title="Tenant-sensitive route may be missing route-level access middleware",
+                    context=f"{str(route.method or '').upper()} {route.uri}",
+                    file=route.file_path or "routes/web.php",
+                    line_start=int(getattr(route, "line_number", 1) or 1),
+                    description=(
+                        f"Detected tenant-sensitive route `{str(route.method or '').upper()} {route.uri}`"
+                        " protected by auth but without an obvious clinic/tenant access middleware."
+                    ),
+                    why_it_matters=(
+                        "In clinic or multi-tenant systems, auth alone does not enforce membership or"
+                        " object-level access. Missing tenant middleware can lead to IDOR-style access."
+                    ),
+                    suggested_fix=(
+                        "Add route-level tenant access middleware (for example `clinic_access`,"
+                        " `tenant_access`, or an ability middleware such as `can:access-clinic`)."
+                    ) + (f"\n\nProject-aware guidance:\n{guidance}" if guidance else ""),
+                    tags=["laravel", "security", "routes", "multi-tenant", "idor", *recommendation_context_tags(facts)],
+                    confidence=confidence,
+                    evidence_signals=[
+                        f"uri={route.uri}",
+                        f"middleware={mw_text}",
+                        f"route_tenant_signal_score={route_score}",
+                        "tenant_access_middleware_missing=true",
+                    ],
+                    metadata={
+                        "decision_profile": {
+                            "decision": "emit",
+                            "project_business_context": str(getattr(getattr(facts, "project_context", None), "project_business_context", "unknown") or "unknown"),
+                            "capabilities": sorted(capabilities),
+                            "team_standards": sorted(team_standards),
+                            "decision_summary": "Tenant-sensitive route matched strong tenant signals without tenant access middleware.",
+                            "decision_reasons": [
+                                f"tenant_mode={tenant_mode}",
+                                f"project_signal_score={project_signal_score}",
+                                f"route_signal_score={route_score}",
+                                f"min_confidence={min_confidence:.2f}",
+                            ],
+                        }
+                    },
+                )
+            )
+        return findings
+
+    def _project_tenant_signals(self, facts: Facts) -> tuple[int, int]:
+        score = 0
+        strong_hits = 0
+        for file_path in facts.files or []:
+            item_score, item_strong_hits = self._tenant_marker_score(file_path)
+            score += item_score
+            strong_hits += item_strong_hits
+        for route in facts.routes or []:
+            route_text = " ".join(
+                [
+                    str(getattr(route, "uri", "") or ""),
+                    str(getattr(route, "controller", "") or ""),
+                    " ".join(str(x or "") for x in (getattr(route, "middleware", []) or [])),
+                ]
+            )
+            item_score, item_strong_hits = self._tenant_marker_score(route_text)
+            score += item_score
+            strong_hits += item_strong_hits
+        return score, strong_hits
+
+    def _tenant_marker_score(self, text: str) -> tuple[int, int]:
+        low = str(text or "").lower().replace("\\", "/")
+        strong = sum(1 for marker in self._STRONG_TENANT_MARKERS if marker in low)
+        weak = sum(1 for marker in self._WEAK_TENANT_MARKERS if marker in low)
+        return (strong * 2) + weak, strong

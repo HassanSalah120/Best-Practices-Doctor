@@ -1,0 +1,152 @@
+{
+  "id": "normalized-id",
+  "project_path": "/normalized/path",
+  "project_info": {
+    "root_path": "/normalized/path",
+    "project_type": "laravel_inertia_react",
+    "framework_version": "10.0",
+    "php_version": null,
+    "features": [
+      "inertia",
+      "react",
+      "inertia-react"
+    ],
+    "packages": {
+      "laravel/framework": "^10.0",
+      "inertiajs/inertia-laravel": "^0.6"
+    },
+    "dev_packages": {},
+    "npm_packages": {
+      "react": "^18.0.0",
+      "@inertiajs/react": "^1.0.0"
+    },
+    "has_tests": false,
+    "has_api_routes": false,
+    "has_web_routes": false,
+    "has_blade_views": false,
+    "has_react_components": true,
+    "has_vue_components": false
+  },
+  "scanned_at": "2024-01-01T00:00:00Z",
+  "duration_ms": 0,
+  "files_scanned": 4,
+  "classes_found": 0,
+  "methods_found": 0,
+  "score": {
+    "overall": 95,
+    "security": 89,
+    "performance": 100,
+    "architecture": 99,
+    "quality": 98,
+    "accessibility": 100
+  },
+  "findings": [
+    {
+      "id": "finding_02a1c2251d5c",
+      "fingerprint": "02a1c2251d5c",
+      "rule_id": "hardcoded-user-facing-strings",
+      "category": "react_best_practice",
+      "severity": "medium",
+      "classification": "advisory",
+      "file": "resources/js/Pages/BigPage.tsx",
+      "context": "file:resources/js/Pages/BigPage.tsx"
+    },
+    {
+      "id": "finding_0b348cb19136",
+      "fingerprint": "0b348cb19136",
+      "rule_id": "storage-paths-not-in-gitignore",
+      "category": "security",
+      "severity": "high",
+      "classification": "risk",
+      "file": ".gitignore",
+      "context": "project:.gitignore:storage-paths"
+    },
+    {
+      "id": "finding_3644150170c3",
+      "fingerprint": "3644150170c3",
+      "rule_id": "env-committed-to-git",
+      "category": "security",
+      "severity": "critical",
+      "classification": "risk",
+      "file": ".gitignore",
+      "context": "project:.gitignore:.env"
+    },
+    {
+      "id": "finding_37175544b890",
+      "fingerprint": "37175544b890",
+      "rule_id": "inertia-page-missing-head",
+      "category": "react_best_practice",
+      "severity": "low",
+      "classification": "advisory",
+      "file": "resources/js/Pages/SmallPage.tsx",
+      "context": "file:resources/js/Pages/SmallPage.tsx"
+    },
+    {
+      "id": "finding_4353f1e36957",
+      "fingerprint": "4353f1e36957",
+      "rule_id": "inertia-page-missing-head",
+      "category": "react_best_practice",
+      "severity": "low",
+      "classification": "advisory",
+      "file": "resources/js/Pages/BigPage.tsx",
+      "context": "file:resources/js/Pages/BigPage.tsx"
+    },
+    {
+      "id": "finding_5e90b443681d",
+      "fingerprint": "5e90b443681d",
+      "rule_id": "react-useeffect-fetch-without-abort",
+      "category": "react_best_practice",
+      "severity": "medium",
+      "classification": "advisory",
+      "file": "resources/js/Pages/BigPage.tsx",
+      "context": "resources/js/Pages/BigPage.tsx:14:useeffect-fetch"
+    },
+    {
+      "id": "finding_5e96c98a6e90",
+      "fingerprint": "5e96c98a6e90",
+      "rule_id": "inline-api-logic",
+      "category": "react_best_practice",
+      "severity": "high",
+      "classification": "advisory",
+      "file": "resources/js/Pages/BigPage.tsx",
+      "context": "BigPage"
+    },
+    {
+      "id": "finding_8d6239219940",
+      "fingerprint": "8d6239219940",
+      "rule_id": "env-example-missing-or-out-of-sync",
+      "category": "security",
+      "severity": "high",
+      "classification": "risk",
+      "file": ".env.example",
+      "context": "project:.env.example"
+    },
+    {
+      "id": "finding_b1dda3bea4dc",
+      "fingerprint": "b1dda3bea4dc",
+      "rule_id": "error-pages-missing",
+      "category": "laravel_best_practice",
+      "severity": "high",
+      "classification": "advisory",
+      "file": "resources/js/pages/errors",
+      "context": "resources/js/pages/errors (Inertia) or resources/views/errors"
+    },
+    {
+      "id": "finding_e255b1ef5e9f",
+      "fingerprint": "e255b1ef5e9f",
+      "rule_id": "tests-missing",
+      "category": "maintainability",
+      "severity": "medium",
+      "classification": "advisory",
+      "file": "package.json",
+      "context": "project:test-suite"
+    }
+  ],
+  "findings_by_file": {},
+  "findings_by_category": {},
+  "findings_by_severity": {},
+  "findings_by_classification": {},
+  "file_summaries": [],
+  "summary": "",
+  "ruleset_path": null
+}

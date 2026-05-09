@@ -1,0 +1,8 @@
+{
+  "name": "tests-react-hybrid-near-miss-mini",
+  "dependencies": {
+    "react": "^18.0.0",
+    "@inertiajs/react": "^1.0.0",
+    "typescript": "^5.0.0"
+  }
+}

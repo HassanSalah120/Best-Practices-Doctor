@@ -1,0 +1,124 @@
+{
+  "id": "normalized-id",
+  "project_path": "/normalized/path",
+  "project_info": {
+    "root_path": "/normalized/path",
+    "project_type": "laravel_blade",
+    "framework_version": "10.0",
+    "php_version": null,
+    "features": [],
+    "packages": {
+      "laravel/framework": "^10.0"
+    },
+    "dev_packages": {},
+    "npm_packages": {},
+    "has_tests": true,
+    "has_api_routes": false,
+    "has_web_routes": false,
+    "has_blade_views": false,
+    "has_react_components": false,
+    "has_vue_components": false
+  },
+  "scanned_at": "2024-01-01T00:00:00Z",
+  "duration_ms": 0,
+  "files_scanned": 2,
+  "classes_found": 1,
+  "methods_found": 1,
+  "score": {
+    "overall": 94,
+    "security": 85,
+    "performance": 100,
+    "architecture": 99,
+    "quality": 99,
+    "accessibility": 100
+  },
+  "findings": [
+    {
+      "id": "finding_0b348cb19136",
+      "fingerprint": "0b348cb19136",
+      "rule_id": "storage-paths-not-in-gitignore",
+      "category": "security",
+      "severity": "high",
+      "classification": "risk",
+      "file": ".gitignore",
+      "context": "project:.gitignore:storage-paths"
+    },
+    {
+      "id": "finding_13f9115493f6",
+      "fingerprint": "13f9115493f6",
+      "rule_id": "missing-form-request",
+      "category": "validation",
+      "severity": "low",
+      "classification": "advisory",
+      "file": "app/Http/Controllers/UserController.php",
+      "context": "store"
+    },
+    {
+      "id": "finding_3644150170c3",
+      "fingerprint": "3644150170c3",
+      "rule_id": "env-committed-to-git",
+      "category": "security",
+      "severity": "critical",
+      "classification": "risk",
+      "file": ".gitignore",
+      "context": "project:.gitignore:.env"
+    },
+    {
+      "id": "finding_408c140509bb",
+      "fingerprint": "408c140509bb",
+      "rule_id": "policy-coverage-on-mutations",
+      "category": "security",
+      "severity": "medium",
+      "classification": "risk",
+      "file": "app/Http/Controllers/UserController.php",
+      "context": "App\\Http\\Controllers\\UserController::store"
+    },
+    {
+      "id": "finding_592690769583",
+      "fingerprint": "592690769583",
+      "rule_id": "low-coverage-files",
+      "category": "maintainability",
+      "severity": "medium",
+      "classification": "advisory",
+      "file": "app/Http/Controllers/UserController.php",
+      "context": "coverage:below-threshold"
+    },
+    {
+      "id": "finding_6e610b72b2b6",
+      "fingerprint": "6e610b72b2b6",
+      "rule_id": "controller-inline-validation",
+      "category": "validation",
+      "severity": "high",
+      "classification": "advisory",
+      "file": "app/Http/Controllers/UserController.php",
+      "context": "App\\Http\\Controllers\\UserController::store"
+    },
+    {
+      "id": "finding_8d6239219940",
+      "fingerprint": "8d6239219940",
+      "rule_id": "env-example-missing-or-out-of-sync",
+      "category": "security",
+      "severity": "high",
+      "classification": "risk",
+      "file": ".env.example",
+      "context": "project:.env.example"
+    },
+    {
+      "id": "finding_dab704e44f3c",
+      "fingerprint": "dab704e44f3c",
+      "rule_id": "error-pages-missing",
+      "category": "laravel_best_practice",
+      "severity": "high",
+      "classification": "advisory",
+      "file": "resources/views/errors",
+      "context": "resources/views/errors"
+    }
+  ],
+  "findings_by_file": {},
+  "findings_by_category": {},
+  "findings_by_severity": {},
+  "findings_by_classification": {},
+  "file_summaries": [],
+  "summary": "",
+  "ruleset_path": null
+}

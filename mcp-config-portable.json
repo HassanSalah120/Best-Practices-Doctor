@@ -1,0 +1,20 @@
+{
+    "mcpServers":  {
+                       "bpdoctor":  {
+                                        "args":  [
+                                                     "--prefix",
+                                                     "D:\\Best-Practices-Doctor\\bpdoctor-mcp",
+                                                     "run",
+                                                     "dev"
+                                                 ],
+                                        "env":  {
+                                                    "BPDOCTOR_WORKSPACE_ROOT":  "D:\\Best-Practices-Doctor",
+                                                    "BPDOCTOR_API_BASE_URL":  "http://127.0.0.1:50401",
+                                                    "BPDOCTOR_API_TOKEN":  "hIarbbD_O7pEUAyowIxUMifextyfT6WZ2XYbvwIm260",
+                                                    "BPDOCTOR_DISABLE_DISCOVERY_TOKEN":  "0"
+                                                },
+                                        "command":  "C:\\Program Files\\nodejs\\npm.cmd",
+                                        "disabled":  false
+                                    }
+                   }
+}

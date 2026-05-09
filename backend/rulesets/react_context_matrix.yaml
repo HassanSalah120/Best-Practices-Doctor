@@ -1,0 +1,126 @@
+schema_version: 1
+framework: react
+description: >
+  React context matrix used to calibrate React/Inertia findings from static project signals.
+
+project_types:
+  inertia_spa:
+    label: Inertia SPA
+    description: React app integrated through Inertia adapters.
+    detection_signals:
+      structural:
+        - inertia_imports
+      heuristic:
+        - "@inertiajs imports present"
+
+  next_js:
+    label: Next.js
+    description: Next.js router/navigation based React project.
+    detection_signals:
+      structural:
+        - next_router_imports
+      heuristic:
+        - next_router_or_navigation_import
+
+  standalone:
+    label: Standalone React
+    description: Non-Inertia and non-Next standalone React application.
+    detection_signals:
+      structural:
+        - fallback_default
+      heuristic:
+        - no_inertia_or_next_markers
+
+profiles:
+  component-driven:
+    label: Component Driven
+    description: Typical React component-driven architecture.
+    detection_signals:
+      structural:
+        - react_components
+      heuristic:
+        - component_tree_present
+
+capabilities:
+  has_design_system:
+    label: Design System Present
+    description: UI library/design system imports detected (shadcn/radix/chakra/mui).
+    detection_signals:
+      structural:
+        - package_json_ui_libs
+      heuristic:
+        - shadcn_or_radix_or_chakra_or_mui
+
+  is_public_facing:
+    label: Public Facing
+    description: Public routes/pages without root auth middleware.
+    detection_signals:
+      structural:
+        - public_routes_detected
+      heuristic:
+        - root_without_auth_wrapper
+
+  typescript_strict:
+    label: TypeScript Strict
+    description: tsconfig has strict mode enabled.
+    detection_signals:
+      structural:
+        - tsconfig_strict_true
+      heuristic:
+        - strict_mode_enabled
+
+  context_provider_count_high:
+    label: Many Context Providers
+    description: Context providers count exceeds 5.
+    detection_signals:
+      structural:
+        - context_provider_count_gt_5
+      heuristic:
+        - provider_density_high
+
+  route_count_large:
+    label: Route Count >= 10
+    description: Project has ten or more routes.
+    detection_signals:
+      structural:
+        - route_count_gte_10
+      heuristic:
+        - route_files_count_high
+
+team_expectations:
+  accessibility_enforced:
+    label: Accessibility Enforced
+    default: false
+
+rule_behavior:
+  missing-aria-live:
+    defaults:
+      enabled: true
+      severity: medium
+    by_capability:
+      is_public_facing:
+        severity: high
+
+  large-react-component:
+    defaults:
+      enabled: true
+      severity: medium
+    by_capability:
+      has_design_system:
+        severity: low
+
+  context-value-not-memoized:
+    defaults:
+      enabled: true
+      severity: medium
+    by_capability:
+      context_provider_count_high:
+        severity: high
+
+  missing-route-code-splitting:
+    defaults:
+      enabled: false
+      severity: medium
+    by_capability:
+      route_count_large:
+        enabled: true

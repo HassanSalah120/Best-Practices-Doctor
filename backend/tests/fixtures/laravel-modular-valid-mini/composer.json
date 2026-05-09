@@ -1,0 +1,7 @@
+{
+  "name": "tests/laravel-modular-valid-mini",
+  "require": {
+    "php": "^8.2",
+    "laravel/framework": "^11.0"
+  }
+}
