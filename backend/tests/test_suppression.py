@@ -178,7 +178,7 @@ def test_suppression_manager_apply_to_findings(temp_project, sample_finding):
     assert len(suppressed) == 1
 
 
-def test_suppression_manager_clear_expired(temp_project, _sample_finding):
+def test_suppression_manager_clear_expired(temp_project):
     """Manager can clear expired suppressions."""
     manager = SuppressionManager(temp_project)
 

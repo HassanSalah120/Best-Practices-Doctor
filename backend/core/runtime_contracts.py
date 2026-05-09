@@ -647,12 +647,12 @@ class RuntimeContractAnalyzer:
         # When code explicitly uses validated() without extracted facts, infer keys
         # from nearby inline arrays as a safety net.
         inline_rules = self._extract_inline_validation_rules(source)
-        for field, rules in inline_rules.items():
-            accepted.add(field)
+        for field_name, rules in inline_rules.items():
+            accepted.add(field_name)
             if self._rules_include_confirmed(rules):
-                accepted.add(f"{field}_confirmation")
+                accepted.add(f"{field_name}_confirmation")
             if self._rules_include_required(rules):
-                required.add(field)
+                required.add(field_name)
 
         return accepted, required
 
@@ -667,8 +667,8 @@ class RuntimeContractAnalyzer:
     def _fields_from_validation(self, validation: ValidationUsage) -> tuple[set[str], set[str]]:
         accepted: set[str] = set()
         required: set[str] = set()
-        for field, raw_rules in (validation.rules or {}).items():
-            normalized = self._normalize_field(field)
+        for field_name, raw_rules in (validation.rules or {}).items():
+            normalized = self._normalize_field(field_name)
             if not normalized:
                 continue
             accepted.add(normalized)
@@ -1463,20 +1463,20 @@ class RuntimeContractAnalyzer:
 
     def _sample_payload(self, required_fields: set[str]) -> dict[str, Any]:
         payload: dict[str, Any] = {}
-        for field in sorted(required_fields):
-            lower = field.lower()
+        for field_name in sorted(required_fields):
+            lower = field_name.lower()
             if "email" in lower:
-                payload[field] = "runtime-contract@example.test"
+                payload[field_name] = "runtime-contract@example.test"
             elif lower.startswith("is_") or lower.startswith("has_") or lower in {"active", "enabled"}:
-                payload[field] = True
+                payload[field_name] = True
             elif lower.endswith("_id") or "count" in lower or "amount" in lower or "number" in lower:
-                payload[field] = 1
+                payload[field_name] = 1
             elif "date" in lower:
-                payload[field] = "2026-01-01"
+                payload[field_name] = "2026-01-01"
             elif lower.endswith("s"):
-                payload[field] = []
+                payload[field_name] = []
             else:
-                payload[field] = "sample"
+                payload[field_name] = "sample"
         return payload
 
     def _php_array_literal(self, payload: dict[str, Any], *, indent: str = "") -> str:

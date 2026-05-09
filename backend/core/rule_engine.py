@@ -157,7 +157,6 @@ from rules.laravel import (
     ServiceProviderHeavyBootRule,
     SessionFixationRegenerateMissingRule,
     SignedRoutesMissingSignatureMiddlewareRule,
-    SqlInjectionRiskRule,
     SsrfRiskHttpClientRule,
     SynchronousMailInRequestRule,
     TenantAccessMiddlewareMissingRule,

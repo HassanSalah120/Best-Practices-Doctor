@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
+from api.remediation_routes import remediation_router
 from config import settings
 from core.detector import ProjectDetector
 from core.hashing import fast_hash_hex
@@ -1803,8 +1804,5 @@ async def invalidate_ast_cache_file(job_id: str, file_path: str = Query(..., des
         return {"status": "invalidated" if invalidated else "not_found", "file": file_path}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to invalidate cache: {e}")
-
-
-from api.remediation_routes import remediation_router
 
 router.include_router(remediation_router)

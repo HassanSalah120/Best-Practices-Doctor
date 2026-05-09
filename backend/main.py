@@ -2,6 +2,7 @@
 Best Practices Doctor - FastAPI Application
 Main entry point with ephemeral port and lifecycle management.
 """
+import argparse
 import asyncio
 import logging
 import os
@@ -133,10 +134,6 @@ def handle_signal(signum, frame):
     # Note: Modern FastAPI/Uvicorn often handles this, but we keep it for robustness
     cleanup_port_file()
     sys.exit(0)
-
-
-import argparse
-
 
 def main() -> None:
     """Run the backend with an ephemeral port and discovery file."""
