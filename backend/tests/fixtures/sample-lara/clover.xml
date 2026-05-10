@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="0" clover="4.5.2">
+  <project timestamp="0">
+    <file name="app/Http/Controllers/UserController.php">
+      <line num="10" type="stmt" count="1"/>
+      <line num="11" type="stmt" count="0"/>
+      <line num="12" type="stmt" count="0"/>
+      <line num="13" type="stmt" count="0"/>
+      <line num="14" type="stmt" count="0"/>
+    </file>
+  </project>
+</coverage>
+

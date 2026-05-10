@@ -1,0 +1,72 @@
+{
+  "id": "normalized-id",
+  "project_path": "/normalized/path",
+  "project_info": {
+    "root_path": "/normalized/path",
+    "project_type": "native_php",
+    "framework_version": null,
+    "php_version": null,
+    "features": [],
+    "packages": {},
+    "dev_packages": {},
+    "npm_packages": {},
+    "has_tests": false,
+    "has_api_routes": false,
+    "has_web_routes": false,
+    "has_blade_views": false,
+    "has_react_components": false,
+    "has_vue_components": false
+  },
+  "scanned_at": "2024-01-01T00:00:00Z",
+  "duration_ms": 0,
+  "files_scanned": 2,
+  "classes_found": 1,
+  "methods_found": 64,
+  "score": {
+    "overall": 100,
+    "security": 100,
+    "performance": 100,
+    "architecture": 99,
+    "quality": 100,
+    "accessibility": 100
+  },
+  "findings": [
+    {
+      "id": "finding_1911778ac367",
+      "fingerprint": "1911778ac367",
+      "rule_id": "long-method",
+      "category": "srp",
+      "severity": "low",
+      "classification": "advisory",
+      "file": "src/Native.php",
+      "context": "Native\\BigNative::huge"
+    },
+    {
+      "id": "finding_9533aa449b1e",
+      "fingerprint": "9533aa449b1e",
+      "rule_id": "tests-missing",
+      "category": "maintainability",
+      "severity": "medium",
+      "classification": "advisory",
+      "file": "index.php",
+      "context": "project:test-suite"
+    },
+    {
+      "id": "finding_dab704e44f3c",
+      "fingerprint": "dab704e44f3c",
+      "rule_id": "error-pages-missing",
+      "category": "laravel_best_practice",
+      "severity": "high",
+      "classification": "advisory",
+      "file": "resources/views/errors",
+      "context": "resources/views/errors"
+    }
+  ],
+  "findings_by_file": {},
+  "findings_by_category": {},
+  "findings_by_severity": {},
+  "findings_by_classification": {},
+  "file_summaries": [],
+  "summary": "",
+  "ruleset_path": null
+}

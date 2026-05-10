@@ -1,0 +1,18 @@
+{
+  "name": "best-practices-doctor-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "setup": "powershell -ExecutionPolicy Bypass -File ./setup.ps1",
+    "start": "powershell -ExecutionPolicy Bypass -File ./run-all.ps1 -NoWatch -BackendPort 50401",
+    "dev": "powershell -ExecutionPolicy Bypass -File ./run-all.ps1 -NoWatch -BackendPort 50401",
+    "dev:clean": "powershell -ExecutionPolicy Bypass -File ./run-all.ps1 -NoWatch -CleanPorts -BackendPort 50401",
+    "web": "powershell -ExecutionPolicy Bypass -File ./run-web.ps1",
+    "web:clean": "powershell -ExecutionPolicy Bypass -File ./run-web.ps1 -CleanPorts",
+    "desktop": "powershell -ExecutionPolicy Bypass -File ./dev.ps1 -SkipSidecarBuild",
+    "build:desktop": "powershell -ExecutionPolicy Bypass -File ./dev.ps1",
+    "test:backend": "cd backend && python -m pytest -q --ignore-glob=tests/csrf-calibration-* --ignore=tests/.codex_pytest_tmp_runtime",
+    "test:frontend": "npm --prefix frontend run test",
+    "build:frontend": "npm --prefix frontend run build"
+  }
+}

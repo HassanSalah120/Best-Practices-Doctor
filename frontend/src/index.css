@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 223 39% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 34% 10%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 34% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 191 91% 52%;
+    --primary-foreground: 224 53% 12%;
+
+    --secondary: 220 26% 18%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 220 26% 18%;
+    --muted-foreground: 214 18% 68%;
+
+    --accent: 220 26% 18%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 219 23% 22%;
+    --input: 219 23% 22%;
+    --ring: 191 91% 52%;
+
+    --radius: 0.9rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at top, rgba(34, 211, 238, 0.16), transparent 28%),
+      radial-gradient(circle at 85% 15%, rgba(45, 212, 191, 0.1), transparent 20%),
+      linear-gradient(180deg, rgba(5, 10, 22, 1), rgba(4, 8, 18, 1));
+    background-attachment: fixed;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+::selection {
+  background: rgba(34, 211, 238, 0.22);
+  color: white;
+}
+
+/* Custom Scrollbar for Premium Feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground;
+}
+
+/* Glassmorphism Classes */
+.glass {
+  @apply border border-white/10 bg-slate-950/60 backdrop-blur-xl;
+}
+
+.glass-card {
+  @apply glass rounded-[1.5rem] shadow-[0_24px_80px_rgba(3,10,24,0.38)] transition-all duration-300;
+}
+
+.glass-card:hover {
+  @apply border-white/20 shadow-[0_24px_80px_rgba(8,24,48,0.42)];
+}
