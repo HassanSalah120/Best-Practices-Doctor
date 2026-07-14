@@ -4,9 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MODE="desktop"
-SKIP_SETUP=0
+SKIP_SETUP="${BPD_SKIP_SETUP:-0}"
 CLEAN_PORTS=0
-CHECK_ONLY=0
+CHECK_ONLY="${BPD_CHECK_ONLY:-0}"
 BACKEND_PORT=50401
 FRONTEND_PORT=1420
 

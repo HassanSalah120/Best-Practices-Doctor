@@ -6,10 +6,10 @@ import path from "node:path";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const [action, ...rawArgs] = process.argv.slice(2);
 
-function run(command, args) {
+function run(command, args, env = process.env) {
   const result = spawnSync(command, args, {
     cwd: repoRoot,
-    env: process.env,
+    env,
     stdio: "inherit",
   });
 
@@ -82,7 +82,12 @@ if (process.platform === "darwin") {
     console.error(`[BPD] Unknown action: ${action}`);
     process.exit(2);
   }
-  run("/bin/bash", [script, ...rawArgs]);
+  const env = {
+    ...process.env,
+    ...(rawArgs.includes("--check") ? { BPD_CHECK_ONLY: "1" } : {}),
+    ...(rawArgs.includes("--skip-setup") ? { BPD_SKIP_SETUP: "1" } : {}),
+  };
+  run("/bin/bash", [script, ...rawArgs], env);
 }
 
 console.error("[BPD] The desktop launcher currently supports Windows and macOS.");

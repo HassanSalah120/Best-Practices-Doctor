@@ -16,7 +16,7 @@ jobs:
   macos-launcher:
     name: macOS launcher and Rust check
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,8 +31,13 @@ jobs:
           bash -n scripts/macos/start.sh
           bash -n scripts/macos/build.sh
           node --check scripts/platform-runner.mjs
-          bash scripts/macos/setup.sh --skip-node
-          node scripts/platform-runner.mjs start --check --skip-setup
+      - name: Prepare macOS backend
+        run: bash scripts/macos/setup.sh --skip-node
+      - name: Validate macOS startup check
+        env:
+          BPD_CHECK_ONLY: "1"
+          BPD_SKIP_SETUP: "1"
+        run: node scripts/platform-runner.mjs start --check --skip-setup
       - name: Check Tauri Rust application on macOS
         run: cargo check --manifest-path tauri/src-tauri/Cargo.toml
 
