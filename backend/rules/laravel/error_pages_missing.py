@@ -51,10 +51,14 @@ class ErrorPagesMissingRule(Rule):
         if self._should_skip_for_api_only(facts):
             return []
 
-        files = {str(path or "").replace("\\", "/").lower() for path in (facts.files or [])}
+        file_map = {
+            str(path or "").replace("\\", "/").lower(): str(path or "").replace("\\", "/")
+            for path in (facts.files or [])
+        }
+        files = set(file_map)
         if not files:
             return []
-        if self._has_spa_not_found_route(files, facts):
+        if self._has_spa_not_found_route(files, facts, file_map):
             return []
         inertia_mode = self._is_inertia_project(files, facts)
 
@@ -242,7 +246,12 @@ class ErrorPagesMissingRule(Rule):
                 return True
         return False
 
-    def _has_spa_not_found_route(self, files: set[str], facts: Facts) -> bool:
+    def _has_spa_not_found_route(
+        self,
+        files: set[str],
+        facts: Facts,
+        file_map: dict[str, str],
+    ) -> bool:
         not_found_symbols = self._not_found_component_symbols(files)
         if not not_found_symbols:
             return False
@@ -250,7 +259,7 @@ class ErrorPagesMissingRule(Rule):
         for rel_path in sorted(files):
             if not self._is_js_module(rel_path):
                 continue
-            text = self._read_project_file(facts, rel_path)
+            text = self._read_project_file(facts, file_map.get(rel_path, rel_path))
             if not text:
                 continue
             if not self._has_catch_all_route(text):

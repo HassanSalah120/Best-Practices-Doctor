@@ -127,7 +127,16 @@ class MissingContentSecurityPolicyRule(Rule):
         if rel_path == current_path:
             return current_content or ""
         project_root = Path(str(getattr(facts, "project_path", "") or "."))
-        candidate = project_root / rel_path
+        normalized = str(rel_path or "").replace("\\", "/").lower()
+        original_path = next(
+            (
+                str(path or "").replace("\\", "/")
+                for path in (getattr(facts, "files", []) or [])
+                if str(path or "").replace("\\", "/").lower() == normalized
+            ),
+            rel_path,
+        )
+        candidate = project_root / original_path
         try:
             if candidate.exists():
                 return candidate.read_text(encoding="utf-8", errors="replace")

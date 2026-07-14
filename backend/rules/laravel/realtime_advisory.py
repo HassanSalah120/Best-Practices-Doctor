@@ -46,8 +46,17 @@ class _RealtimeAdvisoryRule(Rule):
         return [_norm(path) for path in (getattr(facts, "files", []) or [])]
 
     def _read(self, facts: Facts, rel_path: str) -> str:
+        normalized = _norm(rel_path)
+        original_path = next(
+            (
+                str(path or "").replace("\\", "/")
+                for path in (getattr(facts, "files", []) or [])
+                if _norm(path) == normalized
+            ),
+            rel_path,
+        )
         try:
-            return (self._project_root(facts) / rel_path).read_text(encoding="utf-8", errors="replace")
+            return (self._project_root(facts) / original_path).read_text(encoding="utf-8", errors="replace")
         except Exception:
             return ""
 
