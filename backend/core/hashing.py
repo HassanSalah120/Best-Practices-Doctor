@@ -1,19 +1,9 @@
-"""
-Hashing helpers with optional xxhash acceleration.
-"""
+"""Deterministic hashing helpers used by caches and persisted identities."""
 
 from __future__ import annotations
 
 import hashlib
 from typing import Union
-
-try:
-    import xxhash  # type: ignore
-
-    _HAS_XXHASH = True
-except Exception:
-    xxhash = None
-    _HAS_XXHASH = False
 
 
 BytesLike = Union[str, bytes, bytearray, memoryview]
@@ -31,15 +21,15 @@ def _to_bytes(data: BytesLike) -> bytes:
 
 def fast_hash_hex(data: BytesLike, length: int = 16) -> str:
     """
-    Fast deterministic hash.
+    Return a deterministic hash regardless of optional installed packages.
 
-    Uses xxhash when available, falls back to sha256.
+    This value is used in finding fingerprints, cache keys, project history,
+    and report snapshots.  Selecting an algorithm based on whether xxhash was
+    installed made identical scans produce different identities across
+    Windows, Linux, packaged apps, and development environments.
     """
     raw = _to_bytes(data)
-    if _HAS_XXHASH and xxhash is not None:
-        digest = xxhash.xxh3_128_hexdigest(raw)
-    else:
-        digest = hashlib.sha256(raw).hexdigest()
+    digest = hashlib.sha256(raw).hexdigest()
     if length <= 0:
         return digest
     return digest[:length]
