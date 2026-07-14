@@ -65,13 +65,18 @@ class NoDirectUseEffectRule(Rule):
 
     def __init__(self, config):
         super().__init__(config)
+        self._languages: dict[str, Language] = {}
         self._parsers: dict[str, Parser] = {}
         if _TREE_SITTER_READY:
             try:
-                self._parsers["javascript"] = Parser(Language(tsjs.language()))
-                self._parsers["typescript"] = Parser(Language(tsts.language_typescript()))
-                self._parsers["tsx"] = Parser(Language(tsts.language_tsx()))
+                self._languages = {
+                    "javascript": Language(tsjs.language()),
+                    "typescript": Language(tsts.language_typescript()),
+                    "tsx": Language(tsts.language_tsx()),
+                }
+                self._parsers = {name: Parser(language) for name, language in self._languages.items()}
             except Exception:
+                self._languages = {}
                 self._parsers = {}
 
     def analyze(

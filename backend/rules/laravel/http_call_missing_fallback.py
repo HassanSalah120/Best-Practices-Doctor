@@ -92,7 +92,8 @@ class HttpCallMissingFallbackRule(Rule):
         return findings
 
     def _parse(self, source: bytes) -> tree_sitter.Tree:
-        parser = tree_sitter.Parser(tree_sitter.Language(tree_sitter_php.language_php()))
+        language = tree_sitter.Language(tree_sitter_php.language_php())
+        parser = tree_sitter.Parser(language)
         return parser.parse(source)
 
     def _finding(self, file_path: str, line: int) -> Finding:

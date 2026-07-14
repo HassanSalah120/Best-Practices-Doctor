@@ -18,11 +18,14 @@ except Exception:
 
 class PhpTreeSitterHelper:
     def __init__(self) -> None:
+        self._language: Language | None = None
         self._parser: Parser | None = None
         if TREE_SITTER_READY:
             try:
-                self._parser = Parser(Language(tsphp.language_php()))
+                self._language = Language(tsphp.language_php())
+                self._parser = Parser(self._language)
             except Exception:
+                self._language = None
                 self._parser = None
 
     def is_ready(self) -> bool:
