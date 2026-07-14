@@ -17,6 +17,11 @@ jobs:
     name: Backend tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Tree-sitter's native grammar wheels are unstable when repeatedly created
+    # across Linux worker threads. CI favors deterministic coverage; production
+    # users can still configure BPD_SCAN_WORKERS for their platform.
+    env:
+      BPD_SCAN_WORKERS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
