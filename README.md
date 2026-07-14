@@ -15,18 +15,19 @@ Best Practices Doctor is a local-first desktop analyzer for Laravel, PHP, React,
 
 ## Requirements
 
-- Windows 10 or newer for the provided launch scripts
+- Windows 10 or newer, or macOS Catalina 10.15 or newer
 - Node.js 20 LTS or newer
 - Python 3.11 or newer
 - Rust installed through [rustup](https://rustup.rs/) for the desktop application
+- Xcode Command Line Tools on macOS for the desktop application (`xcode-select --install`)
 
-Rust is optional when using browser-only mode.
+Rust and Xcode Command Line Tools are optional when using browser-only mode.
 
 ## Quick start
 
 Clone the repository, then run these commands from its root:
 
-```powershell
+```shell
 npm run setup
 npm start
 ```
@@ -34,10 +35,11 @@ npm start
 `npm start` is the canonical application command. It performs a lightweight setup check and starts the Tauri desktop application. Tauri owns the frontend and Python backend lifecycle, including startup, authenticated backend discovery, and shutdown.
 
 Windows users can also double-click `setup.cmd` once and then use `start.cmd`.
+macOS users can use the same npm commands or run `bash scripts/macos/setup.sh` and `bash scripts/macos/start.sh` directly. See the [macOS guide](docs/macos.md) for installation, native builds, signing, and troubleshooting.
 
 ### Browser-only mode
 
-```powershell
+```shell
 npm run web
 ```
 
@@ -48,6 +50,7 @@ npm run dev:full
 ```
 
 Contributor mode starts the desktop app plus the MCP bridge and service monitoring. It is intentionally separate from normal application startup.
+The combined `dev:full` monitor is currently a Windows contributor convenience. On macOS, run `npm start` and `npm run mcp` in separate Terminal tabs after `npm run setup:mcp`.
 
 ## Commands
 
@@ -58,9 +61,11 @@ Contributor mode starts the desktop app plus the MCP bridge and service monitori
 | `npm run web` | Start the backend and browser UI without Tauri |
 | `npm run dev:clean` | Free the app ports, then start the desktop application |
 | `npm run dev:full` | Start desktop, backend discovery, MCP, and monitoring |
-| `npm run setup` | Install Python, frontend, Tauri, and MCP dependencies |
+| `npm run setup` | Install Python, frontend, and Tauri dependencies for the current platform |
+| `npm run setup:mcp` | Install normal dependencies plus the optional MCP bridge |
 | `npm test` | Run backend and frontend tests |
 | `npm run build` | Build the frontend and MCP bridge |
+| `npm run build:mac` | Build a native macOS app and DMG on the current Mac |
 | `npm run lint` | Run frontend linting |
 
 ## Project layout
@@ -87,7 +92,7 @@ Raw AST facts, derived metrics, and rule findings are kept separate. Rules shoul
 
 Run individual checks from the repository root:
 
-```powershell
+```shell
 npm run test:backend
 npm run test:frontend
 npm run build:frontend

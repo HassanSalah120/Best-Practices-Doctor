@@ -115,6 +115,7 @@ backend/build/
 backend/dist/
 *.spec
 !backend/main.spec
+!backend/python-backend.spec
 *.exe
 *.msi
 *.app

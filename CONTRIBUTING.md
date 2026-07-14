@@ -9,12 +9,13 @@ Thank you for contributing.
 3. Install the prerequisites listed in the README.
 4. Run:
 
-```powershell
+```shell
 npm run setup
 npm start
 ```
 
 The normal app command starts Tauri, which owns the frontend and backend lifecycle. Use `npm run dev:full` only when developing or testing the MCP integration.
+The root npm commands dispatch to PowerShell on Windows and Bash on macOS. macOS contributors should read [docs/macos.md](docs/macos.md) before the first desktop build.
 
 ## Architecture principles
 
@@ -38,7 +39,7 @@ The normal app command starts Tauri, which owns the frontend and backend lifecyc
 
 Before opening a pull request, run:
 
-```powershell
+```shell
 npm test
 npm run build
 npm run lint
@@ -46,7 +47,7 @@ npm run lint
 
 For backend-only work:
 
-```powershell
+```shell
 npm run test:backend
 ```
 

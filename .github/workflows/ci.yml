@@ -13,6 +13,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  macos-launcher:
+    name: macOS launcher and Rust check
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate macOS scripts
+        run: |
+          bash -n scripts/macos/setup.sh
+          bash -n scripts/macos/start.sh
+          bash -n scripts/macos/build.sh
+          node --check scripts/platform-runner.mjs
+          bash scripts/macos/setup.sh --skip-node
+          node scripts/platform-runner.mjs start --check --skip-setup
+      - name: Check Tauri Rust application on macOS
+        run: cargo check --manifest-path tauri/src-tauri/Cargo.toml
+
   backend:
     name: Backend tests
     runs-on: ubuntu-latest
