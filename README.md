@@ -15,13 +15,14 @@ Best Practices Doctor is a local-first desktop analyzer for Laravel, PHP, React,
 
 ## Requirements
 
-- Windows 10 or newer, or macOS Catalina 10.15 or newer
+- Windows 10 or newer
+- macOS Catalina 10.15 or newer on Intel, or macOS 11 or newer on Apple Silicon, when running from source
 - Node.js 20 LTS or newer
 - Python 3.11 or newer
 - Rust installed through [rustup](https://rustup.rs/) for the desktop application
 - Xcode Command Line Tools on macOS for the desktop application (`xcode-select --install`)
 
-Rust and Xcode Command Line Tools are optional when using browser-only mode.
+These development tools are required when running or building from source. The prebuilt macOS GitHub artifact contains the packaged backend and does not require Node.js, Python, Rust, or Xcode. Rust and Xcode Command Line Tools are also optional in browser-only mode.
 
 ## Quick start
 
@@ -36,6 +37,8 @@ npm start
 
 Windows users can also double-click `setup.cmd` once and then use `start.cmd`.
 macOS users can use the same npm commands or run `bash scripts/macos/setup.sh` and `bash scripts/macos/start.sh` directly. See the [macOS guide](docs/macos.md) for installation, native builds, signing, and troubleshooting.
+
+An Apple Silicon `.app` and `.dmg` are also built and tested by [GitHub Actions](https://github.com/HassanSalah120/Best-Practices-Doctor/actions). Open the latest successful **CI** run and download `best-practices-doctor-macos-arm64` from its **Artifacts** section. The artifact is tested on GitHub's current Apple Silicon runner; compatibility with older macOS releases is not yet certified. It is intended for testing and is ad-hoc signed rather than Apple-notarized; see the macOS guide for the first-open steps.
 
 ### Browser-only mode
 
@@ -60,7 +63,7 @@ The combined `dev:full` monitor is currently a Windows contributor convenience. 
 | `npm run check` | Validate desktop startup prerequisites without launching |
 | `npm run web` | Start the backend and browser UI without Tauri |
 | `npm run dev:clean` | Free the app ports, then start the desktop application |
-| `npm run dev:full` | Start desktop, backend discovery, MCP, and monitoring |
+| `npm run dev:full` | Start desktop, backend discovery, MCP, and monitoring on Windows |
 | `npm run setup` | Install Python, frontend, and Tauri dependencies for the current platform |
 | `npm run setup:mcp` | Install normal dependencies plus the optional MCP bridge |
 | `npm test` | Run backend and frontend tests |
