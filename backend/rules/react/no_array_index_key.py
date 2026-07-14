@@ -66,7 +66,7 @@ class NoArrayIndexKeyRule(Rule):
 
             direct_match = self._DIRECT_PATTERN.search(line)
             if direct_match:
-                if self._is_static_literal_map(lines, line_number, direct_match.group(1)):
+                if self._is_static_literal_map(lines, line_number, direct_match.group(1)) or self._is_positional_placeholder_map(lines, line_number):
                     continue
                 findings.append(self._create_finding(file_path, line_number))
                 continue
@@ -96,6 +96,15 @@ class NoArrayIndexKeyRule(Rule):
             re.IGNORECASE | re.DOTALL,
         )
         return bool(static_array_map.search(window))
+
+    @staticmethod
+    def _is_positional_placeholder_map(lines: list[str], line_number: int) -> bool:
+        start = max(0, line_number - 6)
+        end = min(len(lines), line_number + 2)
+        window = "\n".join(lines[start:end])
+        generated = re.search(r"(?:Array\.from\s*\(|new\s+Array\s*\(|\.fill\s*\()[\s\S]*?\.map\s*\(", window)
+        placeholder = re.search(r"<(?:Skeleton|Placeholder|Spacer|Shimmer|Loading)[A-Za-z0-9_.]*\b", window, re.IGNORECASE)
+        return bool(generated and placeholder)
 
     def _create_finding(self, file_path: str, line_number: int) -> Finding:
         return self.create_finding(

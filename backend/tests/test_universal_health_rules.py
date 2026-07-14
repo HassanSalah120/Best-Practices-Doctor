@@ -35,15 +35,16 @@ def test_missing_api_rate_limit_headers_cases(tmp_path: Path) -> None:
         project_path=str(tmp_path),
         routes=[RouteInfo(method="GET", uri="api/users", middleware=["api", "throttle:api"], file_path="routes/api.php", line_number=3)],
     )
-    assert len(rule.analyze(facts)) == 1
+    # Laravel's throttle middleware provides these headers by default.
+    assert rule.analyze(facts) == []
 
     facts.routes[0].middleware = ["api"]
     assert rule.analyze(facts) == []
 
-    _write(tmp_path, "app/Http/Middleware/RateHeaders.php", "<?php return $response->header('X-RateLimit-Remaining', 1);")
+    _write(tmp_path, "app/Http/Middleware/RateHeaders.php", "<?php return $response->withoutHeader('X-RateLimit-Remaining');")
     facts.routes[0].middleware = ["api", "throttle:api"]
     facts.files = ["app/Http/Middleware/RateHeaders.php"]
-    assert rule.analyze(facts) == []
+    assert len(rule.analyze(facts)) == 1
 
 
 def test_eloquent_raw_where_string_cases() -> None:

@@ -143,7 +143,10 @@ class MissingCacheForReferenceDataRule(Rule):
             model_lower = self._model_key(q.model or "")
             if not model_lower:
                 continue
-            is_reference_data = any(ref in model_lower for ref in self._REFERENCE_DATA_MODELS)
+            # Match the model identity, not a substring.  `CategoryAnswer`,
+            # `GameStatusEvent`, etc. are live domain records merely because
+            # their names contain "category" or "status".
+            is_reference_data = model_lower in self._REFERENCE_DATA_MODELS
             if not is_reference_data:
                 continue
             if self._is_config_lookup(facts, q, model_lower):

@@ -64,6 +64,18 @@ class ConsoleCommandMissingTenantScopeRule(Rule):
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
+        # Tenant scoping is only a valid requirement when the project has
+        # affirmative multi-tenant evidence.  Treating every command as
+        # tenant-aware made this rule dangerous for ordinary single-app
+        # schemas and for projects whose directory layout differs from the
+        # detector's original assumptions.
+        context = getattr(facts, "project_context", None)
+        tenant_mode = str(getattr(context, "tenant_mode", "unknown") or "unknown").lower()
+        capability = (getattr(context, "backend_capabilities", {}) or {}).get("multi_tenant", {})
+        capability_enabled = isinstance(capability, dict) and bool(capability.get("enabled", False))
+        if tenant_mode != "tenant" and not capability_enabled:
+            return []
+
         class_match = self._CLASS_RE.search(content)
         if not class_match:
             return []

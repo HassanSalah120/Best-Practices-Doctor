@@ -153,7 +153,7 @@ class MigrationIndexDefinition(BaseModel):
     line_number: int
     table_name: str
     columns: list[str] = Field(default_factory=list)
-    kind: str = "index"  # index, unique, fulltext, spatial
+    kind: str = "index"  # index, unique, primary, fulltext, spatial
     snippet: str = ""
 
 

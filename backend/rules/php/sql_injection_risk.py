@@ -15,6 +15,7 @@ We intentionally keep this conservative to avoid noise:
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from rules.base import Rule
 from schemas.facts import Facts
@@ -102,6 +103,8 @@ class SqlInjectionRiskRule(Rule):
                             # Parameterized placeholder + bindings => do not flag unless the SQL itself embeds vars.
                             if has_bindings and _arg_has_placeholder(first) and not string_literal_is_interpolated(first) and "." not in first:
                                 continue
+                            if self._has_proven_numeric_sql_construction(facts, m):
+                                continue
                             risky.append(f"DB::{dm.group(1).lower()}(...)")
                             if _REQUESTISH.search(inside):
                                 req_hits += 1
@@ -121,6 +124,9 @@ class SqlInjectionRiskRule(Rule):
                         continue
 
                     if has_bindings and _arg_has_placeholder(first) and not string_literal_is_interpolated(first) and "." not in first:
+                        continue
+
+                    if self._has_proven_numeric_sql_construction(facts, m):
                         continue
 
                     risky.append(f"{rm.group(1)}(...)")
@@ -171,3 +177,65 @@ class SqlInjectionRiskRule(Rule):
             )
 
         return findings
+
+    def _has_proven_numeric_sql_construction(self, facts: Facts, method) -> bool:
+        """Suppress dynamic CASE SQL only when every interpolated value is integer-normalized.
+
+        This is deliberately narrower than treating casts as a general SQL
+        sanitizer.  It recognizes numeric CASE expressions used for efficient
+        bulk ordering/layout updates and still flags request strings, dynamic
+        identifiers, and unproven variables.
+        """
+        source = self._method_source(facts, method)
+        if not source or _REQUESTISH.search(source):
+            return False
+
+        sql_strings = re.findall(r"['\"]([^'\"]*(?:\bCASE\b|\bWHEN\b|\bTHEN\b)[^'\"]*)['\"]", source, re.I)
+        if not sql_strings:
+            return False
+        variables: set[str] = set()
+        for sql in sql_strings:
+            variables.update(re.findall(r"\$([A-Za-z_]\w*)", sql))
+        if not variables:
+            return False
+
+        for name in variables:
+            escaped = re.escape(name)
+            direct_cast = re.search(
+                rf"\${escaped}\s*=\s*(?:\(\s*int(?:eger)?\s*\)|intval\s*\()",
+                source,
+                re.I,
+            )
+            if direct_cast:
+                continue
+
+            foreach = re.search(
+                rf"foreach\s*\(\s*\$(?P<collection>[A-Za-z_]\w*)[^)]*\bas\s+\${escaped}\b",
+                source,
+                re.I,
+            )
+            if foreach:
+                collection = re.escape(str(foreach.group("collection") or ""))
+                normalized_collection = re.search(
+                    rf"\${collection}\s*=\s*array_map\s*\(\s*['\"]intval['\"]",
+                    source,
+                    re.I,
+                )
+                if normalized_collection:
+                    continue
+            return False
+        return True
+
+    @staticmethod
+    def _method_source(facts: Facts, method) -> str:
+        rel = str(getattr(method, "file_path", "") or "").replace("\\", "/")
+        if not rel:
+            return ""
+        path = Path(getattr(facts, "project_path", "") or ".") / rel
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except Exception:
+            return ""
+        start = max(0, int(getattr(method, "line_start", 1) or 1) - 1)
+        end = int(getattr(method, "line_end", 0) or 0)
+        return "\n".join(lines[start:end or len(lines)])

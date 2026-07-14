@@ -94,6 +94,16 @@
       "context": "index"
     },
     {
+      "id": "finding_40e3d4ad2882",
+      "fingerprint": "40e3d4ad2882",
+      "rule_id": "dry-violation",
+      "category": "dry",
+      "severity": "low",
+      "classification": "advisory",
+      "file": "app/Support/DupeA.php",
+      "context": "dup:fb72d5c5d7017ed9"
+    },
+    {
       "id": "finding_4996356c73ef",
       "fingerprint": "4996356c73ef",
       "rule_id": "blade-queries",
@@ -262,16 +272,6 @@
       "classification": "risk",
       "file": ".env.example",
       "context": "project:.env.example"
-    },
-    {
-      "id": "finding_8da4ecb8dece",
-      "fingerprint": "8da4ecb8dece",
-      "rule_id": "dry-violation",
-      "category": "dry",
-      "severity": "low",
-      "classification": "advisory",
-      "file": "app/Support/DupeA.php",
-      "context": "dup:aa10f40a05796402"
     },
     {
       "id": "finding_9330e87f4073",

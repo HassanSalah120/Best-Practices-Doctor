@@ -73,6 +73,21 @@ def _is_structural_arbitrary_exception(token: str) -> bool:
     )
 
 
+def _is_brand_arbitrary_exception(token: str) -> bool:
+    """Keep deliberate palette/gradient/typography values out of scale-overuse advice."""
+    base = tailwind_base_utility(str(token or "")).lower()
+    if re.match(r"^(?:from|via|to|shadow|tracking|font)-\[", base):
+        return True
+    color_utility = re.match(
+        r"^(?:bg|text|border|outline|ring|fill|stroke|decoration|caret|accent)-\[(?P<value>[^]]+)]$",
+        base,
+    )
+    if not color_utility:
+        return False
+    value = str(color_utility.group("value") or "").strip()
+    return bool(re.match(r"^(?:#|rgb|hsl|hwb|lab|lch|oklab|oklch|color\()", value))
+
+
 class CssFontSizePxRule(Rule):
     id = "css-font-size-px"
     name = "CSS Font Size Uses px"
@@ -352,7 +367,9 @@ class TailwindArbitraryValueOveruseRule(Rule):
             arbitrary_tokens = [
                 token
                 for token in tokens
-                if _token_has_arbitrary(token) and not _is_structural_arbitrary_exception(token)
+                if _token_has_arbitrary(token)
+                and not _is_structural_arbitrary_exception(token)
+                and not _is_brand_arbitrary_exception(token)
             ]
             if len(arbitrary_tokens) < min_count:
                 continue

@@ -32,6 +32,11 @@ class DateFormatMissingCastRule(Rule):
     auto_fixable = False
     tags = {"domain": "laravel", "type": "quality", "concern": "date-casts"}
     _MANUAL = re.compile(r"Carbon::createFromFormat\s*\(|->format\s*\(", re.IGNORECASE)
+    _FRESH_DATE_SOURCE = re.compile(
+        r"(?:\bnow\s*\(\s*\)|\btoday\s*\(\s*\)|\b(?:Carbon|Date)::(?:now|today)\s*\(\s*\))"
+        r"(?:\s*->\s*[A-Za-z_]\w*\s*\([^;]*?\))*\s*->\s*format\s*\(",
+        re.IGNORECASE | re.DOTALL,
+    )
 
     def analyze(self, facts: Facts, metrics: dict[str, MethodMetrics] | None = None) -> list[Finding]:
         return []
@@ -42,6 +47,12 @@ class DateFormatMissingCastRule(Rule):
         findings: list[Finding] = []
         for m in self._MANUAL.finditer(content):
             snippet = content[max(0, m.start() - 80):m.end() + 120]
+            # A value created by now()/today() is already a date object.  The
+            # model-cast recommendation applies to parsed/model attributes,
+            # not to formatting a newly-created clock value.
+            prefix = content[max(0, m.start() - 240):m.end()]
+            if "createFromFormat" not in snippet and self._FRESH_DATE_SOURCE.search(prefix):
+                continue
             if "display" in snippet.lower() and "Carbon::createFromFormat" not in snippet:
                 continue
             line = content.count("\n", 0, m.start()) + 1

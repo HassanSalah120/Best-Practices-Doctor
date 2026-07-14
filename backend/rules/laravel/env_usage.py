@@ -49,9 +49,23 @@ class EnvOutsideConfigRule(Rule):
         findings: list[Finding] = []
 
         for usage in facts.env_usages:
+            if self._is_framework_bootstrap_configuration(usage):
+                continue
             findings.append(self._create_finding(usage))
 
         return findings
+
+    @staticmethod
+    def _is_framework_bootstrap_configuration(usage: EnvUsage) -> bool:
+        """Allow environment-backed framework wiring that cannot use config()."""
+        snippet = str(usage.snippet or "").lower().replace(" ", "")
+        return any(
+            marker in snippet
+            for marker in (
+                "->trustproxies(",
+                "->trusthosts(",
+            )
+        )
 
     def _create_finding(self, usage: EnvUsage) -> Finding:
         return self.create_finding(

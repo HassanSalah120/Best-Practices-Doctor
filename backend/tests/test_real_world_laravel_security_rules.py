@@ -140,6 +140,7 @@ class DemoController
 def test_console_command_missing_tenant_scope_valid_invalid_fp() -> None:
     rule = ConsoleCommandMissingTenantScopeRule(RuleConfig())
     facts = Facts(project_path=".")
+    facts.project_context.tenant_mode = "tenant"
 
     valid = """
 <?php

@@ -6,6 +6,8 @@ Detects `message` event listeners that do not verify `event.origin`.
 
 from __future__ import annotations
 
+import re
+
 from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
@@ -23,10 +25,10 @@ class PostMessageReceiverOriginNotVerifiedRule(Rule):
 
     regex_file_extensions = [".tsx", ".ts", ".jsx", ".js"]
 
-    _LISTENER_SIGNALS = (
-        "addEventListener('message'",
-        'addEventListener("message"',
-        "window.onmessage",
+    _WINDOW_MESSAGE_LISTENER = re.compile(
+        r"(?:\bwindow\s*\.|\bglobalThis\s*\.|(?<![.$\w])\b)"
+        r"addEventListener\s*\(\s*['\"]message['\"]|\bwindow\s*\.\s*onmessage\s*=",
+        re.IGNORECASE,
     )
     _ORIGIN_CHECK_SIGNALS = (
         "event.origin",
@@ -67,14 +69,15 @@ class PostMessageReceiverOriginNotVerifiedRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         text = content or ""
-        if not any(sig in text for sig in self._LISTENER_SIGNALS):
+        listener = self._WINDOW_MESSAGE_LISTENER.search(text)
+        if not listener:
             return []
         if any(sig in text for sig in self._ORIGIN_CHECK_SIGNALS):
             return []
         if self._SAFE_LOCAL_ONLY_SIGNAL in text and "window.location.origin" in text:
             return []
 
-        line = self._find_line(text)
+        line = text.count("\n", 0, listener.start()) + 1
         confidence = 0.9
         min_confidence = float(self.get_threshold("min_confidence", 0.0) or 0.0)
         if confidence + 1e-9 < min_confidence:
@@ -93,11 +96,4 @@ class PostMessageReceiverOriginNotVerifiedRule(Rule):
                 evidence_signals=["postmessage_listener=true", "origin_check=false"],
             ),
         ]
-
-    def _find_line(self, text: str) -> int:
-        candidates = [text.find(sig) for sig in self._LISTENER_SIGNALS if text.find(sig) != -1]
-        if not candidates:
-            return 1
-        start = min(candidates)
-        return text.count("\n", 0, start) + 1
 

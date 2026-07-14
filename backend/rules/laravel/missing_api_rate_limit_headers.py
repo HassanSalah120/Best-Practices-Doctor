@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from rules.base import Rule
@@ -46,19 +47,22 @@ class MissingApiRateLimitHeadersRule(Rule):
             for route in getattr(facts, "routes", []) or []
             if self._is_api_route(route) and any("throttle" in str(mw).lower() for mw in route.middleware or [])
         ]
-        if not throttled or self._has_rate_limit_header_signal(facts):
+        # Laravel's ThrottleRequests middleware emits quota/retry headers.
+        # Absence of duplicated application code is not evidence that those
+        # framework headers are missing.  Only report concrete stripping.
+        stripping = self._find_rate_limit_header_stripping(facts)
+        if not throttled or stripping is None:
             return []
 
-        route = throttled[0]
+        strip_file, strip_line = stripping
         return [
             self.create_finding(
                 title="Throttled API routes should preserve rate-limit headers",
-                file=route.file_path,
-                line_start=int(getattr(route, "line_number", 1) or 1),
+                file=strip_file,
+                line_start=strip_line,
                 context="api:rate-limit-headers",
                 description=(
-                    "Throttle middleware is applied to API routes, but no repository-visible rate-limit header "
-                    "configuration or tests were found."
+                    "Application code explicitly removes a rate-limit or retry header from a throttled API response."
                 ),
                 why_it_matters=(
                     "API clients need quota and retry headers to back off before repeated 429 responses."
@@ -66,7 +70,7 @@ class MissingApiRateLimitHeadersRule(Rule):
                 suggested_fix=self.fix_suggestion,
                 confidence=0.60,
                 tags=["laravel", "api", "rate-limit"],
-                evidence_signals=["api_throttle_middleware=true", "rate_limit_header_signal=false"],
+                evidence_signals=["api_throttle_middleware=true", "rate_limit_header_stripping=true"],
             ),
         ]
 
@@ -80,7 +84,7 @@ class MissingApiRateLimitHeadersRule(Rule):
         fp = str(getattr(route, "file_path", "") or "").replace("\\", "/").lower()
         return is_api_route_file(fp)
 
-    def _has_rate_limit_header_signal(self, facts: Facts) -> bool:
+    def _find_rate_limit_header_stripping(self, facts: Facts) -> tuple[str, int] | None:
         root = Path(getattr(facts, "project_path", "") or ".")
         files = list(getattr(facts, "files", []) or [])
         if not files:
@@ -98,7 +102,12 @@ class MissingApiRateLimitHeadersRule(Rule):
                 text = (root / norm).read_text(encoding="utf-8", errors="replace")
             except Exception:
                 continue
-            low = text.lower()
-            if "x-ratelimit" in low or "x-ratelimit-" in low or "retry-after" in low:
-                return True
-        return False
+            pattern = re.compile(
+                r"(?:withoutHeader|removeHeader|headers->remove)\s*\(\s*['\"]"
+                r"(?:X-RateLimit(?:-[A-Za-z-]+)?|Retry-After)['\"]",
+                re.IGNORECASE,
+            )
+            match = pattern.search(text)
+            if match:
+                return norm, text.count("\n", 0, match.start()) + 1
+        return None

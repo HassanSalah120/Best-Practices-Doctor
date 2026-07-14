@@ -88,6 +88,11 @@ class CircularDependencyRule(Rule):
                 for dst in g.outgoing.get(src, set())
                 if dst in members
             }
+            # Eloquent models intentionally form bidirectional navigation and
+            # read-query graphs.  They are not constructor/runtime ownership
+            # cycles, so an all-model SCC is not evidence for this rule.
+            if all(member in model_fqcns for member in members):
+                continue
             if self._is_model_relation_cycle(members, cycle_edges, model_fqcns, relation_edges):
                 continue
             if self._is_abstraction_only_cycle(members, classes_by_fqcn):

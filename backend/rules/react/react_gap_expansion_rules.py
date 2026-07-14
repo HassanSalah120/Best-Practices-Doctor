@@ -1328,9 +1328,12 @@ class MissingEmptyStateRule(_ReactGapAstRuleBase):
         guarded_vars: set[str] = set()
         for var in map_vars:
             escaped = re.escape(var)
-            if re.search(rf"\b{escaped}\.length\s*(?:>\s*0|>=\s*1)\s*(?:&&|\?)", text):
+            length = rf"\b{escaped}\s*\?*\.\s*length"
+            if re.search(rf"{length}\s*(?:>\s*0|>=\s*1)\s*(?:&&|\?)", text):
                 guarded_vars.add(var)
-            if re.search(rf"if\s*\(\s*!\s*{escaped}\.length\s*\)", text):
+            if re.search(rf"if\s*\(\s*!\s*{length}\s*\)", text):
+                guarded_vars.add(var)
+            if re.search(rf"{length}\s*(?:===?\s*0|<=\s*0)", text):
                 guarded_vars.add(var)
             if re.search(rf"(?:const|let)\s+{escaped}\s*=\s*\[", text):
                 # Static literal lists do not need a runtime empty-state branch.

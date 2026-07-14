@@ -106,6 +106,8 @@ class ModelCrossModelQueryRule(Rule):
             target_name = self._short_name(query.model)
             if not target_name:
                 continue
+            if target_name.lower() in {"self", "static", "parent"}:
+                target_name = owner_name
             if target_name.lower() == owner_name.lower():
                 continue
 

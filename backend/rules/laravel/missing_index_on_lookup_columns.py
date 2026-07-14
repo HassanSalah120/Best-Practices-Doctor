@@ -78,6 +78,8 @@ class MissingIndexOnLookupColumnsRule(Rule):
             # Avoid noisy false positives when sidecar extraction cannot recover legacy indexes.
             if "change()" in snippet or "->change(" in snippet:
                 continue
+            if "->primary(" in snippet:
+                continue
             column_name = str(change.column_name or "").lower()
             column_type = str(change.column_type or "").lower()
             if not self._is_lookup_candidate(column_name, column_type):

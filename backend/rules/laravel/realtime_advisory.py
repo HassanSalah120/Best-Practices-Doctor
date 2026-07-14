@@ -467,12 +467,15 @@ class PublicAnonymousMutationAbuseReadinessRule(_RealtimeAdvisoryRule):
 
         findings: list[Finding] = []
         for route in candidates:
-            throttle_names = self._throttle_names(route)
+            throttle_names = self._throttle_names(facts, route)
             has_throttle = bool(throttle_names) or self._has_middleware(route, ("throttle", "rate", "limiter"))
             has_csrf = self._has_middleware(route, ("csrf",)) or self._web_route_has_csrf(facts, route)
-            has_token_control = self._has_middleware(route, ("signed", "signature", "captcha", "turnstile"))
+            has_token_control = self._has_middleware(
+                route,
+                ("signed", "signature", "captcha", "turnstile", "internal-key", "api-key", "ip-restrict", "allowlist"),
+            )
             has_configured_named_limiter = any(self._named_rate_limiter_is_configured(facts, name) for name in throttle_names)
-            if has_csrf and has_configured_named_limiter:
+            if has_configured_named_limiter and (has_csrf or has_token_control):
                 continue
             if has_throttle and (has_csrf or has_token_control):
                 severity = Severity.LOW
@@ -543,26 +546,42 @@ class PublicAnonymousMutationAbuseReadinessRule(_RealtimeAdvisoryRule):
         payload = " ".join(str(item or "").lower() for item in (route.middleware or []))
         return any(token in payload for token in tokens)
 
-    def _throttle_names(self, route: RouteInfo) -> list[str]:
+    def _throttle_names(self, facts: Facts, route: RouteInfo) -> list[str]:
         names: list[str] = []
         for item in route.middleware or []:
             text = str(item or "").strip()
             match = re.search(r"throttle\s*:\s*([A-Za-z0-9_.-]+)", text, re.I)
             if match:
                 names.append(match.group(1))
+        # Route extractors cannot always attach middleware inherited from a
+        # fluent group.  Recover named throttles from the route's local source
+        # context instead of assuming one particular routes directory.
+        source = self._read(facts, str(route.file_path or ""))
+        if source:
+            lines = source.splitlines()
+            line = max(1, int(getattr(route, "line_number", 1) or 1))
+            window = "\n".join(lines[max(0, line - 18) : min(len(lines), line + 5)])
+            for match in re.finditer(r"throttle\s*:\s*([A-Za-z0-9_.-]+)", window, re.I):
+                names.append(match.group(1))
         return list(dict.fromkeys(names))
 
     def _named_rate_limiter_is_configured(self, facts: Facts, name: str) -> bool:
         if not name:
             return False
-        provider = self._read(facts, "app/Providers/RouteServiceProvider.php")
-        if not provider:
-            return False
         escaped = re.escape(name)
-        return bool(
-            re.search(rf"RateLimiter::for\s*\(\s*['\"]{escaped}['\"]", provider)
-            and re.search(r"\bLimit::per(?:Minute|Second|Hour|Day)\s*\(", provider),
-        )
+        candidates = [
+            path
+            for path in self._files(facts)
+            if path.endswith(".php")
+            and not path.startswith(("vendor/", "tests/", "storage/", "node_modules/"))
+        ]
+        for path in candidates:
+            source = self._read(facts, path)
+            if not source or not re.search(rf"RateLimiter::for\s*\(\s*['\"]{escaped}['\"]", source):
+                continue
+            if re.search(r"\bLimit::per(?:Minute|Second|Hour|Day)\s*\(", source):
+                return True
+        return False
 
     def _web_route_has_csrf(self, facts: Facts, route: RouteInfo) -> bool:
         from rules.laravel._route_helpers import is_web_route_file

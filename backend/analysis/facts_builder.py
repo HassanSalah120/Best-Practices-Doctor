@@ -1674,7 +1674,7 @@ class FactsBuilder:
             re.IGNORECASE | re.DOTALL,
         )
         index_re = re.compile(
-            r"\$table->(?P<kind>index|unique|fullText|spatialIndex)\s*\(\s*(?P<args>[^)]*)\)",
+            r"\$table->(?P<kind>index|unique|primary|fullText|spatialIndex)\s*\(\s*(?P<args>[^)]*)\)",
             re.IGNORECASE | re.DOTALL,
         )
         foreign_re = re.compile(
@@ -1712,14 +1712,15 @@ class FactsBuilder:
                         guard_signals=list(guard_signals),
                     ),
                 )
-                if "->index(" in chain.lower() or "->unique(" in chain.lower():
+                if any(marker in chain.lower() for marker in ("->index(", "->unique(", "->primary(")):
+                    kind = "primary" if "->primary(" in chain.lower() else ("unique" if "->unique(" in chain.lower() else "index")
                     self._facts.migration_indexes.append(
                         MigrationIndexDefinition(
                             file_path=file_path,
                             line_number=line_number,
                             table_name=table_name,
                             columns=[column_name],
-                            kind="unique" if "->unique(" in chain.lower() else "index",
+                            kind=kind,
                             snippet=snippet,
                         ),
                     )

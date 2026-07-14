@@ -126,6 +126,8 @@ class TransactionRequiredForMultiWriteRule(Rule):
 
             if self._is_transactional(method.call_sites or []):
                 continue
+            if self._all_detected_callers_are_transactional(method, facts):
+                continue
             if self._looks_like_thin_write_orchestration(method):
                 continue
 
@@ -187,6 +189,27 @@ class TransactionRequiredForMultiWriteRule(Rule):
     def _is_transactional(self, call_sites: list[str]) -> bool:
         body = "\n".join(call_sites or [])
         return any(p.search(body) for p in self._TX_PATTERNS)
+
+    def _all_detected_callers_are_transactional(self, method, facts: Facts) -> bool:
+        """Recognize a transaction owned by the orchestration boundary.
+
+        This is intentionally conservative: the callee name must be unique in
+        the project, at least one caller must be visible, and every visible
+        caller must contain a transaction boundary.
+        """
+        name = str(method.name or "").strip()
+        if not name:
+            return False
+        definitions = [candidate for candidate in facts.methods if str(candidate.name or "") == name]
+        if len(definitions) != 1:
+            return False
+        call_re = re.compile(rf"(?:->|::)\s*{re.escape(name)}\s*\(", re.IGNORECASE)
+        callers = [
+            candidate
+            for candidate in facts.methods
+            if candidate is not method and any(call_re.search(str(call or "")) for call in candidate.call_sites or [])
+        ]
+        return bool(callers) and all(self._is_transactional(caller.call_sites or []) for caller in callers)
 
     def _looks_like_thin_write_orchestration(self, method) -> bool:
         body = "\n".join(method.call_sites or [])
