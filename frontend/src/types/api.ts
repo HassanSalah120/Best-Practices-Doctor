@@ -16,7 +16,6 @@ export const Category = {
   SECURITY: "security",
   ACCESSIBILITY: "accessibility",
   MAINTAINABILITY: "maintainability",
-  SRP: "srp",
   VALIDATION: "validation",
   PERFORMANCE: "performance",
   REACT_BEST_PRACTICE: "react_best_practice",
@@ -39,6 +38,9 @@ export interface Finding {
   suggested_fix?: string;
   why_it_matters?: string;
   evidence_signals?: string[];
+  related_files?: string[];
+  related_methods?: string[];
+  code_example?: string | null;
   score_impact?: number;
   tags?: string[];
   classification?: "defect" | "risk" | "advisory";
@@ -79,7 +81,6 @@ export interface QualityScores {
   complexity: number;
   security: number;
   maintainability: number;
-  srp: number;
   validation: number;
   performance: number;
 }
@@ -340,6 +341,28 @@ export interface RuleDecisionProfile {
 
 export interface FindingMetadata {
   decision_profile?: RuleDecisionProfile;
+  analysis_contract?: string;
+  trace_quality?: string;
+  confidence_basis?: string;
+  false_positive_guidance?: string;
+  evidence_traces?: Array<{
+    id?: string;
+    summary?: string;
+    kind?: string;
+    line?: number;
+    signals?: string[];
+    target?: string;
+    [key: string]: unknown;
+  }>;
+  [key: string]: unknown;
+}
+
+export interface AnalysisContextDebug {
+  file_path: string;
+  language?: string;
+  sources?: Array<Record<string, unknown>>;
+  sinks?: Array<Record<string, unknown>>;
+  traces?: Array<Record<string, unknown>>;
   [key: string]: unknown;
 }
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 
+from core.semantic_roles import is_job_source
 from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
@@ -18,7 +19,7 @@ class JobMissingRetryPolicyRule(Rule):
     id = "job-missing-retry-policy"
     name = "Job Missing Retry Policy"
     description = "Detects side-effecting queued jobs without explicit retry or backoff controls"
-    category = Category.SECURITY
+    category = Category.RELIABILITY
     default_severity = Severity.MEDIUM
     type = "regex"
     applicable_project_types = [
@@ -88,8 +89,7 @@ class JobMissingRetryPolicyRule(Rule):
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
-        norm = (file_path or "").replace("\\", "/").lower()
-        if "/jobs/" not in f"/{norm}":
+        if not is_job_source(file_path, content, facts):
             return []
         require_queue_capability = bool(self.get_threshold("require_queue_capability", False))
         if require_queue_capability and not self._queue_or_integration_capability_enabled(facts):

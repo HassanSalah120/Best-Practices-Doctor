@@ -36,24 +36,33 @@ def test_inline_prop_object_array_detects_custom_component_object_prop():
     assert findings[0].rule_id == "inline-prop-object-array"
 
 
-def test_unstable_react_key_detects_template_literal_and_call_expression():
+def test_unstable_react_key_allows_deterministic_template_and_detects_translation_call():
     rule = UnstableReactKeyRule()
     template_key = "items.map(label => <Row key={`kpi-${label}`} label={label} />)"
     call_key = "items.map(item => <Row key={t('name')} item={item} />)"
     stable_key = "items.map(item => <Row key={item.id} item={item} />)"
 
-    assert len(rule.analyze_regex("src/components/List.tsx", template_key, _facts())) == 1
+    assert rule.analyze_regex("src/components/List.tsx", template_key, _facts()) == []
     assert len(rule.analyze_regex("src/components/List.tsx", call_key, _facts())) == 1
     assert rule.analyze_regex("src/components/List.tsx", stable_key, _facts()) == []
 
 
-def test_unstable_react_key_detects_weak_identifier_but_allows_id_identifier():
+def test_unstable_react_key_does_not_guess_uniqueness_from_identifier_names():
     rule = UnstableReactKeyRule()
     weak = "items.map(label => <Row key={label} label={label} />)"
     stable = "items.map(id => <Row key={id} id={id} />)"
 
-    assert len(rule.analyze_regex("src/components/List.tsx", weak, _facts())) == 1
+    assert rule.analyze_regex("src/components/List.tsx", weak, _facts()) == []
     assert rule.analyze_regex("src/components/List.tsx", stable, _facts()) == []
+
+
+def test_unstable_react_key_flags_dynamic_index_but_allows_positional_placeholders():
+    rule = UnstableReactKeyRule()
+    dynamic = "items.map((item, i) => <Row key={i} item={item} />)"
+    positional = "Array.from({ length: rows }).map((_, i) => <Skeleton key={i} />)"
+
+    assert len(rule.analyze_regex("src/components/List.tsx", dynamic, _facts())) == 1
+    assert rule.analyze_regex("src/components/Skeleton.tsx", positional, _facts()) == []
 
 
 def test_unstable_react_key_allows_static_literal_array_values():

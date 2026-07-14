@@ -13,7 +13,7 @@ class ChunkMissingForLargeDatasetsRule(Rule):
     id = "chunk-missing-for-large-datasets"
     name = "Chunk Missing For Large Datasets"
     description = "Detects Model::all or get results iterated without chunk/cursor"
-    category = Category.PERFORMANCE
+    category = Category.RELIABILITY
     default_severity = Severity.HIGH
     type = "regex"
     severity_weight = 8

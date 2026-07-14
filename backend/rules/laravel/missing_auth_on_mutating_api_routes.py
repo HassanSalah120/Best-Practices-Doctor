@@ -94,8 +94,8 @@ class MissingAuthOnMutatingApiRoutesRule(Rule):
         return bool(self._public_uri.search(u))
 
     def _is_api_routes_file(self, file_path: str) -> bool:
-        fp = (file_path or "").replace("\\", "/").lower()
-        return fp == "routes/api.php" or fp.endswith("/routes/api.php")
+        from rules.laravel._route_helpers import is_api_route_file
+        return is_api_route_file(file_path)
 
     def _is_same_file(self, a: str, b: str) -> bool:
         return (a or "").replace("\\", "/").lower() == (b or "").replace("\\", "/").lower()
@@ -153,7 +153,7 @@ class MissingAuthOnMutatingApiRoutesRule(Rule):
                 self.create_finding(
                     title="Mutating API route appears to be missing auth middleware",
                     context=context,
-                    file=route.file_path or "routes/api.php",
+                    file=route.file_path,
                     line_start=int(getattr(route, "line_number", 1) or 1),
                     description=(
                         f"Detected state-changing API route `{method.upper()} {uri}` without auth middleware."

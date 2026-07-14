@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from core.semantic_roles import is_blade_component_source
 from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
@@ -43,7 +44,7 @@ class BladeComponentNoFallbackSlotRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         norm = (file_path or "").replace("\\", "/").lower()
-        if "resources/views/components/" not in norm or "layout" in norm:
+        if not is_blade_component_source(file_path, content, facts) or "layout" in norm:
             return []
         if "<html" in (content or "").lower():
             return []
@@ -61,7 +62,7 @@ class BladeComponentNoFallbackSlotRule(Rule):
                 description="This anonymous Blade component renders $slot directly without an empty-slot guard or fallback.",
                 why_it_matters="Callers can omit required content and get a silently empty render.",
                 suggested_fix=self.fix_suggestion,
-                confidence=0.45,
+                confidence=0.60,
                 tags=["laravel", "blade", "component"],
                 evidence_signals=["slot_rendered=true", "fallback_guard=false"],
             ),

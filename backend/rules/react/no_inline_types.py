@@ -47,7 +47,7 @@ class NoInlineTypesRule(Rule):
     id = "no-inline-types"
     name = "No Inline Type/Interface Definitions"
     description = "Detects TypeScript types/interfaces defined inside UI component files"
-    category = Category.MAINTAINABILITY
+    category = Category.REACT_BEST_PRACTICE
     default_severity = Severity.MEDIUM
     # AST path (analyze) is primary; regex path is fallback only.
     type = "ast"

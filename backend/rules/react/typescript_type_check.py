@@ -24,7 +24,7 @@ class TypeScriptTypeCheckRule(Rule):
     id = "typescript-type-check"
     name = "TypeScript Type Check"
     description = "Detects TypeScript type errors and syntax issues using tsc"
-    category = Category.MAINTAINABILITY
+    category = Category.REACT_BEST_PRACTICE
     default_severity = Severity.HIGH
     type = "process"  # Special type for external command rules
     applicable_project_types: list[str] = []

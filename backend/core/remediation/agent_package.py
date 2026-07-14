@@ -11,19 +11,14 @@ from .storage import project_mirror_dir
 
 CONSTRAINTS = [
     "Do not change public API routes or response shapes",
-    "Do not change database schema beyond what findings require",
-    "Do not modify scan pipeline code",
-    "Preserve all existing tests; do not delete failing tests",
+    "Preserve all existing tests",
 ]
 
 OPERATING_PROTOCOL = [
-    "Define the verifiable goal for each task before editing",
-    "Make the smallest scoped change that satisfies that goal",
-    "Read PROJECT_MAP.md when present and keep architecture-sensitive changes aligned with it",
-    "Document disconnected, deprecated, or incomplete work instead of leaving hidden orphans",
-    "Run the narrowest relevant verification first, then broaden when risk requires it",
-    "Check current official package/version information only when adding or upgrading dependencies",
-    "Add logging only when the changed flow needs observability; never log secrets",
+    "Define the verifiable goal first \u2192 smallest change \u2192 tightest test",
+    "Read PROJECT_MAP.md for architecture-sensitive changes",
+    "Document disconnected work instead of leaving orphans",
+    "Check package versions only when adding deps",
 ]
 
 
@@ -43,16 +38,14 @@ def build_agent_package(run: RemediationRun) -> dict[str, Any]:
 def build_markdown(run: RemediationRun) -> str:
     all_findings = [finding for task in run.tasks for finding in task.findings]
     lines = [
-        f"# Remediation Run {run.run_id[:8]}",
-        f"Project: {run.project_path}",
-        f"Source scan: {run.source_job_id}",
-        f"Generated: {run.created_at.isoformat()}",
+        f"# Remediation: {run.run_id[:8]}",
+        f"Project: {run.project_path} | Scan: {run.source_job_id}",
+        f"Generated: {run.created_at.isoformat()} | {len(run.tasks)} task(s), {len(all_findings)} finding(s)",
         "",
-        "## Read Before Editing",
-        "- Read AGENTS.md and .bpdoctor/agent/RULES.md first",
-        f"- This run has {len(run.tasks)} task(s) from {len(all_findings)} findings",
-        "- V1: Plan + Verify only. Do not apply risky/refactor fixes without human review.",
-        "- After each task, record evidence and run verification commands",
+        "## Read First",
+        "- Read AGENTS.md and .bpdoctor/agent/RULES.md",
+        "- Plan + Verify only. No risky refactors without review.",
+        "- Record evidence + verify after each task.",
         "",
         "## Operating Protocol",
     ]
@@ -76,21 +69,18 @@ def build_markdown(run: RemediationRun) -> str:
                 f"Files: {', '.join(task.affected_files)}",
                 f"Findings: {len(task.findings)} ({', '.join(f'{k}={v}' for k, v in sorted(severities.items()))})",
                 "",
-                "**What to do:**",
-                top.rationale,
-                "",
-                "**Fix guidance:**",
+                f"What: {top.rationale}",
                 task.findings[0].fix_suggestion if task.findings else "",
                 "",
-                "**Acceptance checks:**",
+                "Acceptance:",
             ],
         )
         lines.extend(f"- [ ] {check}" for check in top.acceptance_checks)
         notes = [f.false_positive_notes for f in task.findings if f.false_positive_notes]
         if notes:
-            lines.extend(["", "**If this looks wrong:**", notes[0], "Document evidence. Do not suppress blindly."])
+            lines.extend(["", f"FP note: {notes[0]}", "Document evidence. Do not suppress blindly."])
     commands = sorted({cmd for task in run.tasks for cmd in task.verification_commands})
-    lines.extend(["", "## Verification Commands", "Run after ALL tasks are complete:", "```bash"])
+    lines.extend(["", "## Verify", "Run after ALL tasks:", "```bash"])
     lines.extend(commands)
     lines.extend(["```", "", "## Constraints"])
     lines.extend(f"- {item}" for item in CONSTRAINTS)

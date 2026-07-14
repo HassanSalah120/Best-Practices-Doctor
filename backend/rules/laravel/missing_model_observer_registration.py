@@ -13,7 +13,7 @@ class MissingModelObserverRegistrationRule(Rule):
     id = "missing-model-observer-registration"
     name = "Missing Model Observer Registration"
     description = "Detects Laravel Observer classes that are never registered in a ServiceProvider"
-    category = Category.ARCHITECTURE
+    category = Category.DATA_INTEGRITY
     default_severity = Severity.HIGH
     default_classification = FindingClassification.RISK
     type = "ast"

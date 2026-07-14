@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from rules.base import Rule
+from rules.react._error_boundary_helpers import global_error_boundary_file
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
@@ -46,6 +47,8 @@ class InertiaPageMissingErrorBoundaryRule(Rule):
         if "layout" in norm or "@inertiajs/react" not in (content or ""):
             return []
         if "ErrorBoundary" in (content or ""):
+            return []
+        if global_error_boundary_file(facts):
             return []
         if not self._has_page_data_signal(content or ""):
             return []

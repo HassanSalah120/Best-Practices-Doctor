@@ -12,7 +12,7 @@ class EnvExampleMissingOrOutOfSyncRule(Rule):
     id = "env-example-missing-or-out-of-sync"
     name = "Env Example Missing Or Out Of Sync"
     description = "Detects missing .env.example files or required keys absent from the example environment"
-    category = Category.SECURITY
+    category = Category.OPERATIONS
     default_severity = Severity.HIGH
     default_classification = FindingClassification.RISK
     type = "ast"

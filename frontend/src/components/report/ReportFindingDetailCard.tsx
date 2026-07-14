@@ -433,6 +433,45 @@ export function ReportFindingDetailCard({
           </div>
         ) : null}
 
+        {finding.metadata?.analysis_contract || finding.metadata?.trace_quality || finding.metadata?.confidence_basis || finding.metadata?.false_positive_guidance ? (
+          <div className="rounded-xl border border-amber-400/20 bg-gradient-to-br from-amber-400/10 to-transparent p-3.5">
+            <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-amber-200">
+              <Sparkles className="h-3.5 w-3.5" />
+              Semantic trace
+            </div>
+            {finding.metadata?.analysis_contract && (
+              <Badge variant="outline" className="mb-1.5 border-white/10 bg-slate-900/60 text-[10px] font-mono text-white/70">
+                {finding.metadata.analysis_contract}
+              </Badge>
+            )}
+            {finding.metadata?.trace_quality && (
+              <Badge variant="outline" className="mb-1.5 ml-1.5 border-white/10 bg-slate-900/60 text-[10px] font-mono text-white/70">
+                {finding.metadata.trace_quality}
+              </Badge>
+            )}
+            {finding.metadata?.confidence_basis && (
+              <p className="mt-1 text-xs leading-relaxed text-amber-100/85">{finding.metadata.confidence_basis}</p>
+            )}
+            {finding.metadata?.false_positive_guidance && (
+              <p className="mt-1 text-xs leading-relaxed text-amber-100/70">{finding.metadata.false_positive_guidance}</p>
+            )}
+            {Array.isArray(finding.metadata?.evidence_traces) && finding.metadata.evidence_traces.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {finding.metadata.evidence_traces.slice(0, 4).map((trace: { id?: string; summary?: string; kind?: string }) => (
+                  <div key={trace.id ?? trace.summary} className="rounded-md border border-white/10 bg-slate-900/60 px-2.5 py-1.5">
+                    {trace.kind && (
+                      <span className="mr-2 rounded bg-amber-400/15 px-1.5 py-0.5 font-mono text-[10px] text-amber-200/80">
+                        {trace.kind}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-white/70">{trace.summary}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
+
         {ruleEvidence.length > 0 ? (
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3.5">
             <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/45">

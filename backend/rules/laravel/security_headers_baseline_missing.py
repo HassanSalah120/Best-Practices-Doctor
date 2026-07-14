@@ -28,7 +28,7 @@ class SecurityHeadersBaselineMissingRule(Rule):
         "content-security-policy",
         "referrer-policy",
     )
-    _WEB_SIGNAL_FILES = ("routes/web.php", "resources/views/", "resources/js/pages/")
+    _WEB_SIGNAL_PATTERNS = ("/views/", "/pages/", "routes/web")
     severity_weight = 0
     confidence = 'high'
     fix_suggestion = 'Remove the security headers baseline missing risk and enforce the relevant Laravel/React security control at the boundary. Add a regression test that proves unsafe input or configuration is rejected.'
@@ -52,7 +52,7 @@ class SecurityHeadersBaselineMissingRule(Rule):
         files = [str(p or "").replace("\\", "/").lower() for p in (facts.files or [])]
         if not files:
             return []
-        if not any(any(sig in path for sig in self._WEB_SIGNAL_FILES) for path in files):
+        if not any(any(sig in path for sig in self._WEB_SIGNAL_PATTERNS) for path in files):
             return []
         if self._has_security_headers_handling(facts):
             return []
@@ -66,7 +66,7 @@ class SecurityHeadersBaselineMissingRule(Rule):
             self.create_finding(
                 title="No visible baseline security headers enforcement",
                 context="web-surface-security-headers",
-                file="app/Http/Middleware",
+                file="",
                 line_start=1,
                 description="Could not detect baseline security header handling on web surfaces.",
                 why_it_matters="Missing browser security headers increases risk for clickjacking, MIME confusion, and weak transport guarantees.",

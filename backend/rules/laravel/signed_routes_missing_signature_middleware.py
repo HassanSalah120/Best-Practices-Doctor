@@ -99,7 +99,7 @@ class SignedRoutesMissingSignatureMiddlewareRule(Rule):
                 self.create_finding(
                     title="Route likely handling signed links is missing signed middleware",
                     context=f"{str(route.method or '').upper()} {route.uri}",
-                    file=route.file_path or "routes/web.php",
+                    file=route.file_path,
                     line_start=int(getattr(route, "line_number", 1) or 1),
                     description=(
                         f"Detected route `{str(route.method or '').upper()} {route.uri}` that looks like"

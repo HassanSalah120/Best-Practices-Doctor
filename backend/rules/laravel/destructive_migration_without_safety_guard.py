@@ -17,7 +17,7 @@ class DestructiveMigrationWithoutSafetyGuardRule(Rule):
     id = "destructive-migration-without-safety-guard"
     name = "Destructive Migration Without Safety Guard"
     description = "Detects destructive migration operations without schema/table existence checks"
-    category = Category.LARAVEL_BEST_PRACTICE
+    category = Category.DATA_INTEGRITY
     default_severity = Severity.HIGH
     default_classification = FindingClassification.RISK
     type = "ast"

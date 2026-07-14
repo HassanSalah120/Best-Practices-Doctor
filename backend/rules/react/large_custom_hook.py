@@ -19,7 +19,7 @@ class LargeCustomHookRule(Rule):
     id = "large-custom-hook"
     name = "Large Custom Hook"
     description = "Detects oversized custom hooks that likely need decomposition"
-    category = Category.MAINTAINABILITY
+    category = Category.REACT_BEST_PRACTICE
     default_severity = Severity.MEDIUM
     default_classification = FindingClassification.ADVISORY
     type = "regex"

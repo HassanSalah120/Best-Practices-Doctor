@@ -14,7 +14,7 @@ class QueueJobMissingFailureHandlingRule(Rule):
     id = "queue-job-missing-failure-handling"
     name = "Queue Job Missing Failure Handling"
     description = "Detects queued jobs with side effects but no visible retry/backoff/failed handling"
-    category = Category.SECURITY
+    category = Category.RELIABILITY
     default_severity = Severity.MEDIUM
     type = "regex"
     regex_file_extensions = [".php"]
@@ -59,7 +59,16 @@ class QueueJobMissingFailureHandlingRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         normalized = (file_path or "").replace("\\", "/").lower()
-        if "/jobs/" not in f"/{normalized}":
+        known_jobs = {
+            str(getattr(job, "file_path", "") or "").replace("\\", "/").lower()
+            for job in (getattr(facts, "jobs", []) or [])
+        }
+        if known_jobs and normalized not in known_jobs:
+            return []
+        if not known_jobs and "/jobs/" not in f"/{normalized}" and not re.search(
+            r"class\s+[A-Za-z_][A-Za-z0-9_]*Job\b",
+            content or "",
+        ):
             return []
         text = content or ""
         if "ShouldQueue" not in text or self._HANDLING.search(text):

@@ -16,7 +16,7 @@ class NotificationShouldQueueMissingRule(Rule):
     id = "notification-shouldqueue-missing"
     name = "Notification ShouldQueue Missing"
     description = "Detects notifications that deliver mail/database/broadcast payloads without implementing ShouldQueue"
-    category = Category.PERFORMANCE
+    category = Category.RELIABILITY
     default_severity = Severity.MEDIUM
     default_classification = FindingClassification.ADVISORY
     type = "ast"

@@ -57,10 +57,6 @@ class InertiaInternalLinkAnchorRule(Rule):
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
-        norm = (file_path or "").replace("\\", "/").lower()
-        if "/resources/js/" not in f"/{norm}":
-            return []
-
         text = content or ""
         m = self._ANCHOR.search(text)
         if not m:

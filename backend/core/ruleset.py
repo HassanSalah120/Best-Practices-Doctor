@@ -4,6 +4,8 @@ Loads and validates rule configuration with versioning and defaults.
 """
 import logging
 import os
+from copy import deepcopy
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +13,15 @@ import yaml
 from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=32)
+def _load_yaml_payload_cached(path: str, mtime_ns: int, size: int) -> dict[str, Any]:
+    """Parse unchanged ruleset YAML once per server process."""
+    del mtime_ns, size  # Included in the cache key for correct invalidation.
+    with open(path, encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle) or {}
+    return payload if isinstance(payload, dict) else {}
 
 
 class RuleConfig(BaseModel):
@@ -171,8 +182,11 @@ class Ruleset(BaseModel):
             else:
                 raise FileNotFoundError(f"Ruleset not found: {path}")
 
-        with open(path, encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
+        resolved = path.resolve()
+        stat = resolved.stat()
+        data = deepcopy(
+            _load_yaml_payload_cached(str(resolved), int(stat.st_mtime_ns), int(stat.st_size)),
+        )
 
         return cls(**data)
 

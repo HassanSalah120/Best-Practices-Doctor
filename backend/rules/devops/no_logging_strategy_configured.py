@@ -14,7 +14,7 @@ class NoLoggingStrategyConfiguredRule(Rule):
     id = "no-logging-strategy-configured"
     name = "No Logging Strategy Configured"
     description = "Detects Laravel logging defaults that rely only on local file channels"
-    category = Category.MAINTAINABILITY
+    category = Category.OBSERVABILITY
     default_severity = Severity.LOW
     default_classification = FindingClassification.ADVISORY
     type = "ast"

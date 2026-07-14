@@ -36,6 +36,19 @@ def test_trust_enrichment_adds_fields_and_metadata():
     assert item.why_not_ignored
     trust = item.metadata.get("trust", {})
     assert isinstance(trust, dict)
-    assert trust.get("confidence_floor") == 0.71
+    assert trust.get("confidence_floor") == 0.7
     assert trust.get("profile") == "balanced"
     assert trust.get("filtered_by_confidence_in_run") == 3
+
+
+def test_trust_enrichment_reports_the_engine_effective_floor_exactly():
+    finding = _sample_finding().model_copy(update={"confidence": 0.74})
+    enrich_findings_with_trust(
+        [finding],
+        confidence_floor_resolver=lambda _rule_id, _classification: 0.73,
+        profile_name="strict",
+    )
+
+    trust = finding.metadata["trust"]
+    assert trust["confidence_floor"] == 0.73
+    assert "0.74 >= 0.73" in finding.why_not_ignored

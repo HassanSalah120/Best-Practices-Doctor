@@ -5,9 +5,9 @@ echo ========================================
 echo   Best Practices Doctor
 echo ========================================
 echo.
-echo Starting all services with automatic configuration...
+echo Starting contributor mode with desktop, backend, and MCP...
 echo.
-npm start
+npm run dev:full
 echo.
 echo Services stopped. Press any key to exit...
 pause > nul

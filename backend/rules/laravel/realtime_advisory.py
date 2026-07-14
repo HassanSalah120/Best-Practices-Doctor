@@ -78,11 +78,9 @@ class _RealtimeAdvisoryRule(Rule):
             path
             for path in files
             if path.endswith(".php")
-            and (
-                path.startswith("websocket/")
-                or path.startswith("app/")
-                or path.startswith("routes/")
-                or path.startswith("config/")
+            and not any(
+                path.startswith(prefix)
+                for prefix in ("vendor/", "node_modules/", "storage/", ".git/", ".github/", "public/", "tests/")
             )
         ]
         text = self._read_any(facts, likely_files[:80]).lower()
@@ -410,17 +408,17 @@ class RealtimeConfigOutsideLaravelConfigRule(_RealtimeAdvisoryRule):
 
     def _has_laravel_config_bridge(self, facts: Facts) -> bool:
         files = self._files(facts)
-        config_text = self._read_any(facts, [p for p in files if p.startswith("config/") and p.endswith(".php")])
-        has_websocket_config = bool(re.search(r"['\"]websocket['\"]|['\"]realtime['\"]", config_text, re.I))
+        config_text = self._read_any(facts, [p for p in files if p.endswith(".php") and (p.startswith("config/") or "/config/" in p.lower())])
+        has_websocket_config = bool(re.search(r"['\"\\]websocket['\"\\]|['\"\\]realtime['\"\\]", config_text, re.I))
         has_support_bridge = any(
-            p.startswith("app/support/") and p.endswith(".php") and ("config" in p or "game" in p or "websocket" in p)
+            "/support/" in p.lower() and p.endswith(".php") and ("config" in p or "game" in p or "websocket" in p)
             for p in files
         )
         if has_websocket_config and has_support_bridge:
             return True
 
-        app_text = self._read_any(facts, [p for p in files if p.startswith("app/") and p.endswith(".php")])
-        return bool(has_websocket_config and re.search(r"config\s*\(\s*['\"](services|websocket|realtime)\.", app_text))
+        app_text = self._read_any(facts, [p for p in files if p.endswith(".php") and not p.startswith(("vendor/", "node_modules/", "storage/", ".git/", ".github/", "public/", "tests/"))])
+        return bool(has_websocket_config and re.search(r"config\s*\(\s*['\"\\](services|websocket|realtime)\.", app_text))
 
 
 class PublicAnonymousMutationAbuseReadinessRule(_RealtimeAdvisoryRule):
@@ -496,7 +494,7 @@ class PublicAnonymousMutationAbuseReadinessRule(_RealtimeAdvisoryRule):
             findings.append(
                 self.create_finding(
                     title="Anonymous realtime mutation endpoint should be abuse-ready",
-                    file=route.file_path or "routes/web.php",
+                    file=route.file_path,
                     line_start=int(getattr(route, "line_number", 1) or 1),
                     description=desc,
                     why_it_matters=(
@@ -558,8 +556,8 @@ class PublicAnonymousMutationAbuseReadinessRule(_RealtimeAdvisoryRule):
         )
 
     def _web_route_has_csrf(self, facts: Facts, route: RouteInfo) -> bool:
-        path = _norm(getattr(route, "file_path", "") or "")
-        if "routes/web.php" not in path:
+        from rules.laravel._route_helpers import is_web_route_file
+        if not is_web_route_file(route):
             return False
-        kernel = self._read(facts, "app/Http/Kernel.php")
+        kernel = self._read(facts, "app/Http/Kernel.php") or self._read(facts, "src/Http/Kernel.php")
         return "VerifyCsrfToken" in kernel or "verifycsrftoken" in kernel.lower()

@@ -40,8 +40,11 @@ class MissingTypeDeclarationsRule(Rule):
         return []
 
     def analyze_regex(self, file_path: str, content: str, facts: Facts, metrics: dict[str, MethodMetrics] | None = None) -> list[Finding]:
-        norm = file_path.replace("\\", "/").lower()
+        norm = file_path.replace("\\\\", "/").lower()
         is_test_file = "/tests/" in f"/{norm}" or norm.endswith("test.php")
+        # Skip Maatwebsite/Laravel-Excel export/import files — their method signatures
+        # are defined by the package interface (map(), collection(), etc.)
+        is_export_import_file = any(marker in f"/{norm}" for marker in ("/exports/", "/imports/", "/excel/"))
         findings: list[Finding] = []
         for match in self._FUNCTION.finditer(content):
             if self._inside_php_comment(content, match.start()):
@@ -52,6 +55,8 @@ class MissingTypeDeclarationsRule(Rule):
             if name.lower() in self._MAGIC:
                 continue
             if is_test_file and (name.startswith("test") or "@test" in content[max(0, match.start() - 160):match.start()]):
+                continue
+            if is_export_import_file:
                 continue
             params = [p.strip() for p in (match.group("params") or "").split(",") if p.strip()]
             missing_param_type = any(re.match(r"^(?:&\s*)?(?:\.\.\.\s*)?\$", p) for p in params)

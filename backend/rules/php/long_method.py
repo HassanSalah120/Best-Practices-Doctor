@@ -35,7 +35,7 @@ class LongMethodRule(Rule):
     id = "long-method"
     name = "Long Method Detection"
     description = "Flags methods exceeding recommended length"
-    category = Category.SRP
+    category = Category.COMPLEXITY
     default_severity = Severity.LOW
 
     def analyze(

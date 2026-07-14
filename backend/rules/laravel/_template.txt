@@ -1,0 +1,18 @@
+"""
+Template Rule
+
+Copy this file to create a new Laravel rule. Replace the placeholders
+with your rule-specific values. DO NOT enable this file directly.
+"""
+
+from __future__ import annotations
+
+from rules.base import Rule
+from schemas.facts import Facts
+from schemas.finding import Category, Finding, Severity
+from schemas.metrics import MethodMetrics
+
+# DISABLED - This is a template, not a runnable rule.
+# Copy this file, replace the class name, rule_id, and detection logic.
+
+_DISABLED = True

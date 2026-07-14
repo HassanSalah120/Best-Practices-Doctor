@@ -14,7 +14,7 @@ class AppEnvNotSetToProductionRule(Rule):
     id = "app-env-not-set-to-production"
     name = "App Env Not Set To Production"
     description = "Detects environment defaults that encourage production servers to run in local/development mode"
-    category = Category.SECURITY
+    category = Category.OPERATIONS
     default_severity = Severity.MEDIUM
     default_classification = FindingClassification.RISK
     type = "ast"
@@ -56,7 +56,7 @@ class AppEnvNotSetToProductionRule(Rule):
             )
 
         app_config = read_project_file(facts, "config/app.php")
-        match = re.search(r"['\"]env['\"]\s*=>\s*['\"](?:local|development)['\"]", app_config, re.IGNORECASE)
+        match = re.search(r"""['\""]env['\""]\s*=>\s*['\""](?:local|development)['\""]""", app_config, re.IGNORECASE)
         if match:
             findings.append(
                 self.create_finding(

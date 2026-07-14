@@ -7,6 +7,7 @@ import logging
 from collections.abc import Callable
 
 from core.detector import ProjectDetector
+from core.pipeline.cache_signatures import implementation_signature
 from core.pipeline.errors import ProjectDetectionError
 from core.pipeline.models import ScanPipelineContext, ScanPipelineState
 
@@ -22,7 +23,10 @@ class DetectProjectStage:
     async def run(self, context: ScanPipelineContext, state: ScanPipelineState) -> None:
         await context.update_progress(5.0, "detecting")
         context.check_cancelled()
-        cache_payload = {"project_path": context.request.project_path}
+        cache_payload = {
+            "project_path": context.request.project_path,
+            "implementation_signature": implementation_signature([self._detector_factory]),
+        }
         if context.stage_cache is not None:
             cached = context.stage_cache.load("detect_project", cache_payload)
             if cached is not None:
@@ -31,6 +35,8 @@ class DetectProjectStage:
                 return
         try:
             detector = self._detector_factory(context.request.project_path)
+            if context.stage_cache is not None and hasattr(detector, "seed_inventory"):
+                detector.seed_inventory(context.stage_cache.get_project_inventory())
             state.project_info = await asyncio.to_thread(detector.detect)
             if context.stage_cache is not None and state.project_info is not None:
                 context.stage_cache.save("detect_project", state.project_info, cache_payload)

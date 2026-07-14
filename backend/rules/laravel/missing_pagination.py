@@ -280,8 +280,8 @@ class MissingPaginationRule(Rule):
         return "controllers/" in norm_path or "/controllers/" in norm_path or "controller" in norm_path
 
     def _is_api_route_file(self, file_path: str) -> bool:
-        fp = (file_path or "").replace("\\", "/").lower()
-        return fp in self._API_ROUTE_FILES or fp.endswith("/routes/api.php")
+        from rules.laravel._route_helpers import is_api_route_file
+        return is_api_route_file(file_path)
 
     def _collect_api_route_actions(self, facts: Facts) -> set[str]:
         actions: set[str] = set()

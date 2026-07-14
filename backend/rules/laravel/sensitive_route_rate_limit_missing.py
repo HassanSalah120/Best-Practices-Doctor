@@ -84,7 +84,7 @@ class SensitiveRouteRateLimitMissingRule(Rule):
                 self.create_finding(
                     title="Sensitive route appears to miss rate limiting",
                     context=f"{str(route.method or '').upper()} {route.uri}",
-                    file=route.file_path or "routes/web.php",
+                    file=route.file_path,
                     line_start=int(getattr(route, "line_number", 1) or 1),
                     description=(
                         f"Detected sensitive route `{str(route.method or '').upper()} {route.uri}` without throttle/rate-limit middleware."

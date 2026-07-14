@@ -168,7 +168,7 @@ class UnstableReactKeyRule(_AdvancedFrontendRegexRule):
             expr = " ".join((match.group("expr") or "").strip().split())
             if not expr or self._is_stable_key_expression(expr, text, match.start(), stable_value_sources, map_sources):
                 continue
-            reason = self._unstable_reason(expr)
+            reason = self._unstable_reason(expr, text, match.start())
             if not reason:
                 continue
             line = self._line_for_offset(text, match.start())
@@ -181,7 +181,7 @@ class UnstableReactKeyRule(_AdvancedFrontendRegexRule):
                     description=self.description,
                     why_it_matters="Unstable keys break React reconciliation and can preserve or discard the wrong component state.",
                     suggested_fix=self.fix_suggestion,
-                    confidence=0.9,
+                    confidence=0.97 if reason == "runtime_generated" else 0.92,
                     tags=["react", "rendering", "keys"],
                     evidence_signals=[f"key_expression={expr}", f"reason={reason}"],
                 ),
@@ -209,18 +209,42 @@ class UnstableReactKeyRule(_AdvancedFrontendRegexRule):
             return True
         return bool(self._is_hook_generated_key(normalized, text, offset))
 
-    def _unstable_reason(self, expr: str) -> str:
-        if "Math.random(" in expr or "Date.now(" in expr:
+    def _unstable_reason(self, expr: str, text: str, offset: int) -> str:
+        if re.search(r"\b(?:Math\.random|Date\.now|performance\.now|crypto\.randomUUID)\s*\(", expr):
             return "runtime_generated"
-        if self._CALL.search(expr):
-            return "call_expression"
-        if expr.startswith("`") and "${" in expr:
-            return "template_literal"
-        if self._STRING_BINARY.search(expr):
-            return "string_binary_expression"
-        if re.match(r"^[A-Za-z_$][A-Za-z0-9_$]*$", expr) and not self._STABLE_IDENTIFIER.match(expr):
-            return "weak_identifier"
+        if re.search(r"\b(?:t|i18n\.t|translate)\s*\(", expr):
+            return "locale_dependent"
+        if self._is_dynamic_index_key(expr, text, offset):
+            return "array_index"
+        # Deterministic identifiers, member values, templates, and helper calls
+        # are not proven unstable. Uniqueness cannot be inferred from spelling.
         return ""
+
+    def _is_dynamic_index_key(self, expr: str, text: str, offset: int) -> bool:
+        prior = (text or "")[:offset]
+        callback = None
+        callback_re = re.compile(
+            r"\.map\s*\(\s*\(?\s*[A-Za-z_$][A-Za-z0-9_$]*\s*,\s*"
+            r"(?P<index>[A-Za-z_$][A-Za-z0-9_$]*)\b",
+            re.DOTALL,
+        )
+        for match in callback_re.finditer(prior):
+            callback = match
+        if callback is None:
+            return False
+        index = str(callback.group("index") or "")
+        if not index or not re.search(rf"\b{re.escape(index)}\b", expr):
+            return False
+
+        # Positional presentation collections (static arrays and generated
+        # ranges/placeholders) have identity by position; an index key is
+        # stable for that contract and should not be treated as a defect.
+        source_window = prior[max(0, callback.start() - 240) : callback.start()]
+        if re.search(r"(?:Array\.from\s*\(|new\s+Array\s*\(|\.fill\s*\()", source_window, re.DOTALL):
+            return False
+        if re.search(r"\[[^\]]*\]\s*$", source_window, re.DOTALL):
+            return False
+        return True
 
     def _static_collection_names(self, text: str) -> set[str]:
         names: set[str] = set()
@@ -317,8 +341,13 @@ class UnstableReactKeyRule(_AdvancedFrontendRegexRule):
             return True
         if len(fields) == 1:
             only_field = next(iter(fields)).strip()
-            if re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$]*", only_field) and not self._STABLE_IDENTIFIER.match(only_field):
-                return False
+            if re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$]*", only_field):
+                # A literal prefix/suffix plus a deterministic primitive is as
+                # stable as the primitive itself. Do not guess uniqueness from
+                # variable names such as teamNum, label, row, or slot.
+                literal = re.sub(r"\$\{[^}]+\}", "", expr.strip("`"))
+                if literal:
+                    return not self._is_dynamic_index_key(expr, text, offset)
         stable_field = re.compile(
             r"^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*$"
             r"|^[A-Za-z_$][A-Za-z0-9_$]*\s*\|\|\s*['\"][^'\"]+['\"]$"

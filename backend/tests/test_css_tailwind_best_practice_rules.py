@@ -83,8 +83,11 @@ def test_tailwind_arbitrary_value_overuse_skips_dynamic_template_interpolation()
 
 def test_tailwind_specific_rules_detect_text_spacing_layout_and_surface_tokens():
     facts = Facts(project_path=".")
+    # All px values chosen to be in their respective Tailwind scales so the
+    # between-scale skip logic doesn't suppress them
+    # Text scale: 12 ✓  |  Spacing scale: 16 ✓  |  Layout scale: 384 ✓
     content = (
-        '<div className="text-[13px] p-[15px] w-[347px] rounded-[13px] shadow-[0_1px_2px_rgba(0,0,0,0.06)]">X</div>'
+        '<div className="text-[12px] p-[16px] w-[384px] rounded-[12px] shadow-[0_1px_2px_rgba(0,0,0,0.06)]">X</div>'
     )
 
     text_findings = TailwindArbitraryTextSizeRule(RuleConfig()).analyze_regex(

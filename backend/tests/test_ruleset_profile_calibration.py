@@ -177,7 +177,6 @@ def test_universal_health_rules_are_in_expected_profiles():
         "app-debug-not-false-in-production",
         "app-env-not-set-to-production",
         "missing-queue-worker-supervision",
-        "no-logging-strategy-configured",
         "missing-api-rate-limit-headers",
         "eloquent-raw-where-string",
         "missing-model-observer-registration",
@@ -186,6 +185,7 @@ def test_universal_health_rules_are_in_expected_profiles():
         "inertia-page-missing-error-boundary",
     ]
     strict_only = [
+        "no-logging-strategy-configured",
         "blade-component-no-fallback-slot",
         "api-response-inconsistent-shape",
         "no-pagination-on-relationship",

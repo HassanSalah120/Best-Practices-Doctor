@@ -18,7 +18,7 @@ class MultipleExportedComponentsPerFileRule(Rule):
     id = "multiple-exported-react-components"
     name = "Multiple Exported React Components"
     description = "Detects files exporting multiple top-level React components"
-    category = Category.MAINTAINABILITY
+    category = Category.REACT_BEST_PRACTICE
     default_severity = Severity.LOW
     type = "regex"
     regex_file_extensions = [".js", ".jsx", ".ts", ".tsx"]

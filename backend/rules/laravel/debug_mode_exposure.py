@@ -18,7 +18,7 @@ class DebugModeExposureRule(Rule):
     id = "debug-mode-exposure"
     name = "Debug Mode Exposure Risk"
     description = "Detects debug mode settings that could expose sensitive information"
-    category = Category.SECURITY
+    category = Category.OBSERVABILITY
     default_severity = Severity.MEDIUM
     type = "regex"
     applicable_project_types = [

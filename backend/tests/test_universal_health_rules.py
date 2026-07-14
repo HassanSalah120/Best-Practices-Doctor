@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from core.ruleset import RuleConfig
 from rules.laravel.api_response_inconsistent_shape import ApiResponseInconsistentShapeRule
 from rules.laravel.blade_component_no_fallback_slot import BladeComponentNoFallbackSlotRule
 from rules.laravel.eloquent_raw_where_string import EloquentRawWhereStringRule
@@ -48,10 +49,27 @@ def test_missing_api_rate_limit_headers_cases(tmp_path: Path) -> None:
 def test_eloquent_raw_where_string_cases() -> None:
     rule = EloquentRawWhereStringRule()
     facts = Facts(project_path=".")
-    assert len(rule.analyze_regex("app/Repo.php", "<?php User::query()->where('status = ' . $status)->get();", facts)) == 1
-    assert len(rule.analyze_regex("app/Repo.php", '<?php User::query()->where("user_id = $userId")->get();', facts)) == 1
+    assert len(
+        rule.analyze_regex(
+            "app/Repo.php",
+            "<?php User::query()->where(DB::raw($request->input('predicate')))->get();",
+            facts,
+        ),
+    ) == 1
+    assert len(
+        rule.analyze_regex(
+            "app/Repo.php",
+            "<?php $raw = new Expression($predicate); User::query()->where($raw)->get();",
+            facts,
+        ),
+    ) == 1
+    # A normal where() never executes its first string as raw SQL, even when
+    # the application has built a malformed two-argument call.
+    assert rule.analyze_regex("app/Repo.php", "<?php User::query()->where('status = ' . $status)->get();", facts) == []
+    assert rule.analyze_regex("app/Repo.php", '<?php User::query()->where("user_id = $userId")->get();', facts) == []
     assert rule.analyze_regex("app/Repo.php", "<?php User::query()->where('status', $status)->get();", facts) == []
     assert rule.analyze_regex("app/Repo.php", "<?php User::query()->whereRaw('status = ?', [$status])->get();", facts) == []
+    assert rule.analyze_regex("app/Repo.php", "<?php User::query()->where(DB::raw('LOWER(email)'))->get();", facts) == []
 
 
 def test_missing_model_observer_registration_cases(tmp_path: Path) -> None:
@@ -157,7 +175,9 @@ def test_useless_suspense_boundary_cases() -> None:
 
 
 def test_missing_feature_flag_pattern_cases(tmp_path: Path) -> None:
-    rule = MissingFeatureFlagPatternRule()
+    rule = MissingFeatureFlagPatternRule(
+        RuleConfig(thresholds={"require_explicit_adoption_signal": False}),
+    )
     large = tmp_path / "large"
     _write(large, "routes/web.php", "\n".join(f"Route::get('/x{i}', X::class);" for i in range(11)))
     assert len(rule.analyze(_facts(large))) == 1

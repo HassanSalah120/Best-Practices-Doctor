@@ -14,6 +14,9 @@ param(
     [string]$McpWorkspaceRoot = ""
 )
 
+# Advanced contributor launcher. Normal users should run `npm start`, which
+# lets Tauri own the frontend/backend lifecycle without starting MCP tooling.
+
 $ErrorActionPreference = "Stop"
 
 function Ensure-PortFree([int]$Port) {
@@ -174,7 +177,7 @@ function Write-Status([string]$Message, [string]$Type = "INFO") {
 }
 
 # Main execution
-Write-Status "Starting Best Practices Doctor with dynamic configuration..." "INFO"
+Write-Status "Starting Best Practices Doctor contributor services..." "INFO"
 
 $repoRoot = $PSScriptRoot
 $effectiveMcpWorkspaceRoot = $repoRoot
@@ -293,7 +296,7 @@ $backendUrl = $null
 $staleDiscoveryWarned = $false
 
 # Prefer the discovery file for THIS Tauri run (avoids stale ports/tokens).
-$runId = Get-RunIdFromTauriLogs $tauriOut $scriptStartTime 15
+$runId = Get-RunIdFromTauriLogs $tauriOut $scriptStartTime 60
 if ($runId) {
     Write-Status "Tauri run_id detected: $runId" "INFO"
 } else {
@@ -414,7 +417,9 @@ $mcpConfig = @{
     }
 }
 
-$configPath = Join-Path $repoRoot "mcp-config-dynamic.json"
+$runtimeConfigDir = Join-Path $repoRoot ".bpdoctor\runtime"
+New-Item -ItemType Directory -Path $runtimeConfigDir -Force | Out-Null
+$configPath = Join-Path $runtimeConfigDir "mcp-config-dynamic.json"
 $mcpConfig | ConvertTo-Json -Depth 10 | Set-Content -Path $configPath
 Write-Status "Dynamic MCP config created: $configPath" "SUCCESS"
 
@@ -433,7 +438,7 @@ $mcpConfigPortable = @{
         }
     }
 }
-$portableConfigPath = Join-Path $repoRoot "mcp-config-portable.json"
+$portableConfigPath = Join-Path $runtimeConfigDir "mcp-config-portable.json"
 $mcpConfigPortable | ConvertTo-Json -Depth 10 | Set-Content -Path $portableConfigPath
 Write-Status "Portable MCP config created: $portableConfigPath" "SUCCESS"
 

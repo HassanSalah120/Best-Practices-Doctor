@@ -1280,7 +1280,9 @@ rules:
     category: maintainability
     version: 1
     thresholds:
-      min_keys: 6
+      min_keys: 8
+      require_project_convention: true
+      max_findings_per_file: 3
   action-class-suggestion:
     enabled: true
     severity: low

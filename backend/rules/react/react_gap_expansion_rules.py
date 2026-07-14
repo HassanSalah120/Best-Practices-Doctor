@@ -1218,7 +1218,10 @@ class MissingLoadingStateRule(_ReactGapAstRuleBase):
     default_severity = Severity.LOW
     default_classification = FindingClassification.ADVISORY
 
-    _ASYNC_SIGNAL = re.compile(r"\b(useQuery|fetch\(|axios\.|router\.reload\(|await\s+api\.)", re.IGNORECASE)
+    # Only query hooks establish a page-owned loading contract that this local
+    # rule can verify. Event-handler requests and Inertia router.reload use
+    # application/global progress behavior and are not proof of missing UI.
+    _ASYNC_SIGNAL = re.compile(r"\b(useQuery|useInfiniteQuery|useSWR)\s*\(", re.IGNORECASE)
     _LOADING_SIGNAL = re.compile(r"\b(isLoading|loading|pending|skeleton|spinner)\b", re.IGNORECASE)
     severity_weight = 0
     confidence = 'low'
@@ -1245,18 +1248,24 @@ class MissingLoadingStateRule(_ReactGapAstRuleBase):
             return []
         if self._LOADING_SIGNAL.search(text):
             return []
+        async_match = self._ASYNC_SIGNAL.search(text)
+        line = self._line_for_offset(text, async_match.start()) if async_match else 1
         return [
             self.create_finding(
                 title="Async page flow missing explicit loading state",
                 context=f"{file_path}:loading-state",
                 file=file_path,
-                line_start=1,
+                line_start=line,
                 description="Async data signals were found but no explicit loading/pending UI branch was detected.",
                 why_it_matters="Missing loading states can produce blank, confusing, or flickering first paint behavior.",
                 suggested_fix="Add an explicit loading/pending branch near primary async surface rendering.",
                 confidence=0.72,
                 tags=["react", "ux", "async"],
-                evidence_signals=["async_surface=true", "loading_branch_missing=true"],
+                evidence_signals=[
+                    "query_hook_surface=true",
+                    "page_owns_pending_state=true",
+                    "loading_branch_missing=true",
+                ],
             ),
         ]
 
@@ -1311,34 +1320,52 @@ class MissingEmptyStateRule(_ReactGapAstRuleBase):
             return []
 
         map_vars = {m.group("var") for m in self._MAP_VAR.finditer(text) if m.group("var")}
-        if map_vars:
-            guarded_vars: set[str] = set()
-            for var in map_vars:
-                escaped = re.escape(var)
-                if re.search(rf"\b{escaped}\.length\s*(?:>\s*0|>=\s*1)\s*(?:&&|\?)", text):
-                    guarded_vars.add(var)
-                if re.search(rf"if\s*\(\s*!\s*{escaped}\.length\s*\)", text):
-                    guarded_vars.add(var)
-                if re.search(rf"(?:const|let)\s+{escaped}\s*=\s*\[", text):
-                    # Static literal lists do not need a runtime empty-state branch.
-                    guarded_vars.add(var)
-            if guarded_vars and guarded_vars.issuperset(map_vars):
-                return []
+        if not map_vars:
+            # A method-chain or generated presentation map does not identify a
+            # page-owned result collection strongly enough to demand an empty
+            # state from this file.
+            return []
+        guarded_vars: set[str] = set()
+        for var in map_vars:
+            escaped = re.escape(var)
+            if re.search(rf"\b{escaped}\.length\s*(?:>\s*0|>=\s*1)\s*(?:&&|\?)", text):
+                guarded_vars.add(var)
+            if re.search(rf"if\s*\(\s*!\s*{escaped}\.length\s*\)", text):
+                guarded_vars.add(var)
+            if re.search(rf"(?:const|let)\s+{escaped}\s*=\s*\[", text):
+                # Static literal lists do not need a runtime empty-state branch.
+                guarded_vars.add(var)
+        dynamic_vars = sorted(map_vars - guarded_vars)
+        if not dynamic_vars:
+            return []
 
         if self._EMPTY_SIGNAL.search(text):
             return []
+        first_map = next(
+            (match for match in self._MAP_VAR.finditer(text) if match.group("var") in dynamic_vars),
+            None,
+        )
+        line = self._line_for_offset(text, first_map.start()) if first_map else 1
         return [
             self.create_finding(
                 title="List rendering missing explicit empty state",
                 context=f"{file_path}:empty-state",
                 file=file_path,
-                line_start=1,
-                description="List rendering signals were found without an explicit empty-result branch.",
+                line_start=line,
+                description=(
+                    "Dynamic result collection(s) are rendered without an explicit empty-result branch: "
+                    + ", ".join(dynamic_vars[:4])
+                    + "."
+                ),
                 why_it_matters="Empty-state handling improves clarity and prevents confusing blank states.",
                 suggested_fix="Add a clear empty-state branch when collection length is zero.",
                 confidence=0.74,
                 tags=["react", "ux", "lists"],
-                evidence_signals=["empty_state_missing=true"],
+                evidence_signals=[
+                    "empty_state_missing=true",
+                    "dynamic_collection_render=true",
+                    f"collections={','.join(dynamic_vars[:6])}",
+                ],
             ),
         ]
 

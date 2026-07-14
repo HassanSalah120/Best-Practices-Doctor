@@ -20,7 +20,7 @@ class MissingHttpsEnforcementRule(Rule):
     description = "Detects missing force HTTPS configuration for production"
     category = Category.SECURITY
     default_severity = Severity.MEDIUM
-    type = "regex"
+    type = "ast"
     applicable_project_types = [
         "laravel_blade",
         "laravel_inertia_react",
@@ -36,7 +36,7 @@ class MissingHttpsEnforcementRule(Rule):
         re.compile(r"URL::forceScheme\s*\(\s*['\"]https['\"]\s*\)", re.IGNORECASE),
     ]
 
-    _PROVIDER_FILE = "app/Providers/AppServiceProvider.php"
+    _PROVIDER_FILE = "AppServiceProvider.php"
 
     _ALLOWLIST_PATHS = (
         "/tests/",
@@ -148,12 +148,3 @@ class MissingHttpsEnforcementRule(Rule):
             )
 
         return findings
-
-    def analyze_regex(
-        self,
-        file_path: str,
-        content: str,
-        facts: Facts,
-        metrics: dict[str, MethodMetrics] | None = None,
-    ) -> list[Finding]:
-        return []

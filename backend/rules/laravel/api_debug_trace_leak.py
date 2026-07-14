@@ -16,7 +16,7 @@ class ApiDebugTraceLeakRule(Rule):
     id = "api-debug-trace-leak"
     name = "API Debug Trace Leak"
     description = "Detects production debug defaults that can leak stack traces or internals"
-    category = Category.SECURITY
+    category = Category.OBSERVABILITY
     default_severity = Severity.HIGH
     type = "regex"
     regex_file_extensions = [".env", ".env.example", ".php"]

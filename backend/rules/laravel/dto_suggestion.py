@@ -1,8 +1,9 @@
-"""
-DTO Suggestion Rule
+"""Context-aware data-object boundary suggestion rule."""
 
-Flags large associative arrays being passed around between layers and suggests DTOs.
-"""
+from __future__ import annotations
+
+import re
+
 from rules.base import Rule
 from schemas.facts import AssocArrayLiteral, Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
@@ -10,33 +11,18 @@ from schemas.metrics import MethodMetrics
 
 
 class DtoSuggestionRule(Rule):
-    severity_weight = 0
-    confidence = 'low'
-    fix_suggestion = 'Address the dto suggestion by making the framework contract explicit and keeping the change local to the affected boundary.'
-    examples = {}
-    priority = 4
-    group = 'Code Quality'
-    applies_to = ['service']
-    references = []
-    related_rules = []
-    false_positive_notes = 'This is a heuristic/style signal and may be acceptable when the team has an explicit convention for this pattern.'
-    detection_type = 'ast'
-    analysis_cost = 'medium'
-    auto_fixable = False
-    tags = {'domain': 'laravel', 'type': 'quality', 'concern': 'dto-suggestion'}
-    """
-    Suggest using DTOs instead of passing large associative arrays between layers.
+    """Suggest data objects only for proven cross-object array transfers.
 
-    This rule uses AST-extracted facts (AssocArrayLiteral). It intentionally ignores:
-    - Validation rule arrays (`validate`, `Validator::make`)
-    - View/response payload arrays (`view`, `json`) where arrays are expected
+    Array size alone is not architectural evidence. A finding requires an
+    established DTO/data-object convention and an AST-observed consumer call
+    that moves the array outside the method's local implementation.
     """
 
     id = "dto-suggestion"
-    name = "DTO Suggestion"
-    description = "Suggests DTOs when large associative arrays are used as data carriers"
+    name = "Data Object Boundary Suggestion"
+    description = "Suggests a DTO/data object for large arrays proven to cross object boundaries"
     category = Category.MAINTAINABILITY
-    default_severity = Severity.MEDIUM
+    default_severity = Severity.LOW
     default_classification = FindingClassification.ADVISORY
     applicable_project_types = [
         "laravel_blade",
@@ -47,182 +33,177 @@ class DtoSuggestionRule(Rule):
         "native_php",
         "php_mvc",
     ]
+    severity_weight = 0
+    confidence = "medium"
+    fix_suggestion = (
+        "Use the project's existing DTO/data-object pattern at this boundary, preserving framework-native arrays "
+        "for views, responses, persistence attributes, and configuration."
+    )
+    examples = {
+        "bad": "$payload = [/* 10+ fields */]; $this->orders->createFromPayload($payload);",
+        "good": "$command = CreateOrderData::from($request->validated()); $this->orders->create($command);",
+    }
+    priority = 4
+    group = "Code Quality"
+    applies_to = ["controller", "service", "php-class"]
+    references = []
+    related_rules = []
+    false_positive_notes = (
+        "Runs only when DTO/data objects are an established project convention and a large array crosses an object boundary."
+    )
+    detection_type = "cross-file"
+    analysis_cost = "medium"
+    auto_fixable = False
+    tags = {"domain": "laravel", "type": "quality", "concern": "dto-suggestion"}
+    context_policy = "adaptive"
+
+    _DATA_OBJECT_NAME = re.compile(r"(?:DTO|Data|Payload|ValueObject|TransferObject)$", re.IGNORECASE)
+    _FRAMEWORK_TARGETS = {
+        "validate",
+        "make",
+        "json",
+        "view",
+        "compact",
+        "create",
+        "update",
+        "insert",
+        "insertgetid",
+        "insertorignore",
+        "updateorinsert",
+        "upsert",
+        "forcecreate",
+        "firstorcreate",
+        "firstornew",
+        "updateorcreate",
+        "render",
+        "share",
+        "inertia",
+        "response",
+        "with",
+        "config",
+        "settings",
+        "mapping",
+        "fill",
+        "collect",
+        "merge",
+    }
 
     def analyze(
         self,
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
-        findings: list[Finding] = []
-        dto_import_files = {
-            str(item.file_path)
-            for item in (getattr(facts, "use_imports", []) or [])
-            if "\\dto\\" in str(item.fqcn or "").lower()
-            or "\\dtos\\" in str(item.fqcn or "").lower()
-            or str(item.alias or "").upper().endswith("DTO")
-        }
-
-        min_keys = int(self.get_threshold("min_keys", 14))
-        ignore_targets = {
-            "validate", "make", "json", "view", "compact",
-            "create", "update", "insert", "forceCreate", "updateOrCreate",
-            "render", "share", "inertia", "response", "with",
-            "config", "settings", "mapping", "allowedTransitions",
-            "getAttributes", "setAttributes", "fill",
-        }
-
-        grouped: dict[tuple[str, str, str, str | None], list[AssocArrayLiteral]] = {}
-        for a in facts.assoc_arrays:
-            if a.key_count < min_keys:
-                continue
-            # Global File Path Exclusions
-            lower_path = str(a.file_path or "").replace("\\", "/").lower()
-            if any(p in lower_path for p in [
-                "app/dtos/",
-                "app/http/requests/",
-                "app/http/middleware/",
-                "app/services/mappers/",
-                "app/mappers/",
-                "app/transformers/",
-                "app/providers/",
-                "app/repositories/",
-                "database/seeders/",
-                "database/factories/",
-            ]):
-                continue
-            if str(a.file_path) in dto_import_files:
-                continue
-
-            # Method Name Exclusions
-            ignores_methods = {
-                "rules", "toArray", "toResponse", "jsonSerialize",
-                "toModelAttributes", "getAttributes", "definition",
-                "share", "props", "map", "transform", "fields",
-            }
-            if (a.method_name or "") in ignores_methods:
-                continue
-
-            # Actions that build data (likely for responses/transformers)
-            if "app/actions/" in lower_path and (a.method_name or "").startswith(("get", "build", "format")):
-                continue
-
-            if a.target and a.target in ignore_targets:
-                continue
-            lower_path = str(a.file_path or "").replace("\\", "/").lower()
-            lower_fqcn = str(a.class_fqcn or "").lower()
-            lower_method = str(a.method_name or "").lower()
-            is_transport_layer = (
-                "middleware" in lower_path
-                or any(token in lower_path for token in ("/dashboard/", "/history/", "/communication/"))
-                or any(token in lower_fqcn for token in ("dashboard", "history", "communication"))
-                or any(token in lower_method for token in ("share", "payload", "props", "viewdata", "response"))
+        convention_enabled, convention_confidence, convention_evidence = self._dto_convention(facts)
+        require_convention = bool(self.get_threshold("require_project_convention", True))
+        if require_convention and not convention_enabled:
+            return []
+        min_convention_confidence = float(
+            self.get_threshold(
+                "min_convention_confidence",
+                self.get_threshold("min_confidence", 0.74),
             )
-            if is_transport_layer and str(a.used_as or "").lower() in {"return", "argument", "unknown"}:
+        )
+        if require_convention and convention_confidence < min_convention_confidence:
+            return []
+
+        min_keys = max(8, int(self.get_threshold("min_keys", 10)))
+        max_findings = max(1, int(self.get_threshold("max_findings_per_file", 2)))
+        grouped: dict[str, list[tuple[AssocArrayLiteral, str]]] = {}
+
+        for array in getattr(facts, "assoc_arrays", []) or []:
+            if int(array.key_count or 0) < min_keys:
                 continue
-
-            key = (a.file_path, a.method_name, a.used_as, a.target)
-            grouped.setdefault(key, []).append(a)
-
-        # Group by file_path for aggregation
-        by_file: dict[str, list[dict]] = {}
-
-        for (file_path, method_name, used_as, target), arrs in grouped.items():
-            sample = arrs[0]
-            line_start = min(a.line_number for a in arrs)
-            max_keys = max(a.key_count for a in arrs)
-            count = len(arrs)
-            ctx_cls = sample.class_fqcn or ""
-
-            # Store raw data for aggregation
-            by_file.setdefault(file_path, []).append({
-                "method": method_name,
-                "used_as": used_as,
-                "target": target,
-                "line": line_start,
-                "max_keys": max_keys,
-                "count": count,
-                "context": f"{ctx_cls}::{method_name}:{used_as}:{target or ''}:{max_keys}",
-            })
-
-        # Generate findings (aggregated per file)
-        for file_path, items in by_file.items():
-            if not items:
+            if self._is_inside_data_object(array):
                 continue
+            boundary = self._boundary_consumer(array)
+            if not boundary:
+                continue
+            grouped.setdefault(str(array.file_path), []).append((array, boundary))
 
-            items.sort(key=lambda x: x["line"])
-            first = items[0]
-            total_arrays = sum(i["count"] for i in items)
-
-            # If only one distinct issue site, report normally
-            if len(items) == 1:
-                ctx = first["context"]
-                tgt = first["target"] or "data flow"
+        findings: list[Finding] = []
+        for file_path in sorted(grouped):
+            items = sorted(grouped[file_path], key=lambda item: int(item[0].line_number or 0))
+            for array, boundary in items[:max_findings]:
+                confidence = min(0.94, 0.76 + max(0.0, convention_confidence - 0.6) * 0.3)
                 findings.append(
                     self.create_finding(
-                        title="Consider using a DTO instead of a large associative array",
-                        context=ctx,
+                        title="Large array crosses a boundary in a data-object-oriented project",
+                        context=(
+                            f"{array.class_fqcn or file_path}::{array.method_name}:"
+                            f"{boundary}:{array.key_count}"
+                        ),
                         file=file_path,
-                        line_start=first["line"],
+                        line_start=int(array.line_number or 1),
                         description=(
-                            f"Found {first['count']} associative array literal(s) with {first['max_keys']} key(s) used as `{first['used_as']}` "
-                            f"(target: `{tgt}`). Large arrays passed between layers tend to become untyped DTOs."
+                            f"A {array.key_count}-field associative array is passed to `{boundary}`. "
+                            "This project already prefers DTO/data-object contracts."
                         ),
                         why_it_matters=(
-                            "Large associative arrays are easy to accidentally break (typos, missing keys) and hard to refactor. "
-                            "DTOs (or Value Objects) provide explicit structure, type-safety, and improve readability."
+                            "At an object or layer boundary, an explicit data contract prevents silent key drift and "
+                            "makes refactoring safer. Local arrays and framework payloads do not need this treatment."
                         ),
-                        suggested_fix=(
-                            "1. Introduce a DTO class (e.g., `UserPayload`, `OrderData`)\n"
-                            "2. Replace array creation with `new Dto(...)` or a named constructor\n"
-                            "3. Pass the DTO between layers instead of raw arrays\n"
-                            "4. Add DTO validation/coercion at boundaries (request -> DTO)"
-                        ),
-                        code_example=(
-                            "// Before\n"
-                            "$payload = [\n"
-                            "  'user_id' => $id,\n"
-                            "  'email' => $email,\n"
-                            "  // ...\n"
-                            "];\n"
-                            "$service->handle($payload);\n\n"
-                            "// After\n"
-                            "$payload = new UserPayload(userId: $id, email: $email);\n"
-                            "$service->handle($payload);\n"
-                        ),
-                        tags=["maintainability", "dto", "typing", "architecture"],
-                        confidence=0.7,
+                        suggested_fix=self.fix_suggestion,
+                        tags=["maintainability", "dto", "typing", "architecture", "semantic"],
+                        confidence=confidence,
+                        evidence_signals=[
+                            "project_dto_convention=true",
+                            f"convention_confidence={convention_confidence:.2f}",
+                            f"array_keys={array.key_count}",
+                            f"used_as={array.used_as}",
+                            f"boundary_consumer={boundary}",
+                            *convention_evidence[:4],
+                        ],
                     ),
                 )
-            else:
-                # Multiple sites in one file -> Aggregate
-                locations = ", ".join(f"line {i['line']} ({i['method']})" for i in items[:3])
-                if len(items) > 3:
-                     locations += f", and {len(items)-3} more"
-
-                aggregated = self.create_finding(
-                    title=f"Multiple DTO opportunities detected ({total_arrays} instances)",
-                    context=f"file:{file_path}",
-                    file=file_path,
-                    line_start=first["line"],
-                    description=(
-                        f"Found {total_arrays} large associative arrays used as data carriers in this file.\n"
-                        f"Locations: {locations}."
-                    ),
-                    why_it_matters=(
-                        "Using loose arrays for complex data structures makes code brittle and hard to refactor. "
-                        "Converting these to DTOs will explicitely document the data contract."
-                    ),
-                    suggested_fix=(
-                        "Refactor these array usages into dedicated DTO/Value Object classes."
-                    ),
-                    tags=["maintainability", "dto", "typing", "architecture"],
-                    confidence=0.7,
-                    evidence_signals=[f"count={total_arrays}", f"file={file_path}"],
-                )
-
-                for i in items:
-                    aggregated.evidence_signals.append(f"match_line={i['line']}: {i['method']} (keys={i['max_keys']})")
-
-                findings.append(aggregated)
-
         return findings
+
+    def _dto_convention(self, facts: Facts) -> tuple[bool, float, list[str]]:
+        context = getattr(facts, "project_context", None)
+        expectations = (
+            getattr(context, "backend_team_expectations", None)
+            or getattr(context, "team_expectations", None)
+            or {}
+        )
+        payload = expectations.get("dto_data_objects_preferred", {}) if isinstance(expectations, dict) else {}
+        if not isinstance(payload, dict):
+            return (False, 0.0, [])
+        return (
+            bool(payload.get("enabled", False)),
+            float(payload.get("confidence", 0.0) or 0.0),
+            [str(item) for item in (payload.get("evidence", []) or []) if str(item or "")],
+        )
+
+    def _is_inside_data_object(self, array: AssocArrayLiteral) -> bool:
+        fqcn = str(array.class_fqcn or "").strip("\\")
+        class_name = fqcn.rsplit("\\", 1)[-1]
+        return bool(class_name and self._DATA_OBJECT_NAME.search(class_name))
+
+    def _boundary_consumer(self, array: AssocArrayLiteral) -> str | None:
+        used_as = str(array.used_as or "").lower()
+        candidates = [str(item or "").strip() for item in (array.consumer_calls or []) if str(item or "").strip()]
+        if used_as == "argument" and array.target:
+            candidates.insert(0, str(array.target).strip())
+        if used_as not in {"argument", "assignment"}:
+            return None
+        for candidate in candidates:
+            if self._is_boundary_call(candidate):
+                return candidate
+        return None
+
+    def _is_boundary_call(self, call: str) -> bool:
+        normalized = re.sub(r"\s+", "", str(call or "")).lower()
+        if not normalized:
+            return False
+        method = re.split(r"->|::", normalized)[-1]
+        if method in self._FRAMEWORK_TARGETS:
+            return False
+        if normalized.startswith("$this->") and normalized.count("->") == 1:
+            # A direct local helper call is not an architectural boundary.
+            return False
+        if "->" in normalized:
+            receiver = normalized.rsplit("->", 1)[0]
+            return receiver not in {"$this", "self", "static"}
+        if "::" in normalized:
+            scope = normalized.rsplit("::", 1)[0]
+            return scope not in {"self", "static", "parent", "response", "view", "inertia"}
+        return normalized in {"dispatch", "dispatch_sync", "event", "broadcast"}

@@ -26,7 +26,7 @@
     "overall": 100,
     "security": 100,
     "performance": 100,
-    "architecture": 99,
+    "architecture": 100,
     "quality": 100,
     "accessibility": 100
   },
@@ -35,7 +35,7 @@
       "id": "finding_1911778ac367",
       "fingerprint": "1911778ac367",
       "rule_id": "long-method",
-      "category": "srp",
+      "category": "complexity",
       "severity": "low",
       "classification": "advisory",
       "file": "src/Native.php",
@@ -50,16 +50,6 @@
       "classification": "advisory",
       "file": "index.php",
       "context": "project:test-suite"
-    },
-    {
-      "id": "finding_dab704e44f3c",
-      "fingerprint": "dab704e44f3c",
-      "rule_id": "error-pages-missing",
-      "category": "laravel_best_practice",
-      "severity": "high",
-      "classification": "advisory",
-      "file": "resources/views/errors",
-      "context": "resources/views/errors"
     }
   ],
   "findings_by_file": {},

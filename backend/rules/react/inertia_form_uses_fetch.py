@@ -6,6 +6,8 @@ Detects Inertia page forms that submit with fetch/axios instead of `useForm`.
 
 from __future__ import annotations
 
+import re
+
 from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
@@ -50,16 +52,13 @@ class InertiaFormUsesFetchRule(Rule):
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
-        norm = (file_path or "").replace("\\", "/").lower()
-        if "/resources/js/pages/" not in f"/{norm}":
-            return []
-
         text = content or ""
         if "<form" not in text:
             return []
         if "useForm(" in text:
             return []
-        if "fetch(" not in text and "axios." not in text:
+        submission = self._form_submission_source(text)
+        if not submission or ("fetch(" not in submission and "axios." not in submission):
             return []
 
         return [
@@ -85,3 +84,111 @@ class InertiaFormUsesFetchRule(Rule):
                 evidence_signals=[f"file={file_path}", "raw_http_form_submission=true"],
             ),
         ]
+
+    def _form_submission_source(self, text: str) -> str:
+        """Return only the handler wired to a form submission."""
+        for attrs in self._opening_form_attributes(text):
+            prop = re.search(r"\bonSubmit\s*=\s*\{", attrs, re.IGNORECASE)
+            if not prop:
+                continue
+            open_brace = attrs.find("{", prop.start())
+            payload = self._balanced_braced_expression(attrs, open_brace)
+            if payload is None:
+                continue
+            if "fetch(" in payload or "axios." in payload:
+                return payload
+            handler = re.fullmatch(r"\s*([A-Za-z_$][\w$]*)\s*", payload)
+            if not handler:
+                continue
+            body = self._named_handler_body(text, handler.group(1))
+            if body:
+                return body
+        return ""
+
+    def _opening_form_attributes(self, text: str) -> list[str]:
+        """Extract form tags without treating an arrow's `>` as the tag end."""
+        tags: list[str] = []
+        for match in re.finditer(r"<form\b", text, re.IGNORECASE):
+            start = match.end()
+            brace_depth = 0
+            quote = ""
+            escaped = False
+            for index in range(start, len(text)):
+                char = text[index]
+                if quote:
+                    if escaped:
+                        escaped = False
+                    elif char == "\\":
+                        escaped = True
+                    elif char == quote:
+                        quote = ""
+                    continue
+                if char in {"'", '"', "`"}:
+                    quote = char
+                elif char == "{":
+                    brace_depth += 1
+                elif char == "}":
+                    brace_depth = max(0, brace_depth - 1)
+                elif char == ">" and brace_depth == 0:
+                    tags.append(text[start:index])
+                    break
+        return tags
+
+    def _balanced_braced_expression(self, text: str, open_brace: int) -> str | None:
+        if open_brace < 0:
+            return None
+        depth = 0
+        quote = ""
+        escaped = False
+        for index in range(open_brace, len(text)):
+            char = text[index]
+            if quote:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == quote:
+                    quote = ""
+                continue
+            if char in {"'", '"', "`"}:
+                quote = char
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[open_brace + 1 : index]
+        return None
+
+    def _named_handler_body(self, text: str, name: str) -> str:
+        declaration = re.search(
+            rf"(?:\b(?:const|let|var)\s+{re.escape(name)}\s*=|\bfunction\s+{re.escape(name)}\s*\()",
+            text,
+        )
+        if not declaration:
+            return ""
+        open_brace = text.find("{", declaration.end())
+        if open_brace < 0:
+            return ""
+        depth = 0
+        quote = ""
+        escaped = False
+        for index in range(open_brace, len(text)):
+            char = text[index]
+            if quote:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == quote:
+                    quote = ""
+                continue
+            if char in {"'", '"', "`"}:
+                quote = char
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[open_brace : index + 1]
+        return ""

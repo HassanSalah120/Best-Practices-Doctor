@@ -13,7 +13,7 @@ class MissingModelFactoryRule(Rule):
     id = "missing-model-factory"
     name = "Missing Model Factory"
     description = "Detects Eloquent models without corresponding Factory classes"
-    category = Category.MAINTAINABILITY
+    category = Category.DATA_INTEGRITY
     default_severity = Severity.MEDIUM
     type = "ast"
     severity_weight = 5
@@ -59,10 +59,11 @@ class MissingModelFactoryRule(Rule):
         direct = root / "database" / "factories" / expected_name
         if direct.exists():
             return True
-        factories_root = root / "database" / "factories"
-        if not factories_root.exists():
-            return False
         try:
-            return any(path.name == expected_name for path in factories_root.rglob(expected_name))
+            return any(
+                path.name == expected_name
+                and not {"vendor", "node_modules"}.intersection(part.lower() for part in path.parts)
+                for path in root.rglob(expected_name)
+            )
         except OSError:
             return False

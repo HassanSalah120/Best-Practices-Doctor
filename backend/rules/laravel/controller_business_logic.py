@@ -59,6 +59,9 @@ class ControllerBusinessLogicRule(Rule):
         "->execute(",
         "->handle(",
         "->run(",
+        "->fromRequest(",
+        "->fromDto(",
+        "->fromResponse(",
         "service->",
         "services->",
         "action->",
@@ -98,6 +101,7 @@ class ControllerBusinessLogicRule(Rule):
         "discount",
         "score",
     )
+    _PROTOCOL_METHOD_MARKERS = ("auth", "authorize", "callback", "command", "handshake", "webhook")
 
     def analyze(
         self,
@@ -198,7 +202,10 @@ class ControllerBusinessLogicRule(Rule):
 
             confidence = 0.65
             if mm.has_business_logic:
-                confidence = max(confidence, min(1.0, 0.5 + mm.business_logic_confidence / 2))
+                # This remains an architectural heuristic: complexity cannot
+                # prove that branches are domain policy rather than protocol
+                # adaptation or request/response orchestration.
+                confidence = max(confidence, min(0.9, 0.5 + mm.business_logic_confidence / 2))
             else:
                 # Controllers often mix validation/queries with branching; treat CC/LOC as primary signal.
                 confidence = max(confidence, min(0.9, 0.5 + (mm.cyclomatic_complexity / 20)))
@@ -371,6 +378,18 @@ class ControllerBusinessLogicRule(Rule):
         has_heavy_logic = any(marker in call for call in call_sites for marker in self._HEAVY_BUSINESS_MARKERS)
         if has_heavy_logic:
             return False
+
+        protocol_adapter = (
+            any(marker in str(method.name or "").lower() for marker in self._PROTOCOL_METHOD_MARKERS)
+            and delegated_call_count >= 1
+            and metrics.query_count <= 2
+            and metrics.validation_count <= 1
+            and metrics.conditional_count <= 9
+            and metrics.cyclomatic_complexity <= 10
+            and (method.loc or 0) <= 90
+        )
+        if protocol_adapter:
+            return True
 
         normalized_path = str(method.file_path or "").replace("\\", "/").lower()
         method_fqn = str(method.method_fqn or "")

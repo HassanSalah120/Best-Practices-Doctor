@@ -48,6 +48,18 @@ class LaravelNamingConventionsRule(Rule):
     )
     _SINGULAR_S_SUFFIXES = ("Diagnosis", "Status", "Analysis")
     _DESCRIPTIVE_RELATION_SUFFIXES = ("History", "From", "To")
+    _UNCOUNTABLE_NOUNS = {
+        "analytics",
+        "data",
+        "equipment",
+        "information",
+        "media",
+        "metadata",
+        "news",
+        "series",
+        "species",
+    }
+    _IRREGULAR_PLURALS = {"children", "feet", "men", "people", "teeth", "women"}
 
     def analyze(self, facts: Facts, metrics: dict[str, MethodMetrics] | None = None) -> list[Finding]:
         return []
@@ -56,12 +68,12 @@ class LaravelNamingConventionsRule(Rule):
         findings: list[Finding] = []
         for m in re.finditer(r"class\s+(\w+Controller)\b", content):
             base = m.group(1)[:-10]
-            if base.endswith("s") and not self._is_allowed_controller_base(base):
+            if self._looks_plural(base) and not self._is_allowed_controller_base(base):
                 line = content.count("\n", 0, m.start()) + 1
                 findings.append(self.create_finding("Controller class name should be singular", file_path, line, f"`{m.group(1)}` appears plural.", "Singular controller/model names match Laravel conventions and reduce routing/resource naming confusion.", self.fix_suggestion, context=m.group(1), confidence=0.65, tags=["laravel", "quality", "naming"]))
         for m in re.finditer(r"class\s+(\w+)\s+extends\s+Model\b", content):
             name = m.group(1)
-            if name.endswith("s") and not self._is_allowed_model_name(name):
+            if self._looks_plural(name) and not self._is_allowed_model_name(name):
                 line = content.count("\n", 0, m.start()) + 1
                 findings.append(self.create_finding("Model class name should be singular", file_path, line, f"`{name}` appears plural.", "Laravel models conventionally represent one entity and should be singular.", self.fix_suggestion, context=name, confidence=0.65, tags=["laravel", "quality", "naming"]))
         for m in re.finditer(r"function\s+(\w+)\s*\([^)]*\)\s*:\s*(BelongsToMany|HasOne|BelongsTo|HasMany)", content):
@@ -70,7 +82,8 @@ class LaravelNamingConventionsRule(Rule):
                 continue
             if name.endswith(self._DESCRIPTIVE_RELATION_SUFFIXES):
                 continue
-            bad = (relation in {"HasOne", "BelongsTo"} and name.endswith("s")) or (relation == "HasMany" and not name.endswith("s"))
+            plural_name = self._looks_plural(name)
+            bad = (relation in {"HasOne", "BelongsTo"} and plural_name) or (relation == "HasMany" and not plural_name)
             if bad:
                 line = content.count("\n", 0, m.start()) + 1
                 findings.append(self.create_finding("Relationship method naming does not match cardinality", file_path, line, f"`{name}()` returns `{relation}` with an unexpected singular/plural name.", "Relationship names are part of the model API and should communicate cardinality clearly.", self.fix_suggestion, context=f"{name}:{relation}", confidence=0.70, tags=["laravel", "quality", "naming"]))
@@ -89,3 +102,18 @@ class LaravelNamingConventionsRule(Rule):
         if name in cls._EXCEPTIONS:
             return True
         return name.endswith(cls._SINGULAR_S_SUFFIXES)
+
+    @classmethod
+    def _looks_plural(cls, identifier: str) -> bool:
+        # Evaluate the final CamelCase word instead of the complete class name.
+        # This handles domain nouns such as CategorySeries without relying on
+        # a particular namespace or file location.
+        words = re.findall(r"[A-Z]+(?=[A-Z][a-z]|$)|[A-Z]?[a-z]+|\d+", str(identifier or ""))
+        noun = (words[-1] if words else str(identifier or "")).lower()
+        if not noun or noun in cls._UNCOUNTABLE_NOUNS:
+            return False
+        if noun in cls._IRREGULAR_PLURALS:
+            return True
+        if noun.endswith(("ss", "us", "is", "ias")):
+            return False
+        return noun.endswith("s")

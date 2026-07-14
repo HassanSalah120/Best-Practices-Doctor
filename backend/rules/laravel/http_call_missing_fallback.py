@@ -17,7 +17,7 @@ class HttpCallMissingFallbackRule(Rule):
     id = "http-call-missing-fallback"
     name = "HTTP Call Missing Fallback"
     description = "Detects Laravel HTTP client calls that are not wrapped or checked before use"
-    category = Category.ARCHITECTURE
+    category = Category.RELIABILITY
     default_severity = Severity.HIGH
     type = "ast"
     regex_file_extensions = [".php"]

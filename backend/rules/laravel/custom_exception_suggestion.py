@@ -116,7 +116,7 @@ class CustomExceptionSuggestionRule(Rule):
         low_path = str(getattr(method, "file_path", "") or "").lower().replace("\\", "/")
         if any(marker in low_path for marker in self._ALLOWLIST_PATH_MARKERS):
             return True
-        if any(low_path.startswith(root.rstrip("/") + "/") for root in shared_infra_roots if root.startswith("app/")):
+        if any(low_path.startswith(root.rstrip("/") + "/") for root in shared_infra_roots):
             return True
         low_name = str(getattr(method, "name", "") or "").lower()
         return low_name in self._ALLOWLIST_METHODS

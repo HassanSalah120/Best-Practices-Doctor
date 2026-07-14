@@ -20,7 +20,7 @@ class NoLogDebugInAppRule(Rule):
     id = "no-log-debug-in-app"
     name = "Avoid Log::debug in app code"
     description = "Detects Log::debug(...) calls in application code"
-    category = Category.MAINTAINABILITY
+    category = Category.OBSERVABILITY
     default_severity = Severity.LOW
     type = "regex"
     applicable_project_types: list[str] = []  # all

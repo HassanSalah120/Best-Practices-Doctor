@@ -154,6 +154,10 @@ from .unthrottled_scroll_resize_handler import UnthrottledScrollResizeHandlerRul
 from .use_callback_overuse import UseCallbackOveruseRule
 from .use_memo_overuse import UseMemoOveruseRule
 
+# Other standalone React rules
+from .vite_chunk_config_missing import ViteChunkConfigMissingRule
+from .window_any_typing import WindowAnyTypingRule
+
 # AST-based rules (higher accuracy)
 from .usecallback_ast import UseCallbackASTRule
 
@@ -315,4 +319,5 @@ __all__ = [
     "ConsoleLogInProductionCodeRule",
     "InertiaPageMissingErrorBoundaryRule",
     "UselessSuspenseBoundaryRule",
+    "WindowAnyTypingRule",
 ]

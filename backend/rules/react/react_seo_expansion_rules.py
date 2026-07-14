@@ -13,7 +13,7 @@ from schemas.metrics import MethodMetrics
 _TEST_PATH_MARKERS = ("tests", "test", "__tests__", "stories", "storybook", "fixtures")
 _PAGE_PATH_MARKERS = ("pages", "screens", "views")
 _NON_RENDER_PATH_MARKERS = ("hooks", "utils", "helpers", "lib", "services", "types")
-_NON_INDEXABLE_TEMPLATE_MARKERS = ("/views/pdf/", "/views/vendor/mail/", "/mail/", "/emails/")
+_NON_INDEXABLE_TEMPLATE_MARKERS = ("/views/pdf/", "/views/pdfs/", "/views/vendor/mail/", "/mail/", "/emails/")
 
 # Internal markers that suggest a page is not public-facing
 _INTERNAL_APP_PATH_MARKERS = (
@@ -273,13 +273,13 @@ class _SeoRuleBase(Rule):
     def _is_internal_app_surface(self, file_path: str) -> bool:
         segments = self._get_path_segments(file_path)
 
-        # Portal and Auth pages are often public-facing (e.g. patient portal, login)
-        # BUT specific sensitive auth pages or clearly internal segments should be skipped.
+        # Auth pages — always authenticated/internal
         if "auth" in segments:
-            # Skip highly sensitive or intermediate auth states that don't need SEO
-            sensitive_auth = {"confirmpassword", "twofactorchallenge", "verifyemail", "roleselection", "onboarding"}
-            return bool(any(s in segments for s in sensitive_auth))
+            return True
 
+        # Portal/patient-portal pages are public-facing, not internal.
+        # They may contain markers like "dashboard" or "patients" as child pages,
+        # but the top-level "portal" routing indicates a public surface.
         if "portal" in segments or "patientportal" in segments:
             return False
 
@@ -404,7 +404,7 @@ class MetaDescriptionMissingOrGenericRule(_SeoRuleBase):
     id = "meta-description-missing-or-generic"
     name = "Meta Description Missing or Generic"
     description = "Detects missing or generic page-level meta descriptions on indexable/public surfaces"
-    category = Category.REACT_BEST_PRACTICE
+    category = Category.SEO
     default_severity = Severity.LOW
     default_classification = FindingClassification.ADVISORY
 
@@ -418,7 +418,13 @@ class MetaDescriptionMissingOrGenericRule(_SeoRuleBase):
         "lorem ipsum",
         "page description",
         "description",
+        "welcome to",
+        "my app",
+        "dashboard",
+        "home page",
+        "app",
     }
+    _GENERIC_MIN_LENGTH = 50  # Google recommends 50-160 characters
     severity_weight = 0
     confidence = 'low'
     fix_suggestion = 'Refactor the component code to remove the meta description missing or generic pattern while preserving the public UI behavior. Prefer explicit state, props, and lifecycle boundaries over implicit side effects.'
@@ -481,7 +487,7 @@ class MetaDescriptionMissingOrGenericRule(_SeoRuleBase):
             return []
 
         value = raw_value.lower()
-        if len(value) < 35 or value in self._GENERIC:
+        if len(value) < self._GENERIC_MIN_LENGTH or value in self._GENERIC:
             line = self._line_for_offset(text, literal_match.start())
             return [
                 self.create_finding(
@@ -509,7 +515,7 @@ class CanonicalMissingOrInvalidRule(_SeoRuleBase):
     id = "canonical-missing-or-invalid"
     name = "Canonical Missing or Invalid"
     description = "Detects missing or malformed canonical metadata on public/indexable pages"
-    category = Category.REACT_BEST_PRACTICE
+    category = Category.SEO
     default_severity = Severity.MEDIUM
     default_classification = FindingClassification.ADVISORY
     severity_weight = 0
@@ -604,7 +610,7 @@ class RobotsDirectiveRiskRule(_SeoRuleBase):
     id = "robots-directive-risk"
     name = "Robots Directive Risk"
     description = "Detects risky robots directives on likely public/indexable pages"
-    category = Category.REACT_BEST_PRACTICE
+    category = Category.SEO
     default_severity = Severity.MEDIUM
     default_classification = FindingClassification.ADVISORY
     severity_weight = 0
@@ -671,7 +677,7 @@ class CrawlableInternalNavigationRequiredRule(_SeoRuleBase):
     id = "crawlable-internal-navigation-required"
     name = "Crawlable Internal Navigation Required"
     description = "Detects internal navigation implemented without crawlable anchor/link semantics"
-    category = Category.REACT_BEST_PRACTICE
+    category = Category.SEO
     default_severity = Severity.MEDIUM
     default_classification = FindingClassification.ADVISORY
 
@@ -734,7 +740,7 @@ class JsonLdStructuredDataInvalidOrMismatchedRule(_SeoRuleBase):
     id = "jsonld-structured-data-invalid-or-mismatched"
     name = "JSON-LD Structured Data Invalid or Mismatched"
     description = "Detects invalid or weakly-formed JSON-LD structured data blocks"
-    category = Category.REACT_BEST_PRACTICE
+    category = Category.SEO
     default_severity = Severity.MEDIUM
     default_classification = FindingClassification.ADVISORY
 
@@ -828,7 +834,7 @@ class H1SingletonViolationRule(_SeoRuleBase):
     id = "h1-singleton-violation"
     name = "H1 Singleton Violation"
     description = "Detects missing or multiple H1 headings on page surfaces"
-    category = Category.REACT_BEST_PRACTICE
+    category = Category.SEO
     default_severity = Severity.MEDIUM
     default_classification = FindingClassification.ADVISORY
 
@@ -841,6 +847,12 @@ class H1SingletonViolationRule(_SeoRuleBase):
     _NON_INDEXABLE_PATH = ("admin", "auth", "errors", "layouts", "components")
     _UTILITY_FILE_PATTERNS = ("utils.ts", "utils.tsx", "helpers.ts", "helpers.tsx", ".d.ts", ".types.ts", ".types.tsx")
     _HOOK_FILE_PATTERN = re.compile(r"^use[A-Z].*\.ts$", re.IGNORECASE)
+    # Components that always render an <h1> — imported heading components mean the
+    # page has an h1 even if static analysis can't see through the import.
+    _HEADING_IMPORT_PATTERN = re.compile(
+        r"""import\s+(?:\{[^}]*\b(?:Header|Heading|Title|PageTitle|PageHeader|SectionTitle)[^}]*\}|[A-Z]\w*(?:Header|Heading|Title))\s+from""",
+        re.IGNORECASE,
+    )
 
     # Export pattern detection (improved: arrow exports, no PascalCase assumption)
     _DEFAULT_EXPORT = re.compile(r"\bexport\s+default\b", re.IGNORECASE)
@@ -1005,6 +1017,11 @@ class H1SingletonViolationRule(_SeoRuleBase):
         if self._looks_like_child_composition(file_path, text):
             return []
 
+        # If file imports a heading component (PageHeader, Header, Title, etc.),
+        # the h1 is rendered through that import — static analysis just can't see it.
+        if self._HEADING_IMPORT_PATTERN.search(text):
+            return []
+
         h1_count = len(list(self._H1.finditer(text)))
 
         if h1_count > 1:
@@ -1052,6 +1069,14 @@ class H1SingletonViolationRule(_SeoRuleBase):
         if not heading_signals["has_h1"] and not heading_signals["has_h2_to_h6"]:
             return []
 
+        # For 0-h1 files that have h2-h6 but no h1, require strong page evidence
+        if h1_count == 0:
+            if not heading_signals["has_h1"] and heading_signals["has_h2_to_h6"]:
+                # Only flag if page_score is >= 2 AND page_score > section_score
+                # This avoids flagging subsection/detail files that use h2+ for layout content
+                if page_score < 2 or page_score <= section_score:
+                    return []
+
         should_skip = section_score >= 2 and section_score > page_score
         if should_skip:
             return []
@@ -1091,7 +1116,7 @@ class PageIndexabilityConflictRule(_SeoRuleBase):
     id = "page-indexability-conflict"
     name = "Page Indexability Conflict"
     description = "Detects conflicting indexability metadata signals on the same page"
-    category = Category.REACT_BEST_PRACTICE
+    category = Category.SEO
     default_severity = Severity.HIGH
     default_classification = FindingClassification.RISK
 

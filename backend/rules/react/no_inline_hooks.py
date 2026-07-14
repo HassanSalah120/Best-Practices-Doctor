@@ -16,7 +16,7 @@ class NoInlineHooksRule(Rule):
     id = "no-inline-hooks"
     name = "No Inline Hook Definitions"
     description = "Enforces extraction of custom hooks to separate files"
-    category = Category.MAINTAINABILITY
+    category = Category.REACT_BEST_PRACTICE
     default_severity = Severity.MEDIUM
     type = "regex"
     regex_file_extensions = [".js", ".jsx", ".ts", ".tsx"]

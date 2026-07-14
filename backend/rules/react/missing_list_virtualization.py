@@ -38,5 +38,5 @@ class MissingListVirtualizationRule(Rule):
         findings=[]
         for m in self._MAP.finditer(content):
             line=content.count("\n",0,m.start())+1
-            findings.append(self.create_finding("Large list render may need virtualization", file_path, line, "A collection with a large-data name is rendered with .map() and no virtualization library is imported.", "Rendering hundreds of rows at once increases DOM size and slows interactions.", self.fix_suggestion, context=f"{file_path}:{line}", confidence=0.45, tags=["react", "performance", "lists"]))
+            findings.append(self.create_finding("Large list render may need virtualization", file_path, line, "A collection with a large-data name is rendered with .map() and no virtualization library is imported.", "Rendering hundreds of rows at once increases DOM size and slows interactions.", self.fix_suggestion, context=f"{file_path}:{line}", confidence=0.60, tags=["react", "performance", "lists"]))
         return findings

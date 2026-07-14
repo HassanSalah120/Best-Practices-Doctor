@@ -13,7 +13,7 @@ class SynchronousMailInRequestRule(Rule):
     id = "synchronous-mail-in-request"
     name = "Synchronous Mail In Request"
     description = "Detects synchronous Mail::send or Mail::to()->send calls in request path code"
-    category = Category.PERFORMANCE
+    category = Category.RELIABILITY
     default_severity = Severity.HIGH
     type = "regex"
     severity_weight = 8
@@ -39,9 +39,21 @@ class SynchronousMailInRequestRule(Rule):
         norm = file_path.replace("\\", "/").lower()
         if "/console/" in norm or "/commands/" in norm or "seeder" in norm or "ShouldQueue" in content:
             return []
-        normalized = file_path.replace("\\", "/")
-        if "app/Http/Controllers/" not in normalized and "app/Services/" not in normalized:
+        normalized = file_path.replace("\\", "/").lower()
+        request_layer_files = {
+            str(getattr(cls, "file_path", "") or "").replace("\\", "/").lower()
+            for cls in [
+                *(getattr(facts, "controllers", []) or []),
+                *(getattr(facts, "services", []) or []),
+            ]
+        }
+        if request_layer_files and normalized not in request_layer_files:
             return []
+        if not request_layer_files:
+            conventional_request_path = "/controllers/" in f"/{normalized}" or "/services/" in f"/{normalized}"
+            semantic_request_class = bool(re.search(r"class\s+\w+(?:Controller|Service)\b", content or ""))
+            if not (conventional_request_path or semantic_request_class):
+                return []
         findings: list[Finding] = []
         for m in self._SEND.finditer(content):
             line = content.count("\n", 0, m.start()) + 1

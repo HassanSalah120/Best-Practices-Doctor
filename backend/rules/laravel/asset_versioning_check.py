@@ -16,7 +16,7 @@ class AssetVersioningCheckRule(Rule):
     id = "asset-versioning-check"
     name = "Asset Versioning Check"
     description = "Verifies that Inertia asset versioning is properly configured"
-    category = Category.PERFORMANCE
+    category = Category.RELIABILITY
     default_severity = Severity.LOW
     applicable_project_types = [
         "laravel_inertia_react",

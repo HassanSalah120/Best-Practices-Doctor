@@ -45,5 +45,5 @@ class MissingDomainEventRule(Rule):
             if re.search(r"\b(event\s*\(|Event::|dispatch\s*\(|::dispatch\s*\()", nearby):
                 continue
             line = content.count("\n", 0, m.start()) + 1
-            findings.append(self.create_finding("Critical model write has no nearby domain event", file_path, line, "A critical Order/Payment/Invoice/User write has no nearby event dispatch.", "Domain events decouple side effects such as notifications, auditing, and projections from the write workflow.", self.fix_suggestion, context=f"{file_path}:{line}", confidence=0.45, tags=["laravel", "architecture", "events"]))
+            findings.append(self.create_finding("Critical model write has no nearby domain event", file_path, line, "A critical Order/Payment/Invoice/User write has no nearby event dispatch.", "Domain events decouple side effects such as notifications, auditing, and projections from the write workflow.", self.fix_suggestion, context=f"{file_path}:{line}", confidence=0.60, tags=["laravel", "architecture", "events"]))
         return findings

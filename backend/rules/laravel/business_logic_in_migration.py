@@ -13,7 +13,7 @@ class BusinessLogicInMigrationRule(Rule):
     id = "business-logic-in-migration"
     name = "Business Logic In Migration"
     description = "Detects model usage or business loops inside migration up methods"
-    category = Category.ARCHITECTURE
+    category = Category.DATA_INTEGRITY
     default_severity = Severity.HIGH
     type = "regex"
     severity_weight = 8

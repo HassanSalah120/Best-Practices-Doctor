@@ -31,7 +31,7 @@ class ApiResourceUsageRule(Rule):
         "laravel_livewire",
     ]
     regex_file_extensions = [".php"]
-    _ALLOWLIST_PATHS = ("tests/", "/tests/", "vendor/", "/vendor/")
+    _ALLOWLIST_PATHS = ("tests/", "/tests/", "vendor/", "/vendor/", "config/", "/config/")
 
     _CLASS_PATTERN = re.compile(r"class\s+([A-Z][a-zA-Z0-9_]*)", re.IGNORECASE)
     _API_NAMESPACE_PATTERN = re.compile(r"namespace\s+[^;]*\\api(?:\\|;)", re.IGNORECASE)
@@ -71,6 +71,11 @@ class ApiResourceUsageRule(Rule):
         "'pagination'",
         "\"pagination\"",
         "->toarray(",
+    )
+    _MODEL_PAYLOAD_PATTERN = re.compile(
+        r"(?:[A-Z][A-Za-z0-9_]*::(?:query|all|find|where)\s*\(|"
+        r"->(?:get|paginate|simplePaginate|cursorPaginate|toArray)\s*\()",
+        re.IGNORECASE,
     )
     severity_weight = 0
     confidence = 'medium'
@@ -124,7 +129,14 @@ class ApiResourceUsageRule(Rule):
                 marker in low for marker in self._CONTRACT_ARRAY_HINTS
             ):
                 continue
-            confidence = 0.7 if any(marker in low for marker in self._CONTRACT_ARRAY_HINTS) else 0.64
+            has_contract_shape = any(marker in low for marker in self._CONTRACT_ARRAY_HINTS)
+            has_model_payload = bool(self._MODEL_PAYLOAD_PATTERN.search(line))
+            # A JSON array is not automatically an Eloquent serialization
+            # boundary. Protocol envelopes, computed projections, health
+            # responses, and command acknowledgements are valid raw payloads.
+            if not has_contract_shape and not has_model_payload:
+                continue
+            confidence = 0.74 if has_model_payload else 0.7
             if confidence + 1e-9 < min_confidence:
                 continue
             hits.append((hit, confidence))
@@ -192,5 +204,5 @@ class ApiResourceUsageRule(Rule):
         return False, evidence
 
     def _is_api_route(self, route: RouteInfo) -> bool:
-        route_file = (route.file_path or "").replace("\\", "/").lower()
-        return route_file == "routes/api.php" or route_file.endswith("/routes/api.php")
+        from rules.laravel._route_helpers import is_api_route_file
+        return is_api_route_file(route)

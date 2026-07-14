@@ -98,6 +98,45 @@ fn kill_backend(child: Option<CommandChild>) {
     }
 }
 
+/// Resolve the Python command to use when spawning the backend.
+///
+/// Priority order:
+/// 1. Virtual environment python.exe (Windows) or bin/python (Unix) — checks for actual file existence
+/// 2. `python.exe` (Windows only) — avoids batch/cmd wrappers like `py.exe` or `python.bat`
+/// 3. `python3` (Unix)
+/// 4. `python` — generic fallback
+fn resolve_python_command(backend_dir: &PathBuf) -> String {
+    // Priority 1: venv Python (exact path, avoids PATH resolution issues)
+    if cfg!(windows) {
+        let venv_py = backend_dir.join(".venv").join("Scripts").join("python.exe");
+        if venv_py.exists() {
+            // Canonicalize to remove `..` segments; the venv's site module
+            // compares sys.prefix, and un-canonicalized paths trigger warnings
+            // and can break venv activation.
+            if let Ok(canonical) = venv_py.canonicalize() {
+                return canonical.to_string_lossy().to_string();
+            }
+            return venv_py.to_string_lossy().to_string();
+        }
+    } else {
+        let venv_py = backend_dir.join(".venv").join("bin").join("python");
+        if venv_py.exists() {
+            if let Ok(canonical) = venv_py.canonicalize() {
+                return canonical.to_string_lossy().to_string();
+            }
+            return venv_py.to_string_lossy().to_string();
+        }
+    }
+
+    // Priority 2 & 3: Use extension to avoid batch wrapper on Windows
+    if cfg!(windows) {
+        // `python.exe` avoids .bat/.cmd resolution that causes "Terminate batch job" prompts
+        "python.exe".to_string()
+    } else {
+        "python3".to_string()
+    }
+}
+
 pub fn run() {
     let run_id = uuid::Uuid::new_v4().to_string();
     let backend_info = Arc::new(Mutex::new(None));
@@ -165,8 +204,8 @@ pub fn run() {
                         .join("backend");
                     let py_cmd = app_handle
                         .shell()
-                        .command("python")
-                        .current_dir(backend_dir)
+                        .command(resolve_python_command(&backend_dir))
+                        .current_dir(backend_dir.clone())
                         .env("BPD_APP_DATA_DIR", discovery_dir_value.to_string_lossy().to_string())
                         .args(&["main.py", "--run-id", &run_id])
                         .spawn();
@@ -319,8 +358,8 @@ pub fn run() {
                         .join("backend");
                     let py_cmd = app_handle
                         .shell()
-                        .command("python")
-                        .current_dir(backend_dir)
+                        .command(resolve_python_command(&backend_dir))
+                        .current_dir(backend_dir.clone())
                         .env("BPD_APP_DATA_DIR", discovery_dir_value.to_string_lossy().to_string())
                         .args(&["main.py", "--run-id", &run_id])
                         .spawn();

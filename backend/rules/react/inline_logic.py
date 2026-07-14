@@ -76,6 +76,8 @@ class InlineLogicRule(Rule):
     _API_SIDE_EFFECT_PATTERN = re.compile(r"\b(fetch\s*\(|axios\.)", re.IGNORECASE)
     _QUERY_HOOK_PATTERN = re.compile(r"\b(useQuery|useSWR)\s*\(", re.IGNORECASE)
     _SERVICE_IMPORT_MARKERS = ("/services/", "/api/", "service", "client", "repository")
+    _STATE_HOOK_CALL = re.compile(r"\b(?:React\.)?(?:useState|useReducer)\s*\(")
+    _SETTER_CALL = re.compile(r"\bset[A-Z][A-Za-z0-9_]*\s*\(")
 
     def analyze(
         self,
@@ -83,7 +85,7 @@ class InlineLogicRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         findings = []
-        min_state_hook_count = max(3, int(self.get_threshold("min_state_hook_count", 4)))
+        min_state_hook_count = max(4, int(self.get_threshold("min_state_hook_count", 4)))
         suppress_query_hook_usage = bool(self.get_threshold("suppress_query_hook_usage", True))
         require_fetch_or_axios_for_api_finding = bool(
             self.get_threshold("require_fetch_or_axios_for_api_finding", True),
@@ -107,6 +109,8 @@ class InlineLogicRule(Rule):
                 if logic_profile["suppressed_as_composed_shell"]:
                     continue
                 if logic_profile["state_hook_count"] < min_state_hook_count:
+                    continue
+                if not logic_profile["has_complex_state_transitions"]:
                     continue
                 findings.append(self._create_logic_finding(component, logic_profile))
 
@@ -259,13 +263,34 @@ class InlineLogicRule(Rule):
 
     def _logic_profile(self, component: ReactComponentInfo, facts: Facts) -> dict[str, object]:
         hooks = [str(h or "") for h in (component.hooks_used or [])]
-        state_hook_count = sum(1 for h in hooks if h in {"useState", "useReducer", "useEffect", "useMemo", "useCallback"})
+        source = self._source_text(component, facts)
+        state_hook_count = len(self._STATE_HOOK_CALL.findall(source)) if source else sum(
+            1 for h in hooks if h in {"useState", "useReducer"}
+        )
+        coordination_hook_count = sum(1 for h in hooks if h in {"useEffect", "useMemo", "useCallback"})
+        nested_setter_count = len(self._NESTED_SETTER.findall(source)) if source else 0
+        setter_call_count = len(self._SETTER_CALL.findall(source)) if source else 0
+        uses_reducer = bool(re.search(r"\b(?:React\.)?useReducer\s*\(", source)) if source else "useReducer" in hooks
+        has_complex_state_transitions = bool(
+            nested_setter_count
+            or (state_hook_count >= 6 and setter_call_count >= state_hook_count)
+            or (uses_reducer and int(component.loc or 0) >= 120)
+        )
         composed_shell = self._is_composed_shell(component, facts)
         return {
             "state_hook_count": state_hook_count,
+            "coordination_hook_count": coordination_hook_count,
+            "nested_setter_count": nested_setter_count,
+            "setter_call_count": setter_call_count,
+            "has_complex_state_transitions": has_complex_state_transitions,
             "suppressed_as_composed_shell": composed_shell,
             "evidence_signals": [
-                f"state_hooks={state_hook_count}",
+                f"state_containers={state_hook_count}",
+                f"coordination_hooks={coordination_hook_count}",
+                f"nested_state_updates={nested_setter_count}",
+                f"setter_calls={setter_call_count}",
+                f"component_loc={int(component.loc or 0)}",
+                f"complex_transitions={int(has_complex_state_transitions)}",
                 f"composed_shell={int(composed_shell)}",
             ],
         }

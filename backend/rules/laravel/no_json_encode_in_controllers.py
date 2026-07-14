@@ -11,10 +11,10 @@ import re
 
 from core.regex_scan import regex_scan
 from rules.base import Rule
+from rules.laravel._route_helpers import is_api_route_file
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
-
 
 class NoJsonEncodeInControllersRule(Rule):
     id = "no-json-encode-in-controllers"
@@ -151,7 +151,7 @@ class NoJsonEncodeInControllersRule(Rule):
         class_name = class_match.group(1)
         for route in facts.routes or []:
             route_file = (route.file_path or "").replace("\\", "/").lower()
-            if not (route_file == "routes/api.php" or route_file.endswith("/routes/api.php")):
+            if not is_api_route_file(route):
                 continue
             controller_ref = str(route.controller or route.action or "")
             if class_name.lower() in controller_ref.lower():

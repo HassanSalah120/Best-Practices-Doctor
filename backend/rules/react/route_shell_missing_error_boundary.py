@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 
 from rules.base import Rule
+from rules.react._error_boundary_helpers import global_error_boundary_file
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
@@ -81,6 +82,8 @@ class RouteShellMissingErrorBoundaryRule(Rule):
 
         min_data_signals = max(1, int(self.get_threshold("min_data_signals", 2)))
         if any(pattern.search(text) for pattern in self._ERROR_BOUNDARY_PATTERNS):
+            return []
+        if global_error_boundary_file(facts):
             return []
 
         data_signal_hits: list[tuple[str, int]] = []

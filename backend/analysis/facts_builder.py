@@ -7,7 +7,10 @@ This module builds the Facts object that represents the codebase.
 import contextlib
 import fnmatch
 import logging
+import posixpath
+import re
 import threading
+import time
 from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -15,7 +18,8 @@ from pathlib import Path
 
 from core.hashing import fast_hash_hex
 from core.path_utils import normalize_rel_path
-from core.test_detection import count_test_files
+from core.project_inventory import discover_project_files, inventory_paths
+from core.test_detection import is_test_like_path
 from schemas.facts import (
     AssocArrayLiteral,
     BladeQuery,
@@ -140,15 +144,26 @@ class FactsBuilder:
 
         # Build state
         self.progress = BuildProgress()
-        self._facts = Facts(project_path=str(self.project_path))
+        technical_project_type = str(
+            getattr(getattr(self.project_info, "project_type", None), "value", "")
+            or getattr(self.project_info, "project_type", "")
+            or "",
+        )
+        self._facts = Facts(
+            project_path=str(self.project_path),
+            framework_project_type=technical_project_type,
+            npm_packages=dict(getattr(self.project_info, "npm_packages", {}) or {}),
+        )
         self._facts._frontend_symbol_graph = {"files": {}, "edges": []}
+        self._project_inventory: list[str] | None = None
 
         # Project-level quality gate signals (do not depend on ignore globs).
         try:
             self._facts.has_tests = bool(getattr(self.project_info, "has_tests", False))
         except Exception:
             self._facts.has_tests = False
-        self._facts.test_files_count = self._count_test_files()
+        self._facts.test_files_count = 0
+        self._facts.test_files = []
 
         # Token hashing for duplicate detection.
         # hash -> [(file, start_line, end_line, snippet, token_count, method_key, start_token_idx)]
@@ -164,10 +179,62 @@ class FactsBuilder:
 
     def _count_test_files(self) -> int:
         """Count test files across backend and frontend test conventions."""
+        return len(self._collect_test_files())
+
+    def _collect_test_files(self, cap: int = 10_000) -> list[str]:
+        """Record test targets even when generic production scanning ignores them."""
+        found: list[str] = []
         try:
-            return count_test_files(self.project_path)
+            for rel_path in self._get_project_inventory():
+                path = self.project_path / Path(rel_path)
+                if path.name.lower() in {"phpunit.xml", "phpunit.xml.dist", "pest.php"}:
+                    continue
+                if is_test_like_path(rel_path):
+                    found.append(normalize_rel_path(rel_path))
+                    if len(found) >= cap:
+                        break
         except Exception:
-            return 0
+            return []
+        return sorted(set(found))
+
+    def _get_project_inventory(self) -> list[str]:
+        """Reuse detector discovery or perform one fallback walk."""
+        if self._project_inventory is not None:
+            return list(self._project_inventory)
+        discovered = list(getattr(self.project_info, "discovered_files", []) or [])
+        self._project_inventory = sorted(set(discovered or discover_project_files(self.project_path)))
+        return list(self._project_inventory)
+
+    def _select_scan_files(self) -> list[Path]:
+        """Select supported, non-ignored, size-bounded files from one inventory."""
+        php_suffixes = {".php", ".inc", ".phtml", ".php3", ".php4", ".php5"}
+        js_suffixes = {".js", ".jsx", ".ts", ".tsx"}
+        selected: list[Path] = []
+        skipped_ignored = 0
+        skipped_large = 0
+        for _rel_path, path in inventory_paths(self.project_path, self._get_project_inventory()):
+            suffix = path.suffix.lower()
+            if suffix not in php_suffixes | js_suffixes and not self._is_auxiliary_scan_file(path):
+                continue
+            if self._is_ignored(path):
+                skipped_ignored += 1
+                continue
+            try:
+                if self.max_file_size_kb and path.stat().st_size > self.max_file_size_kb * 1024:
+                    skipped_large += 1
+                    continue
+            except OSError:
+                continue
+            selected.append(path)
+        selected.sort(key=lambda path: normalize_rel_path(str(path.relative_to(self.project_path))).lower())
+        self._facts.analysis_stats.update(
+            {
+                "inventory_files": len(self._get_project_inventory()),
+                "files_ignored": skipped_ignored,
+                "files_over_size_limit": skipped_large,
+            },
+        )
+        return selected
 
     def build(self, progress_callback: callable = None) -> Facts:
         """
@@ -179,40 +246,18 @@ class FactsBuilder:
         Returns:
             Facts object with extracted data
         """
-        # PHP extensions commonly found in legacy apps.
-        php_exts = ["php", "inc", "phtml", "php3", "php4", "php5"]
-        php_files: list[Path] = []
-        for ext in php_exts:
-            php_files.extend([p for p in self._find_files(f"**/*.{ext}") if not p.name.endswith(".blade.php")])
-
-        # Expand JS/TS extensions manually as PathToken.glob doesn't support {}
-        js_files: list[Path] = []
-        for ext in ["js", "jsx", "ts", "tsx"]:
-            js_files.extend(list(self._find_files(f"**/*.{ext}")))
-
-        blade_files = list(self._find_files("**/*.blade.php"))
-        aux_files: list[Path] = []
-        for pattern in [
-            "**/composer.json",
-            "**/composer.lock",
-            "**/package.json",
-            "**/package-lock.json",
-            "**/yarn.lock",
-            "**/pnpm-lock.yaml",
-            "**/pnpm-lock.yml",
-        ]:
-            aux_files.extend(list(self._find_files(pattern)))
-
-        # Deduplicate (and apply max_files) deterministically.
-        unique: dict[str, Path] = {}
-        for p in [*php_files, *js_files, *blade_files, *aux_files]:
-            try:
-                unique[str(p.resolve())] = p
-            except Exception:
-                unique[str(p)] = p
-
-        all_files = list(unique.values())
-        all_files.sort(key=lambda p: str(p))
+        build_start = time.perf_counter()
+        inventory_start = time.perf_counter()
+        self._get_project_inventory()
+        test_files = self._collect_test_files()
+        self._facts.test_files = test_files
+        self._facts.test_files_count = len(test_files)
+        self._facts.has_tests = bool(self._facts.has_tests or test_files)
+        all_files = self._select_scan_files()
+        self._facts.analysis_stats["inventory_ms"] = round(
+            (time.perf_counter() - inventory_start) * 1000.0,
+            3,
+        )
 
         if self.max_files and len(all_files) > self.max_files:
             logger.info(f"File cap reached: {len(all_files)} > {self.max_files}. Truncating.")
@@ -222,7 +267,10 @@ class FactsBuilder:
         logger.info(f"Found {self.progress.total_files} files to analyze")
 
         import os
-        max_workers = min(32, (os.cpu_count() or 1) * 2)
+        configured_workers = int(os.environ.get("BPD_SCAN_WORKERS", "0") or 0)
+        worker_limit = configured_workers if configured_workers > 0 else min(8, os.cpu_count() or 1)
+        max_workers = max(1, min(worker_limit, len(all_files) or 1))
+        self._facts.analysis_stats["scan_workers"] = max_workers
 
         def _process_single_file(file_path: Path):
             if self._is_cancelled():
@@ -251,6 +299,7 @@ class FactsBuilder:
         # Laravel migration facts are extracted as a side pass so migrations can stay
         # out of the generic scan surface used by unrelated regex rules.
         self._process_laravel_sidecar_files()
+        self._enrich_route_registration_context()
 
         # Detect duplicates from collected tokens
         self._detect_duplicates()
@@ -258,6 +307,14 @@ class FactsBuilder:
         # Find enum candidates from string literals
         self._analyze_string_literals()
         self._analyze_project_context()
+        self._facts.analysis_stats.update(
+            {
+                "files_selected": len(all_files),
+                "files_processed": self.progress.files_processed,
+                "parse_errors": len(self.progress.errors),
+                "build_ms": round((time.perf_counter() - build_start) * 1000.0, 3),
+            },
+        )
 
         logger.info(
             f"Built facts: {len(self._facts.classes)} classes, "
@@ -268,25 +325,18 @@ class FactsBuilder:
         return self._facts
 
     def _find_files(self, pattern: str) -> Generator[Path, None, None]:
-        """Find files matching pattern, excluding ignored paths."""
-        import os
-
-        # Simple filename pattern from glob
-        # e.g. "**/*.php" -> "*.php"
+        """Find matching inventory files without another filesystem walk."""
         file_pattern = pattern.split("/")[-1]
-
-        for root, _dirs, files in os.walk(str(self.project_path)):
-            for filename in files:
-                if fnmatch.fnmatch(filename, file_pattern):
-                    path = Path(root) / filename
-                    # Size cap (skip huge files to keep scans predictable).
-                    try:
-                        if self.max_file_size_kb and path.stat().st_size > (self.max_file_size_kb * 1024):
-                            continue
-                    except Exception:
-                        continue
-                    if not self._is_ignored(path):
-                        yield path
+        for _rel_path, path in inventory_paths(self.project_path, self._get_project_inventory()):
+            if not fnmatch.fnmatch(path.name, file_pattern):
+                continue
+            try:
+                if self.max_file_size_kb and path.stat().st_size > (self.max_file_size_kb * 1024):
+                    continue
+            except OSError:
+                continue
+            if not self._is_ignored(path):
+                yield path
 
     def _is_ignored(self, path: Path) -> bool:
         """Check if path matches any ignore pattern."""
@@ -442,7 +492,7 @@ class FactsBuilder:
                 self._facts.file_hashes[rel_path] = file_hash
 
             # Detect direct env() usage (best practice: env() only in config files).
-            if not rel_path.startswith("config/"):
+            if not rel_path.startswith("config/") and not rel_path.startswith("src/config/"):
                 import re
                 env_pat = re.compile(r"\benv\s*\(")
                 env_hits = []
@@ -493,9 +543,9 @@ class FactsBuilder:
 
             # Supplemental heuristics (allowed) that don't compete with structural AST parsing.
             # These run in both Tree-sitter and fallback mode.
-            if "routes/" in rel_path or "routes\\" in rel_path:
+            if self._looks_like_route_source(rel_path, content):
                 self._extract_routes(rel_path, content)
-                if normalize_rel_path(rel_path).lower() == "routes/channels.php":
+                if "broadcast::channel" in content.lower():
                     self._extract_broadcast_channels(rel_path, content)
             self._extract_model_attribute_configs(rel_path, content)
             self._collect_string_literals(rel_path, content, content.split("\n"))
@@ -503,6 +553,139 @@ class FactsBuilder:
         except Exception as e:
             logger.warning(f"Error processing {file_path}: {e}")
             self.progress.errors.append(f"{file_path}: {e}")
+
+    @staticmethod
+    def _looks_like_route_source(file_path: str, content: str) -> bool:
+        """Recognize Laravel route declarations independently of their folder."""
+        normalized = normalize_rel_path(file_path).lower()
+        if "/routes/" in f"/{normalized}" or normalized.startswith("routes/"):
+            return True
+        low = (content or "").lower()
+        return bool(
+            "route::" in low
+            or "broadcast::channel" in low
+            or re.search(r"\$(?:router|route)\s*->\s*(?:get|post|put|patch|delete|match|any)\s*\(", low)
+        )
+
+    def _enrich_route_registration_context(self) -> None:
+        """Resolve custom route registration and CSRF-bearing middleware groups."""
+        registrations: dict[str, set[str]] = {"web": set(), "api": set()}
+        csrf_groups: set[str] = {"web"}
+        global_csrf = False
+
+        named_registration = re.compile(
+            r"\b(?P<role>web|api)\s*:\s*(?:(?P<base>base_path)\s*\(\s*)?"
+            r"(?:(?P<dir>__DIR__)\s*\.\s*)?['\"](?P<path>[^'\"]+\.php)['\"]",
+            re.IGNORECASE,
+        )
+        middleware_registration = re.compile(
+            r"Route::middleware\s*\((?P<middleware>.*?)\)\s*->\s*group\s*\(\s*"
+            r"(?:(?P<base>base_path)\s*\(\s*)?(?:(?P<dir>__DIR__)\s*\.\s*)?"
+            r"['\"](?P<path>[^'\"]+\.php)['\"]",
+            re.IGNORECASE | re.DOTALL,
+        )
+        legacy_registration = re.compile(
+            r"Route::group\s*\(\s*\[(?P<options>.*?)\]\s*,\s*"
+            r"(?:(?P<base>base_path)\s*\(\s*)?(?:(?P<dir>__DIR__)\s*\.\s*)?"
+            r"['\"](?P<path>[^'\"]+\.php)['\"]",
+            re.IGNORECASE | re.DOTALL,
+        )
+
+        def _registered_path(registrar: str, raw: str, dir_relative: bool) -> str:
+            cleaned = normalize_rel_path(raw).strip()
+            if dir_relative:
+                parent = posixpath.dirname(normalize_rel_path(registrar))
+                cleaned = posixpath.normpath(posixpath.join(parent, cleaned.lstrip("/")))
+            return normalize_rel_path(cleaned).lstrip("./").lower()
+
+        def _record(role: str, registrar: str, match) -> None:
+            raw = str(match.group("path") or "")
+            resolved = _registered_path(registrar, raw, bool(match.groupdict().get("dir")))
+            if resolved:
+                registrations[role].add(resolved)
+
+        for rel_path in getattr(self._facts, "files", []) or []:
+            if not str(rel_path or "").lower().endswith(".php"):
+                continue
+            content = self._read_project_file(str(rel_path))
+            low = content.lower()
+            for match in named_registration.finditer(content):
+                role = str(match.group("role") or "").lower()
+                _record(role, str(rel_path), match)
+            for match in middleware_registration.finditer(content):
+                middleware_values = {
+                    value.lower()
+                    for value in re.findall(r"['\"]([^'\"]+)['\"]", match.group("middleware") or "")
+                }
+                role = "api" if "api" in middleware_values else "web" if "web" in middleware_values else ""
+                if role:
+                    _record(role, str(rel_path), match)
+            for match in legacy_registration.finditer(content):
+                options = match.group("options") or ""
+                middleware_match = re.search(
+                    r"['\"]middleware['\"]\s*=>\s*(?:\[(?P<array>.*?)\]|['\"](?P<single>[^'\"]+)['\"])",
+                    options,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                values = set()
+                if middleware_match:
+                    values = {
+                        value.lower()
+                        for value in re.findall(
+                            r"['\"]([^'\"]+)['\"]",
+                            middleware_match.group("array") or middleware_match.group("single") or "",
+                        )
+                    }
+                role = "api" if "api" in values else "web" if "web" in values else ""
+                if role:
+                    _record(role, str(rel_path), match)
+
+            # Custom middleware groups in Kernel.php or Laravel 11 bootstrap.
+            group_patterns = (
+                # Laravel 11: $middleware->group('browser', [...]).
+                r"->group\s*\(\s*['\"](?P<name>[A-Za-z0-9_.-]+)['\"]\s*,\s*\[(?P<body>.*?)\]",
+                # Legacy Kernel: protected $middlewareGroups = ['browser' => [...]].
+                r"['\"](?P<name>[A-Za-z0-9_.-]+)['\"]\s*=>\s*\[(?P<body>.*?)\]",
+            )
+            for group_pattern in group_patterns:
+                for group_match in re.finditer(group_pattern, content, re.IGNORECASE | re.DOTALL):
+                    if re.search(
+                        r"(?:Verify|Validate)CsrfToken\s*::\s*class",
+                        group_match.group("body") or "",
+                        re.IGNORECASE,
+                    ):
+                        csrf_groups.add(str(group_match.group("name") or "").lower())
+            if re.search(
+                r"\$middleware\s*->\s*(?:append|prepend)\s*\(\s*(?:Verify|Validate)CsrfToken\s*::\s*class",
+                content,
+                re.IGNORECASE,
+            ):
+                global_csrf = True
+            if "$middlewaregroups" not in low and re.search(
+                r"(?:protected|public)\s+\$middleware\s*=\s*\[[^;]*?(?:Verify|Validate)CsrfToken\s*::\s*class",
+                content,
+                re.IGNORECASE | re.DOTALL,
+            ):
+                global_csrf = True
+
+        for route in getattr(self._facts, "routes", []) or []:
+            route_path = normalize_rel_path(str(route.file_path or "")).lower()
+            for role, registered_paths in registrations.items():
+                if not any(
+                    route_path == candidate or route_path.endswith("/" + candidate)
+                    for candidate in registered_paths
+                ):
+                    continue
+                middleware = list(route.middleware or [])
+                if role not in {str(item or "").lower() for item in middleware}:
+                    middleware.append(role)
+                route.middleware = middleware
+            middleware = list(route.middleware or [])
+            middleware_names = {str(item or "").split(":", 1)[0].lower() for item in middleware}
+            if global_csrf or middleware_names.intersection(csrf_groups):
+                if "verifycsrftoken" not in {str(item or "").lower() for item in middleware}:
+                    middleware.append("verifycsrftoken")
+                route.middleware = middleware
 
     def _parse_php_treesitter(self, file_path: str, content: str, file_hash: str, rel_path: str, is_ts: bool = False) -> bool:
         """Parse PHP using Tree-sitter."""
@@ -1303,6 +1486,7 @@ class FactsBuilder:
         low_path = normalize_rel_path(str(getattr(class_info, "file_path", "") or "")).lower()
         name = str(getattr(class_info, "name", "") or "").lower()
         parent = str(getattr(class_info, "extends", "") or "").lower()
+        parent_base = parent.replace("/", "\\").split("\\")[-1]
         implements = {str(item or "").lower() for item in (getattr(class_info, "implements", []) or [])}
 
         buckets: list[str] = []
@@ -1311,13 +1495,13 @@ class FactsBuilder:
             if bucket not in buckets and hasattr(self._facts, bucket):
                 buckets.append(bucket)
 
-        if "controller" in name or "controller" in parent or "/http/controllers/" in low_path:
+        if name.endswith("controller") or parent_base.endswith("controller") or "/http/controllers/" in low_path:
             _add("controllers")
-        if parent in {"model", "eloquent"} or "/models/" in low_path or low_path.startswith("app/models/"):
+        if parent_base in {"model", "eloquent"} or "/models/" in low_path:
             _add("models")
         if "/services/" in low_path or name.endswith("service"):
             _add("services")
-        if "/http/requests/" in low_path or low_path.startswith("app/requests/") or name.endswith("request"):
+        if "/http/requests/" in low_path or parent_base == "formrequest":
             _add("form_requests")
         if "/repositories/" in low_path or "/repository/" in low_path or name.endswith("repository"):
             _add("repositories")
@@ -1331,9 +1515,9 @@ class FactsBuilder:
             _add("events")
         if "/listeners/" in low_path or name.endswith("listener"):
             _add("listeners")
-        if "/notifications/" in low_path or parent.endswith("notification") or name.endswith("notification"):
+        if "/notifications/" in low_path or parent_base.endswith("notification") or name.endswith("notification"):
             _add("notifications")
-        if "/mail/" in low_path or "/mailables/" in low_path or parent.endswith("mailable") or name.endswith("mailable"):
+        if "/mail/" in low_path or "/mailables/" in low_path or parent_base.endswith("mailable") or name.endswith("mailable"):
             _add("mailables")
         if "/observers/" in low_path or name.endswith("observer"):
             _add("observers")
@@ -1345,16 +1529,27 @@ class FactsBuilder:
         return buckets
 
     def _process_laravel_sidecar_files(self) -> None:
-        migrations_dir = self.project_path / "database" / "migrations"
-        if not migrations_dir.exists():
-            return
+        migration_files: list[tuple[str, Path, str]] = []
+        for rel_path, candidate in inventory_paths(self.project_path, self._get_project_inventory()):
+            if candidate.suffix.lower() != ".php":
+                continue
+            try:
+                if candidate.stat().st_size > self.max_file_size_kb * 1024:
+                    continue
+                content = candidate.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            low = content.lower()
+            if "schema::" not in low:
+                continue
+            if not re.search(r"\bextends\s+(?:\\?[\w\\]+\\)?Migration\b", content, re.IGNORECASE):
+                continue
+            migration_files.append((normalize_rel_path(rel_path), candidate, content))
 
-        for migration_file in sorted(migrations_dir.glob("*.php")):
+        for rel_path, migration_file, content in sorted(migration_files, key=lambda item: item[0]):
             if self._is_cancelled():
                 return
             try:
-                rel_path = normalize_rel_path(str(migration_file.relative_to(self.project_path)))
-                content = migration_file.read_text(encoding="utf-8", errors="replace")
                 self._extract_migration_facts(rel_path, content)
             except Exception as exc:
                 logger.warning(f"Error processing migration sidecar {migration_file}: {exc}")
@@ -2510,6 +2705,57 @@ class FactsBuilder:
         def _txt(node) -> str:
             return content[node.start_byte:node.end_byte]
 
+        def _call_label(call) -> str | None:
+            if call is None:
+                return None
+            if call.type == "member_call_expression":
+                obj = call.child_by_field_name("object")
+                name = call.child_by_field_name("name") or call.child_by_field_name("property")
+                if name:
+                    receiver = _txt(obj).strip() if obj else ""
+                    return f"{receiver}->{_txt(name).strip()}" if receiver else f"->{_txt(name).strip()}"
+            if call.type == "scoped_call_expression":
+                scope = call.child_by_field_name("scope")
+                name = call.child_by_field_name("name")
+                if scope and name:
+                    return f"{_txt(scope).strip()}::{_txt(name).strip()}"
+            if call.type == "function_call_expression":
+                function = call.child_by_field_name("function")
+                if function:
+                    return _txt(function).strip()
+            return None
+
+        def _argument_call(argument_node):
+            arguments = getattr(argument_node, "parent", None)
+            if arguments is None or arguments.type != "arguments":
+                return None
+            call = getattr(arguments, "parent", None)
+            if call is not None and call.type in {
+                "member_call_expression",
+                "scoped_call_expression",
+                "function_call_expression",
+            }:
+                return call
+            return None
+
+        def _consumer_calls(variable: str, after_byte: int) -> list[str]:
+            if not variable:
+                return []
+            consumers: list[str] = []
+            stack = [method_body_node]
+            variable_re = re.compile(rf"(?<![A-Za-z0-9_]){re.escape(variable)}(?![A-Za-z0-9_])")
+            while stack:
+                node = stack.pop()
+                stack.extend(getattr(node, "children", []) or [])
+                if node.type != "argument" or node.start_byte <= after_byte:
+                    continue
+                if not variable_re.search(_txt(node)):
+                    continue
+                label = _call_label(_argument_call(node))
+                if label and label not in consumers:
+                    consumers.append(label)
+            return consumers[:8]
+
         seen: set[tuple[int, int, str, str | None]] = set()
         for arr in caps.get("arr", []):
             # Count only associative keys at the top level.
@@ -2527,6 +2773,7 @@ class FactsBuilder:
             ln = _line(arr)
             used_as = "unknown"
             target = None
+            consumer_calls: list[str] = []
 
             p = arr.parent
             if p and p.type == "assignment_expression":
@@ -2534,6 +2781,7 @@ class FactsBuilder:
                 left = p.child_by_field_name("left")
                 if left and left.type == "variable_name":
                     target = _txt(left)
+                    consumer_calls = _consumer_calls(target, arr.end_byte)
             elif p and p.type == "return_statement":
                 used_as = "return"
                 target = "return"
@@ -2542,13 +2790,9 @@ class FactsBuilder:
                 args = p.parent  # arguments
                 call = args.parent if args else None
                 if call and call.type in {"member_call_expression", "scoped_call_expression"}:
-                    n = call.child_by_field_name("name")
-                    if n:
-                        target = _txt(n)
+                    target = _call_label(call)
                 elif call and call.type == "function_call_expression":
-                    fn = call.child_by_field_name("function")
-                    if fn:
-                        target = _txt(fn)
+                    target = _call_label(call)
 
                 # If this call is returned, mark as return context.
                 if call and call.parent and call.parent.type == "return_statement":
@@ -2573,6 +2817,7 @@ class FactsBuilder:
                     key_count=key_count,
                     used_as=used_as,
                     target=target,
+                    consumer_calls=consumer_calls,
                     snippet=snippet,
                 ),
             )
@@ -2981,6 +3226,24 @@ class FactsBuilder:
             arg = m.group("arg") or ""
             vals = re.findall(r"['\"]([^'\"]+)['\"]", arg)
             out = self._merge_route_tokens(out, vals)
+
+        # Preserve explicit removals as semantic middleware evidence. This is
+        # required by security rules; silently dropping the removal makes a
+        # route look protected when it is not.
+        removal_pat = re.compile(
+            r"->\s*withoutMiddleware\s*\((?P<arg>.*?)\)",
+            re.IGNORECASE | re.DOTALL,
+        )
+        for match in removal_pat.finditer(text or ""):
+            arg = match.group("arg") or ""
+            for middleware_name in re.findall(
+                r"(?:['\"]([^'\"]+)['\"]|(?:\\?[A-Za-z_][\\A-Za-z0-9_]*\\)?(VerifyCsrfToken|ValidateCsrfToken)\s*::\s*class)",
+                arg,
+                re.IGNORECASE,
+            ):
+                value = next((part for part in middleware_name if part), "")
+                if value:
+                    out = self._merge_route_tokens(out, [f"without:{value.lower()}"])
         return out
 
     def _extract_route_prefixes(self, text: str) -> list[str]:
@@ -3144,8 +3407,10 @@ class FactsBuilder:
 
         # Skip files that are already enum definitions or "enum containers"
         fp_lc = (file_path or "").lower().replace("\\", "/")
-        if "/enums/" in fp_lc or fp_lc.startswith("app/enums/"):
+        if "/enums/" in fp_lc:
             return
+        # Skip config files (dense string-key => string-value patterns
+        # that pollute enum candidates). Convention: config/ at project root.
         if fp_lc.startswith("config/"):
             return
 
@@ -3316,6 +3581,12 @@ class FactsBuilder:
 
         tree = parser.parse(content.encode("utf-8", errors="ignore"))
         root = tree.root_node
+        imports = sorted(
+            {
+                *re.findall(r"^\s*import\s+.*?\s+from\s+['\"]([^'\"]+)['\"]", content, flags=re.MULTILINE),
+                *re.findall(r"\bimport\s*\(\s*['\"]([^'\"]+)['\"]\s*\)", content),
+            },
+        )
 
         # Prefer extracting what we can even if the parse has minor errors.
 
@@ -3383,7 +3654,7 @@ class FactsBuilder:
                 line_end=line_end,
                 loc=line_end - line_start + 1,
                 hooks_used=hooks_used,
-                imports=[],
+                imports=imports,
                 has_api_calls=has_api_calls,
                 has_inline_state_logic=has_inline_logic,
             )
@@ -3474,6 +3745,12 @@ class FactsBuilder:
         import re
 
         content.split("\n")
+        imports = sorted(
+            {
+                *re.findall(r"^\s*import\s+.*?\s+from\s+['\"]([^'\"]+)['\"]", content, flags=re.MULTILINE),
+                *re.findall(r"\bimport\s*\(\s*['\"]([^'\"]+)['\"]\s*\)", content),
+            },
+        )
 
         # Find function components
         component_patterns = [
@@ -3533,7 +3810,7 @@ class FactsBuilder:
                     hooks_used=hooks_used,
                     has_api_calls=has_api_calls,
                     has_inline_state_logic=has_inline_logic,
-                    imports=[],
+                    imports=imports,
                 )
 
                 with self._lock:
@@ -4269,6 +4546,37 @@ class FactsBuilder:
             if "/http/resources/" in low or low.endswith("resource.php"):
                 api_resource_hits += 1
 
+        # Promote semantic class facts into the architecture profile. Paths
+        # remain useful evidence, but renamed or domain-colocated classes must
+        # not disappear from the architecture merely because they do not live
+        # in Laravel's default folders.
+        semantic_layers = {
+            "services": getattr(self._facts, "services", []),
+            "repositories": getattr(self._facts, "repositories", []),
+            "contracts": getattr(self._facts, "contracts", []),
+            "enums": getattr(self._facts, "enums", []),
+            "requests": getattr(self._facts, "form_requests", []),
+        }
+        for layer, items in semantic_layers.items():
+            if items:
+                detected_layers.add(layer)
+
+        controller_hits = max(controller_hits, len(getattr(self._facts, "controllers", []) or []))
+        model_hits = max(model_hits, len(getattr(self._facts, "models", []) or []))
+        for cls in getattr(self._facts, "classes", []) or []:
+            namespace = str(getattr(cls, "namespace", "") or "").lower().replace("/", "\\")
+            if any(marker in f"\\{namespace}\\" for marker in ("\\domain\\", "\\domains\\", "\\module\\", "\\modules\\")):
+                modular_root_hits += 1
+
+        api_routes = [
+            route
+            for route in (getattr(self._facts, "routes", []) or [])
+            if str(getattr(route, "uri", "") or "").strip("/").lower().startswith("api/")
+            or "api" in " ".join(str(item or "").lower() for item in (getattr(route, "middleware", []) or []))
+        ]
+        if api_routes:
+            api_controller_hits = max(api_controller_hits, len({str(route.controller or "") for route in api_routes if route.controller}))
+
         has_core_layers = {"actions", "services"}.issubset(detected_layers)
         has_supporting_layers = bool({"repositories", "dto", "providers", "contracts", "enums"} & detected_layers)
         has_data_boundary = "repositories" in detected_layers or "contracts" in detected_layers
@@ -4943,15 +5251,29 @@ class FactsBuilder:
             [f"has_resource_files={int(has_resource_files)}", f"architecture_profile={architecture_profile}"],
         )
 
-        dto_expected = "dto" in layers or any(
-            str(path or "").lower().replace("\\", "/").find("/dto/") >= 0
-            for path in (getattr(self._facts, "files", []) or [])
-        )
+        data_object_classes = []
+        for class_info in (getattr(self._facts, "classes", []) or []):
+            name = str(getattr(class_info, "name", "") or "")
+            fqcn = str(getattr(class_info, "fqcn", "") or "")
+            # Class names are semantic evidence. Requiring a particular folder
+            # for conventional names such as CreateOrderData simply recreates
+            # the path dependence this context layer is meant to remove.
+            explicit_name = bool(
+                re.search(r"(?:DTO|Data|Payload|ValueObject|TransferObject)$", name, re.IGNORECASE)
+            )
+            if explicit_name:
+                data_object_classes.append(fqcn or name)
+        dto_layer_signal = bool({"dto", "data", "value-objects"}.intersection(layers))
+        dto_expected = dto_layer_signal or bool(data_object_classes)
         _mark(
             "dto_data_objects_preferred",
             dto_expected,
-            0.74 if dto_expected else 0.3,
-            [f"has_dto_layer={int('dto' in layers)}"],
+            min(0.92, 0.74 + (0.04 * min(len(data_object_classes), 4))) if dto_expected else 0.3,
+            [
+                f"has_data_object_layer={int(dto_layer_signal)}",
+                f"data_object_classes={len(data_object_classes)}",
+                *[f"data_object={name}" for name in data_object_classes[:3]],
+            ],
         )
 
         # Reinforce standards for heavy portal/business apps.

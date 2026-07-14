@@ -19,7 +19,7 @@ class MissingForeignKeyInMigrationRule(Rule):
     id = "missing-foreign-key-in-migration"
     name = "Missing Foreign Key In Migration"
     description = "Detects migration reference columns that are added without a foreign key definition"
-    category = Category.LARAVEL_BEST_PRACTICE
+    category = Category.DATA_INTEGRITY
     default_severity = Severity.MEDIUM
     default_classification = FindingClassification.ADVISORY
     type = "ast"

@@ -13,7 +13,7 @@ from schemas.metrics import MethodMetrics
 class MissingFeatureFlagPatternRule(Rule):
     id = "missing-feature-flag-pattern"
     name = "Missing Feature Flag Pattern"
-    description = "Suggests a feature flag mechanism for larger Laravel apps with many routes"
+    description = "Suggests a feature flag mechanism when the project explicitly expects staged rollout support"
     category = Category.ARCHITECTURE
     default_severity = Severity.LOW
     default_classification = FindingClassification.ADVISORY
@@ -27,7 +27,7 @@ class MissingFeatureFlagPatternRule(Rule):
     applies_to = ["global"]
     references = ["Laravel Pennant"]
     related_rules = []
-    false_positive_notes = "LOW confidence advisory only. Many teams ship without feature flags successfully. This is a suggestion for teams ready to improve deployment safety."
+    false_positive_notes = "Disabled as an absence-only inference unless project policy or rule configuration explicitly expects feature flags."
     detection_type = "cross-file"
     analysis_cost = "medium"
     auto_fixable = False
@@ -35,12 +35,17 @@ class MissingFeatureFlagPatternRule(Rule):
 
     def analyze(self, facts: Facts, metrics: dict[str, MethodMetrics] | None = None) -> list[Finding]:
         route_count = len(getattr(facts, "routes", []) or []) or self._route_count_from_files(facts)
-        if route_count <= 10 or self._has_feature_flag_mechanism(facts):
+        if not self._adoption_expected(facts):
             return []
+        min_routes = int(self.get_threshold("min_routes", 10) or 10)
+        if route_count <= min_routes or self._has_feature_flag_mechanism(facts):
+            return []
+        root = Path(getattr(facts, "project_path", "") or ".")
+        anchor = "composer.json" if (root / "composer.json").exists() else "."
         return [
             self.create_finding(
                 title="Larger app has no visible feature flag pattern",
-                file="routes/web.php",
+                file=anchor,
                 line_start=1,
                 context="project:feature-flags",
                 description=f"The project has {route_count} route definitions but no visible feature flag mechanism.",
@@ -48,9 +53,29 @@ class MissingFeatureFlagPatternRule(Rule):
                 suggested_fix=self.fix_suggestion,
                 confidence=0.46,
                 tags=["laravel", "architecture", "deployment"],
-                evidence_signals=[f"route_count={route_count}", "feature_flag_signal=false"],
+                evidence_signals=[
+                    f"route_count={route_count}",
+                    "feature_flag_signal=false",
+                    "feature_flags_expected=true",
+                ],
             ),
         ]
+
+    def _adoption_expected(self, facts: Facts) -> bool:
+        if not bool(self.get_threshold("require_explicit_adoption_signal", True)):
+            return True
+        context = getattr(facts, "project_context", None)
+        expectations = (
+            getattr(context, "backend_team_expectations", None)
+            or getattr(context, "team_expectations", None)
+            or {}
+        )
+        if not isinstance(expectations, dict):
+            return False
+        payload = expectations.get("feature_flags_expected", {})
+        if isinstance(payload, bool):
+            return payload
+        return bool(isinstance(payload, dict) and payload.get("enabled", False))
 
     def _has_feature_flag_mechanism(self, facts: Facts) -> bool:
         root = Path(getattr(facts, "project_path", "") or ".")
@@ -75,10 +100,19 @@ class MissingFeatureFlagPatternRule(Rule):
     def _route_count_from_files(self, facts: Facts) -> int:
         root = Path(getattr(facts, "project_path", "") or ".")
         count = 0
-        for rel in ("routes/web.php", "routes/api.php"):
+        route_dirs = [root / "routes"]
+        # Check alternative route directories
+        for alt in ("src/routes", "app/routes"):
+            alt_path = root / alt
+            if alt_path.is_dir():
+                route_dirs.append(alt_path)
+        for rd in route_dirs:
+            if not rd.is_dir():
+                continue
             try:
-                text = (root / rel).read_text(encoding="utf-8", errors="replace")
+                for php_file in rd.rglob("*.php"):
+                    text = php_file.read_text(encoding="utf-8", errors="replace")
+                    count += len(re.findall(r"\bRoute::(?:get|post|put|patch|delete|apiResource|resource|match|any)\s*\(", text))
             except Exception:
                 continue
-            count += len(re.findall(r"\bRoute::(?:get|post|put|patch|delete|apiResource|resource|match|any)\s*\(", text))
         return count

@@ -16,7 +16,7 @@ class ListenerShouldQueueMissingForIoBoundHandlerRule(Rule):
     id = "listener-shouldqueue-missing-for-io-bound-handler"
     name = "Listener ShouldQueue Missing For IO-Bound Handler"
     description = "Detects listeners that perform IO-heavy work synchronously"
-    category = Category.PERFORMANCE
+    category = Category.RELIABILITY
     default_severity = Severity.MEDIUM
     default_classification = FindingClassification.ADVISORY
     type = "ast"

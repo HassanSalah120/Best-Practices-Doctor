@@ -629,6 +629,22 @@ rule_behavior:
           min_project_signals: 5
           min_confidence: 0.68
 
+  dto-suggestion:
+    defaults:
+      enabled: false
+      severity: low
+      thresholds:
+        min_keys: 10
+        require_project_convention: true
+        min_confidence: 0.78
+    by_team_expectation:
+      dto_data_objects_preferred:
+        enabled: true
+        severity: low
+        thresholds:
+          min_keys: 10
+          require_project_convention: true
+
   missing-csrf-token-verification:
     defaults:
       enabled: true
@@ -1847,12 +1863,6 @@ rule_behavior:
         severity: medium
       mixed_public_dashboard:
         severity: low
-    by_team_expectation:
-      services_actions_expected:
-        severity: high
-        thresholds:
-          min_state_hook_count: 3
-
   large-react-component:
     defaults:
       enabled: true

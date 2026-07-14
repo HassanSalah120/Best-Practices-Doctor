@@ -6,6 +6,7 @@ import asyncio
 import logging
 
 from core.pipeline.errors import ScoringError
+from core.pipeline.cache_signatures import implementation_signature, stable_signature
 from core.pipeline.models import ScanPipelineContext, ScanPipelineState
 from core.scoring import ScoringEngine
 
@@ -40,6 +41,8 @@ class ScoringStage:
             "findings_sig": findings_sig,
             "files_count": len(getattr(state.facts, "files", []) or []),
             "methods_count": len(getattr(state.facts, "methods", []) or []),
+            "ruleset_signature": stable_signature(state.ruleset),
+            "implementation_signature": implementation_signature([ScoringEngine]),
         }
         try:
             if context.stage_cache is not None:
@@ -86,6 +89,11 @@ class ScoringStage:
             state.report.analysis_debug["requested_project_context"] = dict(
                 context.request.project_context_overrides or {},
             )
+            state.report.analysis_debug["analysis_performance"] = {
+                "facts": dict(getattr(state.facts, "analysis_stats", {}) or {}),
+                "rules": dict(getattr(state.engine_result, "analysis_stats", {}) or {}),
+                "rule_engine_ms": round(float(getattr(state.engine_result, "execution_time_ms", 0.0) or 0.0), 3),
+            }
             logger.info(
                 "[Pipeline] scoring complete",
                 extra={

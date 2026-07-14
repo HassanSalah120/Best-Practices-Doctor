@@ -19,7 +19,7 @@ class AnonymousDefaultExportComponentRule(Rule):
     id = "anonymous-default-export-component"
     name = "Anonymous Default Export Component"
     description = "Detects anonymous default-exported React components"
-    category = Category.MAINTAINABILITY
+    category = Category.REACT_BEST_PRACTICE
     default_severity = Severity.MEDIUM
     type = "regex"
     regex_file_extensions = [".js", ".jsx", ".ts", ".tsx"]

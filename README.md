@@ -1,187 +1,119 @@
 # Best Practices Doctor
 
-Local-first static analysis desktop app for Laravel/PHP and React/Inertia projects.
+Best Practices Doctor is a local-first desktop analyzer for Laravel, PHP, React, Inertia, and Tailwind codebases. It combines AST-based inspection, architecture-aware rules, stable finding fingerprints, and evidence-focused remediation guidance.
 
-Best Practices Doctor (BPD) combines:
+## What it includes
 
-- Python FastAPI backend (`backend/`)
-- React + Vite frontend (`frontend/`)
-- Tauri desktop shell (`tauri/`)
-- MCP bridge for agent workflows (`bpdoctor-mcp/`)
+- Python/FastAPI analysis backend
+- React and Vite user interface
+- Tauri desktop shell
+- Laravel, PHP, React, Tailwind, accessibility, security, performance, and DevOps rules
+- Startup, balanced, and strict analysis profiles
+- Project architecture detection and context-aware rule calibration
+- Incremental scanning, baselines, suppression management, SARIF, and PR-gate support
+- Optional MCP bridge for agent-assisted workflows
 
-## Current Snapshot (May 10, 2026)
+## Requirements
 
-- Runtime rules (manual registry): `325`
-- Rule families:
-  - Laravel: `145`
-  - React: `143`
-  - PHP: `30`
-  - DevOps: `8`
-- API routes in `backend/api/routes.py`: `59`
-- Ruleset profiles in `backend/rulesets/`:
-  - `startup`: 239 total / 127 enabled
-  - `balanced`: 269 total / 244 enabled
-  - `strict`: 333 total / 333 enabled
+- Windows 10 or newer for the provided launch scripts
+- Node.js 20 LTS or newer
+- Python 3.11 or newer
+- Rust installed through [rustup](https://rustup.rs/) for the desktop application
 
-## Key Capabilities
+Rust is optional when using browser-only mode.
 
-- AST-first analysis (Tree-sitter)
-- Stage-based pipeline:
-  - `detect_project -> build_facts -> run_rules -> scoring -> reporting`
-- Context-aware calibration (Laravel + React context matrices)
-- Fingerprint-stable findings and baseline diffing
-- Auto-fix suggestions with strategy/risk metadata
-- Triage scoring (`impact x risk x effort x context`)
-- Stage artifact cache for faster rescans
-- Project Intelligence Map (structure tree + focused graph + dependency inspector)
-- Deterministic Project Explainer (endpoint flows, dependency index, execution traces)
-- SSE live progress stream (`/api/scan/{job_id}/events`)
-- MCP tools for scan loops, finding navigation, explain/suggest/group workflows
+## Quick start
 
-## Project Layout
-
-```text
-Best-Practices-Doctor/
-|-- backend/
-|   |-- api/routes.py
-|   |-- analysis/
-|   |-- core/
-|   |   |-- pipeline/
-|   |   `-- rule_engine.py
-|   |-- rules/
-|   |   |-- laravel/
-|   |   |-- react/
-|   |   `-- php/
-|   |-- rulesets/
-|   |   |-- startup.yaml
-|   |   |-- balanced.yaml
-|   |   |-- strict.yaml
-|   |   |-- laravel_context_matrix.yaml
-|   |   `-- react_context_matrix.yaml
-|   `-- schemas/
-|-- frontend/
-|-- tauri/
-|-- bpdoctor-mcp/
-`-- docs/
-```
-
-## Local Development
-
-### Quick Start
-
-From the repository root:
-
-```powershell
-npm start
-```
-
-That command performs a quick setup check, installs missing Node/Python dependencies,
-starts the Tauri desktop app, starts the FastAPI backend, and starts the MCP bridge.
-
-For a first-time machine, you can run setup explicitly:
+Clone the repository, then run these commands from its root:
 
 ```powershell
 npm run setup
 npm start
 ```
 
-You can also double-click `setup.cmd` once, then `start.cmd` on Windows.
+`npm start` is the canonical application command. It performs a lightweight setup check and starts the Tauri desktop application. Tauri owns the frontend and Python backend lifecycle, including startup, authenticated backend discovery, and shutdown.
 
-### Useful Commands
+Windows users can also double-click `setup.cmd` once and then use `start.cmd`.
 
-```powershell
-npm start          # start the full local app
-npm run dev:clean  # free common ports first, then start
-npm run web        # browser-only mode, no Tauri/Rust desktop shell
-npm run web:clean  # browser-only mode after freeing ports
-npm run desktop    # Tauri dev without rebuilding the Python sidecar
-npm run build:desktop
-```
-
-### Prerequisites For A New PC
-
-- Node.js 20 LTS or newer
-- Python 3.11 or newer
-- Rust/Cargo from `rustup` if you want to build or run the Tauri desktop shell
-
-If Rust is not installed yet, use `npm run web` for browser-only development.
-
-`npm run setup` creates `backend/.venv`, installs backend dependencies there,
-and installs dependencies for `frontend/`, `tauri/`, and `bpdoctor-mcp/`.
-
-### Manual Service Commands
-
-Backend:
+### Browser-only mode
 
 ```powershell
-cd backend
-.\.venv\Scripts\python.exe main.py
+npm run web
 ```
 
-Frontend:
+### Contributor mode with MCP
 
 ```powershell
-cd frontend
-npm run dev
+npm run dev:full
 ```
 
-MCP bridge:
+Contributor mode starts the desktop app plus the MCP bridge and service monitoring. It is intentionally separate from normal application startup.
+
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `npm start` | Start the desktop application |
+| `npm run check` | Validate desktop startup prerequisites without launching |
+| `npm run web` | Start the backend and browser UI without Tauri |
+| `npm run dev:clean` | Free the app ports, then start the desktop application |
+| `npm run dev:full` | Start desktop, backend discovery, MCP, and monitoring |
+| `npm run setup` | Install Python, frontend, Tauri, and MCP dependencies |
+| `npm test` | Run backend and frontend tests |
+| `npm run build` | Build the frontend and MCP bridge |
+| `npm run lint` | Run frontend linting |
+
+## Project layout
+
+```text
+Best-Practices-Doctor/
+├── backend/          Python analysis engine and FastAPI service
+├── frontend/         React application
+├── tauri/            Desktop shell and backend sidecar lifecycle
+├── bpdoctor-mcp/     Optional MCP bridge
+├── scripts/          Shared development tooling
+└── docs/             Public architecture and analyzer documentation
+```
+
+The analysis pipeline is organized as:
+
+```text
+detect project → build facts → run rules → score → report
+```
+
+Raw AST facts, derived metrics, and rule findings are kept separate. Rules should emit evidence-backed hypotheses and prefer false negatives over conclusions that cannot be supported by local code structure.
+
+## Development
+
+Run individual checks from the repository root:
 
 ```powershell
-cd bpdoctor-mcp
-npm run dev
+npm run test:backend
+npm run test:frontend
+npm run build:frontend
+npm run build:mcp
 ```
 
-## Running Tests
+The desktop shell starts the backend from `backend/.venv` during development. Production bundles use the packaged Python sidecar.
 
-Backend:
+Runtime discovery files, MCP tokens, logs, local suppressions, generated reports, caches, and analyzer calibration notes are excluded from version control. `mcp-config-portable.json` is a token-free example; contributor mode writes usable runtime configuration under `.bpdoctor/runtime/`.
 
-```powershell
-cd backend
-python -m pytest -q
-```
+## API
 
-Frontend:
+Useful endpoints include:
 
-```powershell
-cd frontend
-npm run test
-```
+- `GET /api/health`
+- `POST /api/scan`
+- `GET /api/scan/{job_id}`
+- `GET /api/scan/{job_id}/events`
+- `GET /api/rulesets`
+- `GET /api/scan/{job_id}/project-map`
+- `GET /api/scan/{job_id}/project-explainer`
 
-Frontend build check:
+## Contributing and security
 
-```powershell
-cd frontend
-npm run build
-```
-
-## API Notes
-
-- Health: `GET /api/health`
-- Start scan: `POST /api/scan`
-- Scan status/report: `GET /api/scan/{job_id}`
-- Live progress (SSE): `GET /api/scan/{job_id}/events`
-- Rule profiles: `GET /api/rulesets`, `PUT /api/rulesets/active`
-- Finding intelligence:
-  - `GET /api/scan/{job_id}/findings/{fingerprint}/explain`
-  - `GET /api/scan/{job_id}/findings/{fingerprint}/suggest-fix`
-  - `GET /api/scan/{job_id}/triage`
-  - `POST /api/scan/{job_id}/findings/{fingerprint}/status`
-  - `POST /api/findings/{fingerprint}/feedback`
-  - `GET /api/feedback/summary`
-- Project intelligence:
-  - `GET /api/scan/{job_id}/project-map`
-  - `GET /api/project-map` (latest completed scan alias)
-  - `GET /api/scan/{job_id}/project-explainer`
-  - `GET /api/project-explainer` (latest completed scan alias)
-
-## Contributor Docs
-
-- Full architecture/context reference: [docs/PROJECT_CONTEXT_FULL.md](docs/PROJECT_CONTEXT_FULL.md)
-- Laravel profile-aware calibration notes: [docs/laravel-profile-aware-analysis.md](docs/laravel-profile-aware-analysis.md)
-- Laravel context matrix guide: [docs/laravel-context-matrix.md](docs/laravel-context-matrix.md)
-- Scanner false-positive catalog: [docs/SCANNER_FALSE_POSITIVES.md](docs/SCANNER_FALSE_POSITIVES.md)
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and [SECURITY.md](SECURITY.md) for private vulnerability reporting.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Licensed under the [MIT License](LICENSE).

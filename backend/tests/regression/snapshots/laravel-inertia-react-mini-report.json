@@ -42,16 +42,6 @@
   },
   "findings": [
     {
-      "id": "finding_02a1c2251d5c",
-      "fingerprint": "02a1c2251d5c",
-      "rule_id": "hardcoded-user-facing-strings",
-      "category": "react_best_practice",
-      "severity": "medium",
-      "classification": "advisory",
-      "file": "resources/js/Pages/BigPage.tsx",
-      "context": "file:resources/js/Pages/BigPage.tsx"
-    },
-    {
       "id": "finding_0b348cb19136",
       "fingerprint": "0b348cb19136",
       "rule_id": "storage-paths-not-in-gitignore",
@@ -106,7 +96,7 @@
       "fingerprint": "5e96c98a6e90",
       "rule_id": "inline-api-logic",
       "category": "react_best_practice",
-      "severity": "high",
+      "severity": "medium",
       "classification": "advisory",
       "file": "resources/js/Pages/BigPage.tsx",
       "context": "BigPage"
@@ -122,13 +112,13 @@
       "context": "project:.env.example"
     },
     {
-      "id": "finding_b1dda3bea4dc",
-      "fingerprint": "b1dda3bea4dc",
+      "id": "finding_b7000e733269",
+      "fingerprint": "b7000e733269",
       "rule_id": "error-pages-missing",
       "category": "laravel_best_practice",
       "severity": "high",
       "classification": "advisory",
-      "file": "resources/js/pages/errors",
+      "file": "",
       "context": "resources/js/pages/errors (Inertia) or resources/views/errors"
     },
     {

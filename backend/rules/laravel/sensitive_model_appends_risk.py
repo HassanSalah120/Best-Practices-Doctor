@@ -18,7 +18,7 @@ class SensitiveModelAppendsRiskRule(Rule):
     id = "sensitive-model-appends-risk"
     name = "Sensitive Model Appends Risk"
     description = "Detects sensitive attributes listed in a model's $appends array"
-    category = Category.SECURITY
+    category = Category.DATA_INTEGRITY
     default_severity = Severity.HIGH
     default_classification = FindingClassification.RISK
     type = "ast"

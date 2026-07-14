@@ -111,6 +111,10 @@ class DerivedStateInEffectRule(Rule):
             if any(token in body_low for token in self._EXTERNAL_SYNC_TOKENS):
                 continue
 
+            # Skip conditional state updates — reset selection when current selection becomes invalid
+            if re.search(r"\bif\b.*\bset[A-Z]", body):
+                continue
+
             set_calls = list(self._SET_STATE_CALL.finditer(body))
             if not (min_set_calls <= len(set_calls) <= max_set_calls):
                 continue

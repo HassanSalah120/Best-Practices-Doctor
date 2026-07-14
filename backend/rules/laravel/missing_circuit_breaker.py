@@ -13,7 +13,7 @@ class MissingCircuitBreakerRule(Rule):
     id = "missing-circuit-breaker"
     name = "Missing Circuit Breaker"
     description = "Detects Laravel HTTP client calls without timeout or fallback handling"
-    category = Category.ARCHITECTURE
+    category = Category.RELIABILITY
     default_severity = Severity.MEDIUM
     type = "regex"
     severity_weight = 5

@@ -45,8 +45,7 @@ class ActionClassSuggestionRule(Rule):
         findings: list[Finding] = []
         project_has_action_architecture = self._has_action_architecture(facts)
 
-        # Heuristic: treat classes under app/Services as "services".
-        services = [c for c in facts.classes if "/services/" in (c.file_path or "").lower()]
+        services = list(getattr(facts, "services", []) or [])
         if not services:
             return findings
 

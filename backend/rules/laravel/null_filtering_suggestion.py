@@ -20,7 +20,7 @@ class NullFilteringSuggestionRule(Rule):
     description = "Suggests filtering null values from response arrays"
     category = Category.PERFORMANCE
     default_severity = Severity.LOW
-    type = "regex"
+    type = "ast"
     applicable_project_types = [
         "laravel_inertia_react",
         "laravel_inertia_vue",
@@ -105,7 +105,7 @@ class NullFilteringSuggestionRule(Rule):
                 self.create_finding(
                     title="Consider filtering null values in Inertia responses",
                     context="HandleInertiaRequests::share()",
-                    file=inertia_file or "app/Http/Middleware/HandleInertiaRequests.php",
+                    file=inertia_file,
                     line_start=1,
                     description=(
                         "No null filtering detected in Inertia middleware. "
@@ -158,12 +158,3 @@ class NullFilteringSuggestionRule(Rule):
             )
 
         return findings
-
-    def analyze_regex(
-        self,
-        file_path: str,
-        content: str,
-        facts: Facts,
-        metrics: dict[str, MethodMetrics] | None = None,
-    ) -> list[Finding]:
-        return []

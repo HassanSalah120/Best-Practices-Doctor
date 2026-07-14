@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 
+from core.source_masking import mask_comments
 from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
@@ -266,7 +267,7 @@ class HardcodedSecretsRule(Rule):
         if any(allow in norm_path for allow in self._ALLOWLIST_PATHS):
             return findings
 
-        lines = content.split("\n")
+        lines = mask_comments(content, hash_comments=True).split("\n")
 
         for i, line in enumerate(lines, 1):
             # Skip comments

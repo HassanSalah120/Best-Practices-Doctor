@@ -1,304 +1,342 @@
-"""
-Missing CSRF Token Verification Rule
-
-Detects routes that should have CSRF protection but don't.
-"""
+"""Evidence-driven CSRF coverage analysis for Laravel browser routes."""
 
 from __future__ import annotations
 
+import posixpath
 import re
 from pathlib import Path
 
 from rules.base import Rule
 from schemas.facts import Facts, RouteInfo
-from schemas.finding import Category, Finding, Severity
+from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
 
 
 class MissingCsrfTokenVerificationRule(Rule):
+    """Find session-authenticated mutations outside a CSRF-bearing route stack.
+
+    The rule never treats missing metadata as proof by itself. It requires a
+    browser/session authentication signal and resolves web/API registration,
+    nested web includes, custom CSRF middleware groups, and configured explicit
+    exemptions before reporting.
+    """
+
     id = "missing-csrf-token-verification"
-    name = "Missing CSRF Token Verification"
-    description = "Detects routes missing CSRF protection that should have it"
+    name = "Session Mutation Missing CSRF Middleware"
+    description = "Detects session-authenticated mutating routes outside a resolved CSRF middleware stack"
     category = Category.SECURITY
     default_severity = Severity.HIGH
+    default_classification = FindingClassification.RISK
     applicable_project_types = [
         "laravel_blade",
         "laravel_inertia_react",
         "laravel_inertia_vue",
         "laravel_livewire",
     ]
-
-    # HTTP methods that modify state and need CSRF protection
-    _MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
-
-    # Routes that legitimately don't need CSRF
-    _EXEMPT_ROUTE_PATTERNS = {
-        "api/*",           # API routes use token auth, not CSRF
-        "webhook/*",       # Webhooks from external services
-        "webhooks/*",      # Webhooks from external services
-        "stripe/*",        # Payment webhooks
-        "payment/*",       # Payment callbacks
-        "oauth/*",         # OAuth callbacks
-        "login",           # Login (has its own protection)
-        "logout",          # Logout
-        "register",        # Registration
-        "password/*",      # Password reset
-        "forgot-password", # Laravel auth scaffold
-        "reset-password",  # Laravel auth scaffold
-        "confirm-password",# Laravel auth scaffold
-        "email/*",         # Email verification
-        "sanctum/*",       # Sanctum API
-        "broadcasting/*",  # Broadcasting auth
+    severity_weight = 8
+    confidence = "high"
+    fix_suggestion = (
+        "Register the route through a CSRF-bearing browser middleware group (normally `web`) or use an explicit "
+        "token-authenticated API route. Do not add a CSRF exemption merely to silence this finding."
+    )
+    examples = {
+        "bad": "Route::middleware('auth')->post('/profile', [ProfileController::class, 'update']);",
+        "good": "Route::middleware(['web', 'auth'])->post('/profile', [ProfileController::class, 'update']);",
     }
-
-    # Middleware that explicitly signals CSRF protection in the route metadata we have.
-    _CSRF_MIDDLEWARE = {"web", "verifycsrftoken"}
-
-    # Middleware that explicitly disables CSRF or uses alternative auth
-    _CSRF_EXEMPT_MIDDLEWARE = {"throttle", "api"}
-
-    # Route file patterns - routes in web.php have CSRF by default
-    _WEB_ROUTES_FILE = "routes/web.php"
-
-    # Route files that don't have CSRF by default
-    _API_ROUTES_FILES = {"routes/api.php", "routes/auth.php"}
-    _AUTH_ROUTE_HINTS = {
-        "forgot-password",
-        "reset-password",
-        "confirm-password",
-        "verify-email",
-        "email/verification-notification",
-        "two-factor-challenge",
-        "two-factor-challenge/email",
-    }
-    severity_weight = 0
-    confidence = 'high'
-    fix_suggestion = 'Remove the missing csrf token verification risk and enforce the relevant Laravel/React security control at the boundary. Add a regression test that proves unsafe input or configuration is rejected.'
-    examples = {}
     priority = 1
-    group = 'Sensitive Data'
-    applies_to = ['middleware']
-    references = ['OWASP A01:2021 - Broken Access Control', 'CWE-352']
-    related_rules = []
-    false_positive_notes = 'May be a false positive when protection is enforced by upstream middleware, shared policy, or infrastructure not visible to the scanner.'
-    detection_type = 'cross-file'
-    analysis_cost = 'high'
+    group = "Sensitive Data"
+    applies_to = ["route", "middleware"]
+    references = ["OWASP A01:2021 - Broken Access Control", "CWE-352"]
+    related_rules = ["csrf-exception-wildcard-risk"]
+    false_positive_notes = (
+        "Only session/browser-authenticated routes are evaluated; bearer/token API routes and explicit exemptions are excluded."
+    )
+    detection_type = "cross-file"
+    analysis_cost = "high"
     auto_fixable = False
-    tags = {'domain': 'laravel', 'type': 'security', 'concern': 'csrf-token-verification'}
+    tags = {"domain": "laravel", "type": "security", "concern": "csrf-token-verification"}
+
+    _MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+    _SESSION_MIDDLEWARE = {
+        "auth",
+        "auth:web",
+        "guest",
+        "guest:web",
+        "verified",
+        "password.confirm",
+        "session",
+        "authenticate.session",
+    }
+    _TOKEN_MIDDLEWARE = {
+        "api",
+        "auth:api",
+        "auth:sanctum",
+        "auth:passport",
+        "passport",
+        "token",
+        "bearer",
+        "oauth",
+    }
+    _TOKEN_PARAMETERIZED_MIDDLEWARE = ("passport:", "token:", "bearer:", "oauth:")
 
     def analyze(
         self,
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
+        php_sources = self._load_candidate_php_sources(facts)
+        web_route_includes = self._discover_web_route_includes(facts, php_sources)
+        configured_exemptions = self._discover_csrf_exempt_patterns(facts, php_sources)
         findings: list[Finding] = []
-        web_route_includes = self._discover_web_route_includes(facts)
-        csrf_exempt_patterns = self._discover_csrf_exempt_patterns(facts)
 
-        # Group routes by URI for analysis
-        web_routes = [r for r in facts.routes if r.method.upper() in self._MUTATING_METHODS]
-
-        for route in web_routes:
-            # Skip exempt routes
-            uri_lower = (route.uri or "").lower().strip("/")
-            if self._is_exempt_route(uri_lower):
+        for route in getattr(facts, "routes", []) or []:
+            if str(route.method or "").upper() not in self._MUTATING_METHODS:
                 continue
-            if self._matches_exempt_pattern(uri_lower, csrf_exempt_patterns):
-                continue
-            if self._is_auth_scaffold_route(route, uri_lower, web_route_includes):
-                continue
+            uri = str(route.uri or "").lower().strip("/")
+            middleware = [str(item or "").strip().lower() for item in (route.middleware or []) if str(item or "").strip()]
 
-            # Check middleware
-            middleware = [m.lower() for m in route.middleware or []]
-
-            # API routes don't need CSRF (they use token auth)
-            if "api" in middleware:
+            if self._matches_exempt_pattern(uri, configured_exemptions):
+                continue
+            if self._has_explicit_csrf_removal(middleware):
+                # This is an intentional per-route exemption. Broad exemption
+                # safety is evaluated by csrf-exception-wildcard-risk.
+                continue
+            if self._has_token_auth(route, middleware):
                 continue
 
-            # Require an explicit CSRF/web signal in the captured middleware metadata.
-            has_web_middleware = any(
-                m == "web" or "verifycsrftoken" in m or m.endswith(":web")
-                for m in middleware
+            in_web_stack = self._has_csrf_stack(route, middleware, web_route_includes)
+            if in_web_stack:
+                continue
+
+            session_signals = sorted(
+                token
+                for token in middleware
+                if token in self._SESSION_MIDDLEWARE
+                or token.startswith("auth:web")
+                or token.startswith("guest:web")
             )
-
-            # Check if route is in web.php (has CSRF by default in Laravel)
-            is_in_web_routes = route.file_path and "routes/web.php" in route.file_path.lower()
-
-            # Check if route explicitly excludes CSRF
-            has_csrf_exempt = any(
-                "csrf" in m and ("except" in m or "exclude" in m)
-                for m in middleware
-            )
-
-            # Explicit CSRF signal is enough.
-            if has_web_middleware:
+            # Absence of `web` metadata alone is not a finding. A session signal
+            # is the positive evidence that CSRF is required at this boundary.
+            if not session_signals:
                 continue
 
-            # If it explicitly exempts CSRF, skip
-            if has_csrf_exempt:
-                continue
-
-            # Routes declared in routes/web.php inherit Laravel's web middleware group.
-            # Per-route middleware like auth/admin/throttle does not remove VerifyCsrfToken
-            # unless the route explicitly opts out, which was handled above.
-            if is_in_web_routes:
-                continue
-            if self._is_in_web_include_chain(route.file_path, web_route_includes):
-                continue
-
-            # This is a state-changing route without CSRF protection
+            line = int(getattr(route, "line_number", 1) or 1)
             findings.append(
                 self.create_finding(
-                    title="Route missing CSRF protection",
+                    title="Session-authenticated mutation is outside a CSRF middleware stack",
                     context=f"{route.method} {route.uri}",
-                    file=route.file_path or "routes/web.php",
-                    line_start=route.line_number or 1,
+                    file=str(route.file_path or ""),
+                    line_start=line,
                     description=(
-                        f"Route `{route.method} {route.uri}` appears to be a state-changing route "
-                        "without CSRF protection. This could allow Cross-Site Request Forgery attacks."
+                        f"`{route.method} {route.uri}` uses browser/session middleware "
+                        f"({', '.join(session_signals)}) but its resolved route registration has no `web` or CSRF middleware."
                     ),
                     why_it_matters=(
-                        "Without CSRF protection:\n"
-                        "- Attackers can trick users into submitting unwanted actions\n"
-                        "- User accounts can be compromised\n"
-                        "- Data can be modified without user consent\n"
-                        "- OWASP Top 10 #8: Software and Data Integrity Failures"
+                        "Browsers automatically attach session cookies. Without CSRF validation, another origin can submit "
+                        "a state-changing request as the signed-in user."
                     ),
-                    suggested_fix=(
-                        "1. Add 'web' middleware group to the route:\n"
-                        "   Route::middleware(['web'])->group(function () { ... });\n\n"
-                        "2. Or add to routes/web.php (has web middleware by default)\n\n"
-                        "3. For routes that need exemption:\n"
-                        "   Route::post('webhook', [...])->withoutMiddleware([VerifyCsrfToken::class]);\n\n"
-                        "4. Verify the route is in routes/web.php, not routes/api.php"
-                    ),
-                    code_example=(
-                        "// routes/web.php - Has CSRF protection by default\n"
-                        "Route::post('/profile/update', [ProfileController::class, 'update']);\n\n"
-                        "// routes/api.php - No CSRF (uses token auth)\n"
-                        "Route::post('/profile/update', [ProfileController::class, 'update'])\n"
-                        "    ->middleware('auth:sanctum');\n\n"
-                        "// Explicit CSRF exemption (use sparingly)\n"
-                        "Route::post('/webhook/stripe', [WebhookController::class, 'stripe'])\n"
-                        "    ->withoutMiddleware([VerifyCsrfToken::class]);"
-                    ),
-                    confidence=0.72 if is_in_web_routes else 0.80,
-                    tags=["security", "csrf", "laravel", "owasp-a8"],
-                    related_files=[route.file_path] if route.file_path else [],
+                    suggested_fix=self.fix_suggestion,
+                    confidence=0.94,
+                    tags=["security", "csrf", "laravel", "middleware", "cross-file"],
+                    related_files=[str(route.file_path)] if route.file_path else [],
+                    evidence_signals=[
+                        "mutating_route=true",
+                        "session_authentication=true",
+                        "resolved_csrf_stack=false",
+                        "token_authentication=false",
+                        f"session_signals={','.join(session_signals)}",
+                    ],
                 ),
             )
-
         return findings
 
-    def _discover_web_route_includes(self, facts: Facts) -> set[str]:
+    def _has_csrf_stack(
+        self,
+        route: RouteInfo,
+        middleware: list[str],
+        web_route_includes: set[str],
+    ) -> bool:
+        if any(
+            token == "web"
+            or "verifycsrftoken" in token
+            or "validatecsrftoken" in token
+            for token in middleware
+            if not token.startswith("without:")
+        ):
+            return True
+        normalized = self._normalize_route_path(str(route.file_path or ""))
+        if normalized.endswith("routes/web.php") or normalized in web_route_includes:
+            return True
+        return self._is_in_web_include_chain(route.file_path, web_route_includes)
+
+    def _has_token_auth(self, route: RouteInfo, middleware: list[str]) -> bool:
+        if any(
+            token in self._TOKEN_MIDDLEWARE or token.startswith(self._TOKEN_PARAMETERIZED_MIDDLEWARE)
+            for token in middleware
+        ):
+            return True
+        uri = str(route.uri or "").strip("/").lower()
+        if uri == "api" or uri.startswith("api/"):
+            return True
+        path = self._normalize_route_path(str(route.file_path or ""))
+        name = Path(path).name.lower()
+        return name == "api.php" or name.startswith("api-") or name.startswith("api_")
+
+    @staticmethod
+    def _has_explicit_csrf_removal(middleware: list[str]) -> bool:
+        return any(
+            token.startswith("without:")
+            and ("verifycsrftoken" in token or "validatecsrftoken" in token)
+            for token in middleware
+        )
+
+    def _discover_web_route_includes(
+        self,
+        facts: Facts,
+        php_sources: list[tuple[str, str]] | None = None,
+    ) -> set[str]:
         root = Path(getattr(facts, "project_path", "") or ".")
-        return self._collect_route_includes(root, "routes/web.php", set())
+        configured = self._discover_configured_web_route_files(
+            php_sources if php_sources is not None else self._load_candidate_php_sources(facts),
+        )
+        candidates = {
+            self._normalize_route_path(str(path))
+            for path in (getattr(facts, "files", []) or [])
+            if self._normalize_route_path(str(path)).endswith("routes/web.php")
+        }
+        candidates.update(
+            path
+            for path in ("routes/web.php", "src/routes/web.php", "app/routes/web.php")
+            if (root / path).exists()
+        )
+        candidates.update(configured)
+        included: set[str] = set(configured)
+        for relative_path in sorted(candidates):
+            included.update(self._collect_route_includes(root, relative_path, set()))
+        return included
+
+    def _discover_configured_web_route_files(
+        self,
+        php_sources: list[tuple[str, str]],
+    ) -> set[str]:
+        """Resolve explicit web registrations without assuming routes/web.php."""
+        configured: set[str] = set()
+        for source_path, text in php_sources:
+
+            # Laravel 11+ Application::configure()->withRouting(web: ...).
+            for match in re.finditer(
+                r"\bweb\s*:\s*(?:base_path\s*\(\s*)?['\"](?P<path>[^'\"]+\.php)['\"]",
+                text,
+                re.IGNORECASE,
+            ):
+                configured.add(self._normalize_route_path(match.group("path")))
+
+            # RouteServiceProvider and custom registrars using a named web
+            # middleware group followed by ->group(<route file>).
+            for match in re.finditer(
+                r"middleware\s*\([^)]*['\"]web['\"][^;]{0,500}?->group\s*\(\s*"
+                r"(?:base_path\s*\(\s*)?['\"](?P<path>[^'\"]+\.php)['\"]",
+                text,
+                re.IGNORECASE | re.DOTALL,
+            ):
+                configured.add(self._normalize_route_path(match.group("path")))
+        return {path for path in configured if path}
+
+    def _load_candidate_php_sources(self, facts: Facts) -> list[tuple[str, str]]:
+        """Read each relevant PHP source at most once per rule execution."""
+        root = Path(getattr(facts, "project_path", "") or ".")
+        candidates = [str(path) for path in (getattr(facts, "files", []) or [])]
+        for fallback in ("bootstrap/app.php", "app/Providers/RouteServiceProvider.php"):
+            if fallback not in candidates and (root / fallback).exists():
+                candidates.append(fallback)
+        sources: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for rel_path in candidates:
+            normalized = self._normalize_route_path(rel_path)
+            if normalized in seen or not normalized.endswith(".php"):
+                continue
+            seen.add(normalized)
+            try:
+                text = (root / rel_path).read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            sources.append((rel_path, text))
+        return sources
 
     def _collect_route_includes(self, root: Path, relative_path: str, seen: set[str]) -> set[str]:
-        normalized = relative_path.replace("\\", "/").lower()
+        normalized = self._normalize_route_path(relative_path)
         if normalized in seen:
             return set()
         seen.add(normalized)
-
         file_path = root / normalized
-        if not file_path.exists():
-            return set()
-
         try:
             text = file_path.read_text(encoding="utf-8", errors="replace")
-        except Exception:
+        except OSError:
             return set()
 
-        matches = set()
-        patterns = [
-            re.compile(r"base_path\(\s*['\"](?P<path>routes/[^'\"]+\.php)['\"]\s*\)", re.IGNORECASE),
-            re.compile(r"__DIR__\s*\.\s*['\"]/+(?P<path>[^'\"]+\.php)['\"]", re.IGNORECASE),
-        ]
-        for pattern in patterns:
-            for match in pattern.finditer(text):
-                raw_path = (match.group("path") or "").replace("\\", "/").lstrip("./")
-                if raw_path.startswith("routes/"):
-                    child = raw_path.lower()
-                elif raw_path.endswith(".php"):
-                    child = f"routes/{raw_path.split('/')[-1]}".lower()
-                else:
-                    continue
-                matches.add(child)
+        matches: set[str] = set()
+        for match in re.finditer(
+            r"(?:(?P<base>base_path)\s*\(\s*)?(?:(?P<dir>__DIR__)\s*\.\s*)?['\"](?P<path>[^'\"]+\.php)['\"]",
+            text,
+            re.IGNORECASE,
+        ):
+            raw = str(match.group("path") or "").replace("\\", "/")
+            if match.group("dir"):
+                # In `__DIR__ . '/auth.php'` the leading slash is a PHP
+                # concatenation separator, not a filesystem-root marker.
+                child = posixpath.normpath(posixpath.join(posixpath.dirname(normalized), raw.lstrip("/")))
+            else:
+                child = posixpath.normpath(raw.lstrip("./"))
+            child = self._normalize_route_path(child)
+            if not child or child == normalized:
+                continue
+            matches.add(child)
+            # The route facts themselves are sufficient evidence that a
+            # registered child exists. Only recursive source inspection needs
+            # the physical file (fixtures and partial scans may omit it).
+            if (root / child).is_file():
                 matches.update(self._collect_route_includes(root, child, seen))
         return matches
 
-    def _discover_csrf_exempt_patterns(self, facts: Facts) -> list[str]:
-        root = Path(getattr(facts, "project_path", "") or ".")
-        bootstrap_file = root / "bootstrap" / "app.php"
-        if not bootstrap_file.exists():
-            return []
-
-        try:
-            text = bootstrap_file.read_text(encoding="utf-8", errors="replace")
-        except Exception:
-            return []
-
-        match = re.search(r"validateCsrfTokens\s*\(\s*except\s*:\s*\[(?P<body>.*?)\]\s*\)", text, re.IGNORECASE | re.DOTALL)
-        if not match:
-            return []
-        body = match.group("body") or ""
-        return [item.strip().strip("'\"").strip().lower().lstrip("/") for item in re.findall(r"['\"]([^'\"]+)['\"]", body)]
+    def _discover_csrf_exempt_patterns(
+        self,
+        facts: Facts,
+        php_sources: list[tuple[str, str]] | None = None,
+    ) -> list[str]:
+        patterns: list[str] = []
+        sources = php_sources if php_sources is not None else self._load_candidate_php_sources(facts)
+        for _rel_path, text in sources:
+            if "validateCsrfTokens" not in text and "verifyCsrfTokens" not in text:
+                continue
+            for match in re.finditer(
+                r"(?:validate|verify)CsrfTokens\s*\(\s*except\s*:\s*\[(?P<body>.*?)\]\s*\)",
+                text,
+                re.IGNORECASE | re.DOTALL,
+            ):
+                patterns.extend(
+                    value.strip().lower().lstrip("/")
+                    for value in re.findall(r"['\"]([^'\"]+)['\"]", match.group("body") or "")
+                )
+        return sorted(set(patterns))
 
     def _matches_exempt_pattern(self, uri: str, patterns: list[str]) -> bool:
+        normalized_uri = str(uri or "").strip("/").lower()
         for pattern in patterns:
-            normalized = pattern.strip("/").lower()
+            normalized = str(pattern or "").strip("/").lower()
             if not normalized:
                 continue
             if normalized.endswith("*"):
-                if uri.startswith(normalized[:-1]):
+                prefix = normalized[:-1].rstrip("/")
+                if normalized_uri == prefix or normalized_uri.startswith(prefix + "/"):
                     return True
-            elif uri == normalized or uri.startswith(normalized + "/"):
+            elif normalized_uri == normalized:
                 return True
         return False
 
-    def _is_in_web_include_chain(self, route_file_path: str | None, web_route_includes: set[str]) -> bool:
-        normalized = (route_file_path or "").replace("\\", "/").strip().lower()
-        if not normalized:
-            return False
-        if normalized in web_route_includes:
-            return True
+    def _is_in_web_include_chain(self, route_file_path: str | None, includes: set[str]) -> bool:
+        normalized = self._normalize_route_path(str(route_file_path or ""))
+        return normalized in includes or any(normalized.endswith("/" + item) for item in includes)
 
-        basename = normalized.split("/")[-1]
-        route_relative = basename if basename.startswith("routes/") else f"routes/{basename}"
-        if route_relative in web_route_includes:
-            return True
-
-        return any(
-            normalized.endswith(f"/{included}") or normalized.endswith(f"\\{included}") or normalized.endswith(f"/{included.split('/')[-1]}")
-            for included in web_route_includes
-        )
-
-    def _is_exempt_route(self, uri: str) -> bool:
-        """Check if route matches exempt patterns."""
-        for pattern in self._EXEMPT_ROUTE_PATTERNS:
-            if pattern.endswith("/*"):
-                prefix = pattern[:-2]
-                if uri.startswith(prefix):
-                    return True
-            elif uri == pattern or uri.startswith(pattern + "/"):
-                return True
-        return False
-
-    def _is_auth_scaffold_route(self, route: RouteInfo, uri: str, web_route_includes: set[str]) -> bool:
-        uri_low = (uri or "").strip("/").lower()
-        if not uri_low:
-            return False
-        if uri_low not in self._AUTH_ROUTE_HINTS and not any(
-            uri_low.startswith(f"{hint}/") for hint in self._AUTH_ROUTE_HINTS
-        ):
-            return False
-
-        middleware = {str(m).lower() for m in (route.middleware or [])}
-        if not ({"auth", "guest"} & middleware):
-            return False
-
-        route_path = (route.file_path or "").replace("\\", "/").lower()
-        if route_path.endswith("routes/auth.php") or "/routes/auth-" in route_path:
-            return True
-
-        return bool(self._is_in_web_include_chain(route.file_path, web_route_includes))
+    @staticmethod
+    def _normalize_route_path(value: str) -> str:
+        return str(value or "").replace("\\", "/").strip().lower().lstrip("./")

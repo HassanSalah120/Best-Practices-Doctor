@@ -5,36 +5,27 @@ Accessibility-focused CSS/Tailwind rules.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
 
+from core.tailwind_analysis import (
+    has_tailwind_evidence,
+    iter_opening_tags,
+    iter_static_class_values,
+    split_tailwind_tokens,
+    tailwind_base_utility,
+    tailwind_variants,
+)
 from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
 
-_CLASS_QUOTED_RE = re.compile(r"class(?:Name)?\s*=\s*(['\"])(.*?)\1", re.IGNORECASE | re.DOTALL)
-_CLASS_TEMPLATE_RE = re.compile(r"class(?:Name)?\s*=\s*`([^`]*)`", re.IGNORECASE | re.DOTALL)
-
-
 def _line_of_offset(content: str, offset: int) -> int:
     return content.count("\n", 0, offset) + 1
 
 
-def _iter_static_class_attrs(content: str) -> Iterable[tuple[int, str]]:
-    for match in _CLASS_QUOTED_RE.finditer(content):
-        value = (match.group(2) or "").strip()
-        if not value or "${" in value:
-            continue
-        yield _line_of_offset(content, match.start()), value
-    for match in _CLASS_TEMPLATE_RE.finditer(content):
-        value = (match.group(1) or "").strip()
-        if not value or "${" in value:
-            continue
-        yield _line_of_offset(content, match.start()), value
-
-
-def _has_motion_guard(class_value: str) -> bool:
-    return bool(re.search(r"(?:^|\s)motion-(?:safe|reduce):\S+", class_value or ""))
+def _iter_static_class_attrs(content: str):
+    for item in iter_static_class_values(content):
+        yield item.line, item.value
 
 
 class TailwindMotionReduceMissingRule(Rule):
@@ -64,31 +55,52 @@ class TailwindMotionReduceMissingRule(Rule):
         return []
 
     def analyze_regex(self, file_path: str, content: str, facts: Facts, metrics: dict[str, MethodMetrics] | None = None) -> list[Finding]:
+        if not has_tailwind_evidence(facts, content):
+            return []
         findings: list[Finding] = []
         max_findings = max(1, int(self.get_threshold("max_findings_per_file", 2)))
         for line, class_value in _iter_static_class_attrs(content or ""):
             if len(findings) >= max_findings:
                 break
-            tokens = class_value.split()
-            # Check for animations. Simple transitions (opacity/color) are usually safe.
-            # We flag 'animate-' explicitly, and only 'transition' if it's likely a layout-shifter.
-            animation_tokens = [t for t in tokens if t.startswith("animate-")]
-            transition_tokens = [t for t in tokens if t.startswith("transition-") or t == "transition"]
-
-            # If it's ONLY a simple transition (no explicit transform/all/layout), we skip to avoid noise.
-            # Most devs use simple 'transition' for hover fades, which don't cause vestibular issues.
-            if not animation_tokens:
-                # Skip common safe transitions like color/opacity/shadows
-                # We only flag if it's 'transition-all', 'transition-transform', or has a long duration.
-                is_risky = any(t in ("transition-all", "transition-transform") for t in transition_tokens)
-                has_long_duration = any(t.startswith("duration-") and int(t.split("-")[-1]) >= 400 for t in tokens if t.startswith("duration-") and t.split("-")[-1].isdigit())
-                if not is_risky and not has_long_duration:
+            tokens = split_tailwind_tokens(class_value)
+            risky_tokens: list[str] = []
+            long_duration = any(
+                (base := tailwind_base_utility(token)).startswith("duration-")
+                and base.rsplit("-", 1)[-1].isdigit()
+                and int(base.rsplit("-", 1)[-1]) >= 300
+                for token in tokens
+            )
+            visible_transform_change = any(
+                tailwind_base_utility(token).startswith(("translate-", "scale-", "rotate-", "skew-"))
+                and tailwind_base_utility(token) not in {"scale-100", "rotate-0", "translate-x-0", "translate-y-0"}
+                for token in tokens
+            )
+            for token in tokens:
+                base = tailwind_base_utility(token)
+                variants = tailwind_variants(token)
+                guarded = "motion-safe" in variants or "motion-reduce" in variants
+                if guarded:
                     continue
+                if base.startswith("animate-") and base != "animate-none":
+                    risky_tokens.append(token)
+                elif (
+                    long_duration
+                    and visible_transform_change
+                    and (base == "transition" or base.startswith("transition-"))
+                ):
+                    risky_tokens.append(token)
 
-            motion_tokens = animation_tokens + transition_tokens
-            if not motion_tokens:
-                continue
-            if _has_motion_guard(class_value):
+            has_reduced_motion_fallback = any(
+                "motion-reduce" in tailwind_variants(token)
+                and tailwind_base_utility(token) in {
+                    "animate-none",
+                    "transition-none",
+                    "transform-none",
+                    "duration-0",
+                }
+                for token in tokens
+            )
+            if not risky_tokens or has_reduced_motion_fallback:
                 continue
             findings.append(
                 self.create_finding(
@@ -96,12 +108,16 @@ class TailwindMotionReduceMissingRule(Rule):
                     file=file_path,
                     line_start=line,
                     context=f"{file_path}:{line}",
-                    description=f"Found animation utility tokens without reduced-motion companion: {', '.join(motion_tokens[:3])}.",
+                    description=f"Found animation utility tokens without a matching reduced-motion guard: {', '.join(risky_tokens[:3])}.",
                     why_it_matters="Users with reduced-motion preferences should be able to avoid non-essential animation.",
                     suggested_fix="Add `motion-reduce:` fallback or `motion-safe:` guard to animation classes.",
                     tags=["tailwind", "a11y", "motion", "wcag"],
                     confidence=0.9,
-                    evidence_signals=["animation_tokens_present=true", "motion_reduce_variant_missing=true"],
+                    evidence_signals=[
+                        "animation_tokens_present=true",
+                        "motion_reduce_variant_missing=true",
+                        f"unguarded_motion_tokens={len(risky_tokens)}",
+                    ],
                 ),
             )
         return findings
@@ -116,10 +132,6 @@ class TailwindAppearanceNoneRiskRule(Rule):
     type = "regex"
     regex_file_extensions = [".js", ".jsx", ".ts", ".tsx"]
 
-    _CONTROL_TAG_RE = re.compile(
-        r"<(?P<tag>input|select|textarea)\b(?P<attrs>[^>]*)>",
-        re.IGNORECASE | re.DOTALL,
-    )
     severity_weight = 0
     confidence = 'medium'
     fix_suggestion = 'Update the component markup and interaction contract so the tailwind appearance none risk is accessible by keyboard and assistive technology. Verify the expected ARIA/semantic state in a component test when practical.'
@@ -139,20 +151,34 @@ class TailwindAppearanceNoneRiskRule(Rule):
         return []
 
     def analyze_regex(self, file_path: str, content: str, facts: Facts, metrics: dict[str, MethodMetrics] | None = None) -> list[Finding]:
+        if not has_tailwind_evidence(facts, content):
+            return []
         findings: list[Finding] = []
         max_findings = max(1, int(self.get_threshold("max_findings_per_file", 3)))
         text = content or ""
-        for m in self._CONTROL_TAG_RE.finditer(text):
+        for tag in iter_opening_tags(text, {"input", "select", "textarea"}):
             if len(findings) >= max_findings:
                 break
-            attrs = m.group("attrs") or ""
-            if "appearance-none" not in attrs:
+            class_values = list(iter_static_class_values(tag.attributes))
+            tokens = [
+                token
+                for class_value in class_values
+                for token in split_tailwind_tokens(class_value.value)
+            ]
+            if not any(tailwind_base_utility(token) == "appearance-none" for token in tokens):
                 continue
-            has_focus = bool(re.search(r"focus:|focus-visible:|ring-|outline-", attrs))
-            has_visual = bool(re.search(r"border|bg-|px-|py-|h-|w-", attrs))
+            has_focus = any(
+                any(variant in {"focus", "focus-visible"} for variant in tailwind_variants(token))
+                and tailwind_base_utility(token).startswith(("ring", "outline", "border", "bg-"))
+                for token in tokens
+            )
+            has_visual = any(
+                tailwind_base_utility(token).startswith(("border", "bg-", "shadow", "outline"))
+                for token in tokens
+            )
             if has_focus and has_visual:
                 continue
-            line = text.count("\n", 0, m.start()) + 1
+            line = tag.line
             findings.append(
                 self.create_finding(
                     title="appearance-none used without strong accessibility affordances",

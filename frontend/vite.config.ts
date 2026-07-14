@@ -15,4 +15,16 @@ export default defineConfig({
     strictPort: true,
     host: true,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("react") || id.includes("scheduler")) return "react";
+          if (id.includes("@radix-ui") || id.includes("lucide-react")) return "ui";
+          return "vendor";
+        },
+      },
+    },
+  },
 });

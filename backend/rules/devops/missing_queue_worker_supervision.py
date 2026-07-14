@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from rules.base import Rule
 from schemas.facts import Facts
@@ -14,7 +15,7 @@ class MissingQueueWorkerSupervisionRule(Rule):
     id = "missing-queue-worker-supervision"
     name = "Missing Queue Worker Supervision"
     description = "Detects Laravel queue usage without Horizon or supervisor worker restart configuration"
-    category = Category.PERFORMANCE
+    category = Category.OPERATIONS
     default_severity = Severity.HIGH
     default_classification = FindingClassification.RISK
     type = "ast"
@@ -43,7 +44,7 @@ class MissingQueueWorkerSupervisionRule(Rule):
         return [
             self.create_finding(
                 title="Queue workers have no repository-visible supervision",
-                file="app/Jobs",
+                file="",
                 line_start=1,
                 context="project:queue-supervision",
                 description="Queue usage was detected, but no Laravel Horizon or Supervisord queue worker configuration was found.",
@@ -83,6 +84,24 @@ class MissingQueueWorkerSupervisionRule(Rule):
             return True
         if project_file_exists(facts, "config/horizon.php"):
             return True
+        # Check common supervisor/process manager config paths explicitly
+        root = Path(getattr(facts, "project_path", "") or ".")
+        explicit_supervisor_paths = [
+            root / "ops" / "supervisor",
+            root / "deploy" / "supervisor",
+            root / "config" / "supervisor",
+            root / ".platform" / "supervisor",
+        ]
+        for sp_dir in explicit_supervisor_paths:
+            if sp_dir.is_dir():
+                for conf_file in sp_dir.rglob("*.conf"):
+                    try:
+                        text = conf_file.read_text(encoding="utf-8", errors="replace").lower()
+                    except Exception:
+                        continue
+                    if "[program:" in text and "php artisan queue:work" in text:
+                        return True
+        # Fallback: rglob from project root
         for path in iter_project_files(facts, "*.conf"):
             try:
                 text = path.read_text(encoding="utf-8", errors="replace").lower()

@@ -19,7 +19,7 @@ class MissingIndexOnLookupColumnsRule(Rule):
     id = "missing-index-on-lookup-columns"
     name = "Missing Index On Lookup Columns"
     description = "Detects migration lookup columns that are added without an index or unique constraint"
-    category = Category.PERFORMANCE
+    category = Category.DATA_INTEGRITY
     default_severity = Severity.MEDIUM
     default_classification = FindingClassification.ADVISORY
     type = "ast"

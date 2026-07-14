@@ -9,6 +9,7 @@ from pathlib import Path
 from analysis.facts_builder import FactsBuilder
 from analysis.metrics_analyzer import MetricsAnalyzer
 from core.context_profiles import load_laravel_context_matrix, load_react_context_matrix
+from core.pipeline.cache_signatures import implementation_signature, stable_signature
 from core.pipeline.errors import FactBuildError
 from core.pipeline.models import ScanPipelineContext, ScanPipelineState
 from core.ruleset import Ruleset
@@ -42,6 +43,8 @@ class BuildFactsStage:
             "max_files": int(getattr(ruleset.scan, "max_files", 0) or 0),
             "ignore_patterns": list(getattr(ruleset.scan, "ignore", []) or []),
             "context_matrix_framework": str(getattr(context_matrix, "framework", "laravel") or "laravel"),
+            "ruleset_signature": stable_signature(ruleset),
+            "implementation_signature": implementation_signature([FactsBuilder, MetricsAnalyzer]),
         }
         if context.stage_cache is not None:
             cached = context.stage_cache.load("build_facts", cache_payload)

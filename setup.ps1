@@ -1,6 +1,7 @@
 param(
     [switch]$SkipPython,
     [switch]$SkipNode,
+    [switch]$IncludeMcp,
     [switch]$Quiet
 )
 
@@ -108,7 +109,9 @@ if (-not $SkipNode) {
 
     Install-NpmWorkspace (Join-Path $repoRoot "frontend")
     Install-NpmWorkspace (Join-Path $repoRoot "tauri")
-    Install-NpmWorkspace (Join-Path $repoRoot "bpdoctor-mcp")
+    if ($IncludeMcp) {
+        Install-NpmWorkspace (Join-Path $repoRoot "bpdoctor-mcp")
+    }
 }
 
 if (-not $SkipPython) {

@@ -75,6 +75,13 @@ class Rule(ABC):
     # File extensions scanned for regex rules. AST rules ignore this.
     # Keep PHP as default to preserve existing behavior.
     regex_file_extensions: list[str] = [".php"]
+    # Test-specific rules may opt into the separately indexed test file list
+    # without exposing test fixtures to every production-code rule.
+    include_test_files: bool = False
+    # Every rule is context-aware through either an explicit context-matrix
+    # entry or the engine's generic policy. Rules that are genuinely invariant
+    # (for example, syntax or injection defects) may declare "independent".
+    context_policy: str = "auto"
 
     # Project types this rule applies to (empty = all)
     applicable_project_types: list[str] = []
@@ -114,6 +121,14 @@ class Rule(ABC):
         """Get a threshold value from config."""
         return self.config.thresholds.get(key, default)
 
+    def iter_analysis_contexts(self, facts: Facts) -> list:
+        """Lazily import and delegate to analysis.dataflow.iter_analysis_contexts.
+
+        Avoids circular import at module level — rules/ → analysis/ → core/ → rules/.
+        """
+        from analysis.dataflow import iter_analysis_contexts
+        return iter_analysis_contexts(facts)
+
     def is_applicable(self, facts: Facts, project_type: str = "") -> bool:
         """
         Check if this rule should run for the given project.
@@ -121,6 +136,29 @@ class Rule(ABC):
         """
         if not self.enabled:
             return False
+
+        # A missing per-rule project list must not make framework-specific
+        # modules global. This is especially important for project-level
+        # absence rules, which can otherwise report Laravel requirements in a
+        # native PHP or React application.
+        module_name = str(getattr(self.__class__, "__module__", "") or "").lower()
+        normalized_project_type = str(project_type or "").strip().lower()
+        if ".laravel." in module_name and normalized_project_type:
+            if not normalized_project_type.startswith("laravel"):
+                return False
+
+        if ".react." in module_name and normalized_project_type:
+            react_project_type = "react" in normalized_project_type
+            has_react_facts = bool(getattr(facts, "react_components", []) or [])
+            context = getattr(facts, "project_context", None)
+            context_type = str(
+                getattr(context, "project_type", None)
+                or getattr(context, "project_business_context", "")
+                or "",
+            ).lower()
+            context_is_react = context_type in {"standalone", "inertia_spa", "next_js"} or "react" in context_type
+            if not (react_project_type or has_react_facts or context_is_react):
+                return False
 
         if self.applicable_project_types and project_type:
             return project_type in self.applicable_project_types
@@ -414,7 +452,6 @@ class Rule(ABC):
         if self.category in {
             Category.ARCHITECTURE,
             Category.DRY,
-            Category.SRP,
             Category.LARAVEL_BEST_PRACTICE,
             Category.REACT_BEST_PRACTICE,
             Category.PERFORMANCE,

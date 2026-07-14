@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 
 from rules.base import Rule
+from rules.laravel._route_helpers import is_api_route_file
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
@@ -30,9 +31,8 @@ class UserModelMissingMustVerifyEmailRule(Rule):
     ]
     regex_file_extensions = [".php"]
 
-    _USER_MODEL_PATH = re.compile(r"(^|/)(app/)?models/user\.php$", re.IGNORECASE)
     _AUTHENTICATABLE_CLASS = re.compile(
-        r"class\s+User\b[^{\n]*extends\s+(?:\\?[A-Za-z_][A-Za-z0-9_\\]*\\)?Authenticatable\b",
+        r"class\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\b[^{\n]*extends\s+(?:\\?[A-Za-z_][A-Za-z0-9_\\]*\\)?Authenticatable\b",
         re.IGNORECASE,
     )
     _IMPLEMENTS_MUST_VERIFY = re.compile(r"implements[^{\n]*\bMustVerifyEmail\b", re.IGNORECASE)
@@ -70,10 +70,15 @@ class UserModelMissingMustVerifyEmailRule(Rule):
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
-        norm = (file_path or "").replace("\\", "/")
-        if not self._USER_MODEL_PATH.search(norm):
+        class_match = self._AUTHENTICATABLE_CLASS.search(content or "")
+        if not class_match:
             return []
-        if not self._AUTHENTICATABLE_CLASS.search(content or ""):
+        class_name = str(class_match.group("name") or "")
+        configured_models = self._configured_auth_models(facts)
+        if configured_models:
+            if class_name.lower() not in configured_models:
+                return []
+        elif class_name.lower() != "user":
             return []
         if self._IMPLEMENTS_MUST_VERIFY.search(content or ""):
             return []
@@ -85,6 +90,9 @@ class UserModelMissingMustVerifyEmailRule(Rule):
         min_confidence = float(self.get_threshold("min_confidence", 0.0) or 0.0)
         token_api_only = self._is_token_api_only_context(facts)
         if skip_for_token_api_only and token_api_only:
+            return []
+        require_verification_signal = bool(self.get_threshold("require_verification_signal", True))
+        if require_verification_signal and not self._has_email_verification_signal(list(facts.routes or [])):
             return []
 
         confidence = 0.92
@@ -106,11 +114,11 @@ class UserModelMissingMustVerifyEmailRule(Rule):
         return [
             self.create_finding(
                 title="User model does not implement MustVerifyEmail",
-                context="App\\Models\\User",
+                context=class_name,
                 file=file_path,
                 line_start=1,
                 description=(
-                    "Detected a Laravel `User` model extending `Authenticatable` without `MustVerifyEmail`."
+                    f"Detected the configured Laravel authenticatable model `{class_name}` without `MustVerifyEmail`."
                 ),
                 why_it_matters=(
                     "Without email verification on the user model, `verified` middleware and Laravel's"
@@ -125,6 +133,42 @@ class UserModelMissingMustVerifyEmailRule(Rule):
                 evidence_signals=evidence,
             ),
         ]
+
+    def _configured_auth_models(self, facts: Facts) -> set[str]:
+        """Return configured auth provider model basenames, independent of location."""
+        from pathlib import Path
+
+        root = Path(str(getattr(facts, "project_path", "") or "."))
+        candidates = [
+            str(path or "")
+            for path in (getattr(facts, "files", []) or [])
+            if str(path or "").replace("\\", "/").lower().endswith("config/auth.php")
+        ]
+        if not candidates:
+            try:
+                candidates = [
+                    str(path.relative_to(root))
+                    for path in root.rglob("auth.php")
+                    if path.parent.name.lower() == "config"
+                ]
+            except OSError:
+                candidates = []
+
+        models: set[str] = set()
+        for rel_path in candidates:
+            path = Path(rel_path)
+            if not path.is_absolute():
+                path = root / path
+            try:
+                text = path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            for match in re.finditer(
+                r"['\"]model['\"]\s*=>\s*([A-Za-z_\\][A-Za-z0-9_\\]*)::class",
+                text,
+            ):
+                models.add(str(match.group(1) or "").split("\\")[-1].lower())
+        return models
 
     def _is_token_api_only_context(self, facts: Facts) -> bool:
         routes = list(facts.routes or [])
@@ -142,7 +186,7 @@ class UserModelMissingMustVerifyEmailRule(Rule):
         non_api_routes = 0
         for route in routes:
             route_file = (route.file_path or "").replace("\\", "/").lower()
-            if not (route_file == "routes/api.php" or route_file.endswith("/routes/api.php")):
+            if not is_api_route_file(route):
                 non_api_routes += 1
 
             uri = str(route.uri or "").lower()
@@ -156,8 +200,11 @@ class UserModelMissingMustVerifyEmailRule(Rule):
         for route in routes:
             uri = str(route.uri or "").lower()
             action = str(route.action or "").lower()
+            middleware = " ".join(str(item or "").lower() for item in (route.middleware or []))
             if "verify" in uri or "verification" in uri:
                 return True
             if "verify" in action or "verification" in action:
+                return True
+            if "verified" in middleware or "verification" in middleware:
                 return True
         return False

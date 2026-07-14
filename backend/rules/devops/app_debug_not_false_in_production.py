@@ -14,7 +14,7 @@ class AppDebugNotFalseInProductionRule(Rule):
     id = "app-debug-not-false-in-production"
     name = "App Debug Not False In Production"
     description = "Detects debug defaults that enable Laravel debug mode in production-facing configuration"
-    category = Category.SECURITY
+    category = Category.OPERATIONS
     default_severity = Severity.HIGH
     default_classification = FindingClassification.RISK
     type = "ast"
@@ -38,7 +38,7 @@ class AppDebugNotFalseInProductionRule(Rule):
             return []
         findings: list[Finding] = []
         app_config = read_project_file(facts, "config/app.php")
-        match = re.search(r"['\"]debug['\"]\s*=>\s*true\b", app_config, re.IGNORECASE)
+        match = re.search(r"""['\""]debug['\""]\s*=>\s*true\b""", app_config, re.IGNORECASE)
         if match:
             findings.append(
                 self.create_finding(

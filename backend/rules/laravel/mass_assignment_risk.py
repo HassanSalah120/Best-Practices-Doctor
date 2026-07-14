@@ -17,7 +17,7 @@ class MassAssignmentRiskRule(Rule):
     id = "mass-assignment-risk"
     name = "Mass Assignment Risk"
     description = "Detects Model::create/update/fill with $request->all() (mass assignment risk)"
-    category = Category.SECURITY
+    category = Category.DATA_INTEGRITY
     default_severity = Severity.HIGH
     applicable_project_types = [
         "laravel_blade",

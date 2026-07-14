@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 
 from rules.base import Rule
+from rules.laravel._route_helpers import is_api_route_file
 from rules.laravel.missing_throttle_on_auth_api_routes import MissingThrottleOnAuthApiRoutesRule
 from rules.laravel.sensitive_route_rate_limit_missing import SensitiveRouteRateLimitMissingRule
 from schemas.facts import Facts, RouteInfo
@@ -76,7 +77,7 @@ class MissingRateLimitingRule(Rule):
                 self.create_finding(
                     title="Rate limiting missing on sensitive endpoint",
                     context=f"{str(route.method or '').upper()} {route.uri}",
-                    file=route.file_path or "routes/web.php",
+                    file=route.file_path,
                     line_start=int(getattr(route, "line_number", 1) or 1),
                     description=(
                         f"Detected `{str(route.method or '').upper()} {route.uri}` without explicit throttling."
@@ -138,7 +139,7 @@ class MissingRateLimitingRule(Rule):
             return "auth"
         if self._PUBLIC_FORM.search(uri_low):
             return "public_form"
-        if uri_low.startswith("api/") or "routes/api.php" in str(route.file_path or "").replace("\\", "/").lower():
+        if uri_low.startswith("api/") or is_api_route_file(route):
             return "api"
         return "api"
 

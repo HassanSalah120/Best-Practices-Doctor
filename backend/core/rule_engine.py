@@ -19,348 +19,17 @@ from core.context_profiles import (
     ContextProfileMatrix,
     ContextSignalState,
     EffectiveContext,
+    load_laravel_context_matrix,
     load_react_context_matrix,
 )
 from core.path_utils import normalize_rel_path
 from core.ruleset import RuleConfig, Ruleset
+from core.source_store import SourceFileStore, normalize_extensions
 from rules.base import Rule, RuleResult
-from rules.devops import (
-    AppDebugNotFalseInProductionRule,
-    AppEnvNotSetToProductionRule,
-    EnvCommittedToGitRule,
-    EnvExampleMissingOrOutOfSyncRule,
-    MissingQueueWorkerSupervisionRule,
-    NoLoggingStrategyConfiguredRule,
-    StoragePathsNotInGitignoreRule,
-)
 
-# Import all rules
-from rules.laravel import (
-    ActionClassNamingConsistencyRule,
-    ActionClassSuggestionRule,
-    ApiEndpointMissingIdempotencyKeyRule,
-    ApiResourceUsageRule,
-    ApiResponseInconsistentShapeRule,
-    ArchiveUploadZipSlipRiskRule,
-    AssetVersioningCheckRule,
-    AuthorizationBypassRiskRule,
-    AuthorizationMissingOnSensitiveReadsRule,
-    BladeComponentNoFallbackSlotRule,
-    BladeQueriesRule,
-    BladeXssRiskRule,
-    BroadcastChannelAuthorizationMissingRule,
-    BusinessLogicInMigrationRule,
-    CacheMissingFallbackRule,
-    CacheStampedeRiskRule,
-    ChunkMissingForLargeDatasetsRule,
-    # Performance rules
-    ColumnSelectionSuggestionRule,
-    ComposerDependencyBelowSecureVersionRule,
-    ConsoleCommandMissingTenantScopeRule,
-    ContractSuggestionRule,
-    ControllerBusinessLogicRule,
-    ControllerIndexFilterDuplicationRule,
-    ControllerInlineValidationRule,
-    ControllerQueryDirectRule,
-    # Architecture rules
-    ControllerReturningViewInApiRule,
-    CookieSameSiteMissingRule,
-    CorsMisconfigurationRule,
-    CsrfExceptionWildcardRiskRule,
-    CustomExceptionSuggestionRule,
-    DateFormatMissingCastRule,
-    DebugExposureRiskRule,
-    DestructiveMigrationWithoutSafetyGuardRule,
-    DtoSuggestionRule,
-    DuplicateRouteDefinitionRule,
-    EagerLoadingRule,
-    EloquentRawWhereStringRule,
-    EnumSuggestionRule,
-    EnvOutsideConfigRule,
-    ErrorPagesMissingRule,
-    FatControllerRule,
-    ForcedLoginWithoutAuthorizationRule,
-    HardcodedMagicStringsRule,
-    # Security rules
-    HardcodedSecretsRule,
-    HeavyLogicInRoutesRule,
-    HighPrivilegeActionMissingAuthorizationRule,
-    HostHeaderPoisoningRiskRule,
-    HttpCallMissingFallbackRule,
-    IdorRiskMissingOwnershipCheckRule,
-    InertiaSharedPropsEagerQueryRule,
-    InertiaSharedPropsPayloadBudgetRule,
-    InertiaSharedPropsSensitiveDataRule,
-    InsecureDeserializationRule,
-    InsecureFileDownloadResponseRule,
-    InsecureRandomForSecurityRule,
-    InsecureSessionCookieConfigRule,
-    IocInsteadOfNewRule,
-    JobHttpCallMissingTimeoutRule,
-    JobMissingIdempotencyGuardRule,
-    JobMissingRetryPolicyRule,
-    LaravelNamingConventionsRule,
-    ListenerShouldQueueMissingForIoBoundHandlerRule,
-    LivewirePublicPropMassAssignmentRule,
-    MassAssignmentRiskRule,
-    MassiveModelRule,
-    MissingApiRateLimitHeadersRule,
-    MissingApiResourceRule,
-    MissingAuthOnMutatingApiRoutesRule,
-    MissingCacheForReferenceDataRule,
-    MissingCircuitBreakerRule,
-    MissingContentSecurityPolicyRule,
-    MissingCsrfTokenVerificationRule,
-    MissingDomainEventRule,
-    MissingFeatureFlagPatternRule,
-    MissingForeignKeyInMigrationRule,
-    MissingFormRequestRule,
-    MissingHealthCheckEndpointRule,
-    MissingHstsHeaderRule,
-    MissingHttpsEnforcementRule,
-    MissingIndexOnLookupColumnsRule,
-    MissingModelFactoryRule,
-    MissingModelObserverRegistrationRule,
-    MissingNullGuardAfterRelationLoadRule,
-    MissingPaginationRule,
-    MissingRateLimitingRule,
-    ModelCrossModelQueryRule,
-    ModelHiddenSensitiveAttributesMissingRule,
-    NoClosureRoutesRule,
-    NoJsonEncodeInControllersRule,
-    NoLogDebugInAppRule,
-    NoPaginationOnRelationshipRule,
-    NotificationShouldQueueMissingRule,
-    NPlusOneRiskRule,
-    NpmDependencyBelowSecureVersionRule,
-    NullFilteringSuggestionRule,
-    ObserverHeavyLogicRule,
-    PasswordHashWeakAlgorithmRule,
-    PasswordResetTokenHardeningMissingRule,
-    PathTraversalFileAccessRule,
-    PlainTextSensitiveConfigRule,
-    PolicyCoverageOnMutationsRule,
-    PublicAnonymousMutationAbuseReadinessRule,
-    PublicApiVersioningMissingRule,
-    QueueJobMissingFailureHandlingRule,
-    RealtimeConfigOutsideLaravelConfigRule,
-    RealtimeInMemoryStateScalabilityRule,
-    RegistrationMissingRegisteredEventRule,
-    RepositorySuggestionRule,
-    SanctumTokenScopeMissingRule,
-    SecurityHeadersBaselineMissingRule,
-    SensitiveDataLoggingRule,
-    SensitiveModelAppendsRiskRule,
-    SensitiveResponseCacheControlMissingRule,
-    SensitiveRoutesMissingVerifiedMiddlewareRule,
-    ServiceExtractionRule,
-    ServiceProviderHeavyBootRule,
-    SessionFixationRegenerateMissingRule,
-    SignedRoutesMissingSignatureMiddlewareRule,
-    SsrfRiskHttpClientRule,
-    SynchronousMailInRequestRule,
-    TenantAccessMiddlewareMissingRule,
-    TenantScopeEnforcementRule,
-    TestNoDatabaseTraitRule,
-    TimingAttackTokenComparisonRule,
-    TransactionRequiredForMultiWriteRule,
-    UnsafeCspPolicyRule,
-    UnsafeFileUploadRule,
-    UnsafeRedirectRule,
-    UnusedServiceClassRule,
-    UploadMimeExtensionMismatchRule,
-    UploadSizeLimitMissingRule,
-    UrlValidationProtocolBypassRule,
-    UserModelMissingMustVerifyEmailRule,
-    WeakPasswordPolicyValidationRule,
-    WebhookReplayProtectionMissingRule,
-    WebhookSignatureMissingRule,
-    WebhookSignatureParameterUnusedRule,
-    WebSocketHandlerIntegrationTestsMissingRule,
-    XmlXxeRiskRule,
-    ZipBombRiskRule,
-)
-from rules.php import (
-    ArrayUnpackingInLoopRule,
-    BulkInsertMissingRule,
-    CatchTooBroadRule,
-    CircularDependencyRule,
-    CommandInjectionRiskRule,
-    ConfigInLoopRule,
-    DryViolationRule,
-    ExceptionSwallowingRule,
-    GodClassRule,
-    HighComplexityRule,
-    HighCouplingClassRule,
-    LongMethodRule,
-    LowCoverageFilesRule,
-    MissingReturnTypeNullableRule,
-    MissingStrictTypesRule,
-    MissingTypeDeclarationsRule,
-    MutableGlobalStateRule,
-    PcreRedosRiskRule,
-    PreferImportsRule,
-    RawSqlRule,
-    SqlInjectionRiskRule,
-    StaticHelperAbuseRule,
-    StringConcatInLoopRule,
-    TestsMissingRule,
-    TooManyDependenciesRule,
-    UnsafeEvalRule,
-    UnsafeFileIncludeVariableRule,
-    UnsafeUnserializeRule,
-    UnusedPrivateMethodRule,
-)
-from rules.react import (
-    AccessibleAuthenticationRule,
-    AnimationNoPauseControlRule,
-    AnonymousDefaultExportComponentRule,
-    APGAccordionDisclosureContractRule,
-    APGComboboxContractRule,
-    APGMenuButtonContractRule,
-    APGTabsKeyboardContractRule,
-    ApiKeyInClientBundleRule,
-    AutocompleteMissingRule,
-    AutoplayMediaRule,
-    # React gap expansion rules
-    AvoidPropsToStateCopyRule,
-    ButtonTextVagueRule,
-    CanonicalMissingOrInvalidRule,
-    ClientOpenRedirectUnvalidatedNavigationRule,
-    ClientSideAuthOnlyRule,
-    ColorContrastRatioRule,
-    ConsoleLogInProductionCodeRule,
-    ContextOversizedProviderRule,
-    ContextProviderInlineValueRule,
-    ControlledUncontrolledInputMismatchRule,
-    CrawlableInternalNavigationRequiredRule,
-    CrossFeatureImportBoundaryRule,
-    CssColorOnlyStateIndicatorRule,
-    CssFixedLayoutPxRule,
-    CssFocusOutlineWithoutReplacementRule,
-    CssFontSizePxRule,
-    CssHoverOnlyInteractionRule,
-    CssSpacingPxRule,
-    DangerousHtmlSinkWithoutSanitizerRule,
-    DerivedStateInEffectRule,
-    DialogFocusRestoreMissingRule,
-    DuplicateKeySourceRule,
-    EffectEventRelaySmellRule,
-    ErrorMessageMissingRule,
-    ExhaustiveDepsASTRule,
-    FocusIndicatorMissingRule,
-    FocusLostOnRouteChangeRule,
-    FocusNotObscuredRule,
-    FormDoubleSubmitRule,
-    FormLabelAssociationRule,
-    H1SingletonViolationRule,
-    HardcodedUserFacingStringsRule,
-    HeadingOrderRule,
-    HooksInConditionalOrLoopRule,
-    ImageAltMissingRule,
-    InertiaFormUsesFetchRule,
-    InertiaInternalLinkAnchorRule,
-    InertiaPageMissingErrorBoundaryRule,
-    InertiaPageMissingHeadRule,
-    InertiaReloadWithoutOnlyRule,
-    InlineLogicRule,
-    InlinePropObjectArrayRule,
-    InputDebounceMissingRule,
-    InsecurePostMessageOriginWildcardRule,
-    InteractiveAccessibleNameRequiredRule,
-    InteractiveElementA11yRule,
-    JsonLdStructuredDataInvalidOrMismatchedRule,
-    JsxAriaAttributeFormatRule,
-    LanguageAttributeMissingRule,
-    LargeComponentRule,
-    LargeCustomHookRule,
-    LazyWithoutSuspenseRule,
-    LinkTextVagueRule,
-    LongPageNoTocRule,
-    LooseDefaultObjectPropRule,
-    # React SEO expansion rules
-    MetaDescriptionMissingOrGenericRule,
-    MissingEmptyStateRule,
-    MissingErrorBoundaryGeneralRule,
-    MissingFieldsetLegendRule,
-    MissingKeyOnListRenderRule,
-    MissingListVirtualizationRule,
-    MissingLoadingStateRule,
-    # Phase 3 React architecture rules
-    MissingPropsTypeRule,
-    MissingRouteCodeSplittingRule,
-    MissingUseCallbackForEventHandlersRule,
-    # Phase 2 React performance rules
-    MissingUseMemoForExpensiveCalcRule,
-    ModalTrapFocusRule,
-    MultipleExportedComponentsPerFileRule,
-    NoArrayIndexKeyRule,
-    NoDangerouslySetInnerHtmlRule,
-    NoDirectUseEffectRule,
-    NoInlineHooksRule,
-    NoInlineServicesRule,
-    NoInlineTypesRule,
-    NoNestedComponentsRule,
-    OutsideClickWithoutKeyboardFallbackRule,
-    PageIndexabilityConflictRule,
-    # Phase 5 WCAG-based UX rules
-    PageTitleMissingRule,
-    PlaceholderAsLabelRule,
-    PostMessageReceiverOriginNotVerifiedRule,
-    PropsStateSyncEffectSmellRule,
-    QueryKeyInstabilityRule,
-    ReactEventListenerCleanupRequiredRule,
-    ReactNoPropsMutationRule,
-    ReactNoRandomKeyRule,
-    ReactNoStateMutationRule,
-    ReactParentChildSpacingOverlapRule,
-    ReactProjectStructureConsistencyRule,
-    ReactSideEffectsInRenderRule,
-    ReactTimerCleanupRequiredRule,
-    RedundantEntryRule,
-    RefAccessDuringRenderRule,
-    RefUsedAsReactiveStateRule,
-    RobotsDirectiveRiskRule,
-    RouteShellMissingErrorBoundaryRule,
-    SafeTargetBlankRule,
-    # WCAG/APG AST accessibility rules
-    SemanticWrapperBreakageRule,
-    SkipLinkMissingRule,
-    StaleClosureInListenerRule,
-    StaleClosureInTimerRule,
-    StateUpdateInRenderRule,
-    StatusMessageAnnouncementRule,
-    SuspenseFallbackMissingRule,
-    TableMissingHeadersRule,
-    TailwindAppearanceNoneRiskRule,
-    TailwindArbitraryLayoutSizeRule,
-    TailwindArbitraryRadiusShadowRule,
-    TailwindArbitrarySpacingRule,
-    TailwindArbitraryTextSizeRule,
-    TailwindArbitraryValueOveruseRule,
-    # CSS/Tailwind accessibility rules
-    TailwindMotionReduceMissingRule,
-    TokenStorageInsecureLocalStorageRule,
-    # Phase 4 UX/A11y rules
-    TouchTargetSizeRule,
-    # Process-based rules (external tools)
-    TypeScriptTypeCheckRule,
-    UnhandledPromiseInHandlerRule,
-    UnsafeAsyncHandlerWithoutGuardRule,
-    UnstableReactKeyRule,
-    UnthrottledScrollResizeHandlerRule,
-    # AST-based rules (higher accuracy)
-    UseCallbackASTRule,
-    UseCallbackOveruseRule,
-    # Phase 1 React rules
-    UseEffectCleanupMissingRule,
-    UseEffectDependencyArrayRule,
-    UseEffectFetchWithoutAbortRule,
-    UselessSuspenseBoundaryRule,
-    UseMemoASTRule,
-    UseMemoOveruseRule,
-    VideoMissingCaptionsRule,
-)
+from core.rule_registry import ALL_RULES, WRAPPED_INTERNAL_RULES
+
+
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
 from schemas.metrics import MethodMetrics
@@ -380,370 +49,14 @@ class EngineResult:
     differential_filtered: int = 0
     execution_time_ms: float = 0.0
     rule_results: dict[str, RuleResult] = field(default_factory=dict)
+    analysis_stats: dict[str, object] = field(default_factory=dict)
 
 
 # Registry of all available rules
-ALL_RULES: dict[str, type[Rule]] = {
-    # DevOps rules
-    "env-example-missing-or-out-of-sync": EnvExampleMissingOrOutOfSyncRule,
-    "env-committed-to-git": EnvCommittedToGitRule,
-    "app-debug-not-false-in-production": AppDebugNotFalseInProductionRule,
-    "app-env-not-set-to-production": AppEnvNotSetToProductionRule,
-    "missing-queue-worker-supervision": MissingQueueWorkerSupervisionRule,
-    "no-logging-strategy-configured": NoLoggingStrategyConfiguredRule,
-    "storage-paths-not-in-gitignore": StoragePathsNotInGitignoreRule,
-
-    # Laravel rules
-    "fat-controller": FatControllerRule,
-    "missing-form-request": MissingFormRequestRule,
-    "service-extraction": ServiceExtractionRule,
-    "enum-suggestion": EnumSuggestionRule,
-    "blade-queries": BladeQueriesRule,
-    "repository-suggestion": RepositorySuggestionRule,
-    "contract-suggestion": ContractSuggestionRule,
-    "custom-exception-suggestion": CustomExceptionSuggestionRule,
-    "eager-loading": EagerLoadingRule,
-    "n-plus-one-risk": NPlusOneRiskRule,
-    "env-outside-config": EnvOutsideConfigRule,
-    "ioc-instead-of-new": IocInsteadOfNewRule,
-    "controller-query-direct": ControllerQueryDirectRule,
-    "controller-business-logic": ControllerBusinessLogicRule,
-    "controller-inline-validation": ControllerInlineValidationRule,
-    "controller-index-filter-duplication": ControllerIndexFilterDuplicationRule,
-    "dto-suggestion": DtoSuggestionRule,
-    "mass-assignment-risk": MassAssignmentRiskRule,
-    "action-class-suggestion": ActionClassSuggestionRule,
-    "action-class-naming-consistency": ActionClassNamingConsistencyRule,
-    "massive-model": MassiveModelRule,
-    "model-cross-model-query": ModelCrossModelQueryRule,
-    "unsafe-file-upload": UnsafeFileUploadRule,
-    "unused-service-class": UnusedServiceClassRule,
-
-    # Regex lint rules (file-content scans)
-    "no-json-encode-in-controllers": NoJsonEncodeInControllersRule,
-    "api-resource-usage": ApiResourceUsageRule,
-    "no-log-debug-in-app": NoLogDebugInAppRule,
-    "no-closure-routes": NoClosureRoutesRule,
-    "heavy-logic-in-routes": HeavyLogicInRoutesRule,
-    "duplicate-route-definition": DuplicateRouteDefinitionRule,
-    "missing-rate-limiting": MissingRateLimitingRule,
-    "missing-auth-on-mutating-api-routes": MissingAuthOnMutatingApiRoutesRule,
-    "policy-coverage-on-mutations": PolicyCoverageOnMutationsRule,
-    "authorization-bypass-risk": AuthorizationBypassRiskRule,
-    "transaction-required-for-multi-write": TransactionRequiredForMultiWriteRule,
-    "tenant-scope-enforcement": TenantScopeEnforcementRule,
-    "blade-xss-risk": BladeXssRiskRule,
-    "user-model-missing-must-verify-email": UserModelMissingMustVerifyEmailRule,
-    "registration-missing-registered-event": RegistrationMissingRegisteredEventRule,
-    "missing-foreign-key-in-migration": MissingForeignKeyInMigrationRule,
-    "missing-index-on-lookup-columns": MissingIndexOnLookupColumnsRule,
-    "destructive-migration-without-safety-guard": DestructiveMigrationWithoutSafetyGuardRule,
-    "model-hidden-sensitive-attributes-missing": ModelHiddenSensitiveAttributesMissingRule,
-    "sensitive-model-appends-risk": SensitiveModelAppendsRiskRule,
-    "sensitive-routes-missing-verified-middleware": SensitiveRoutesMissingVerifiedMiddlewareRule,
-    "tenant-access-middleware-missing": TenantAccessMiddlewareMissingRule,
-    "signed-routes-missing-signature-middleware": SignedRoutesMissingSignatureMiddlewareRule,
-    "unsafe-redirect": UnsafeRedirectRule,
-    "ssrf-risk-http-client": SsrfRiskHttpClientRule,
-    "path-traversal-file-access": PathTraversalFileAccessRule,
-    "insecure-file-download-response": InsecureFileDownloadResponseRule,
-    "webhook-signature-missing": WebhookSignatureMissingRule,
-    "idor-risk-missing-ownership-check": IdorRiskMissingOwnershipCheckRule,
-    "sanctum-token-scope-missing": SanctumTokenScopeMissingRule,
-    "session-fixation-regenerate-missing": SessionFixationRegenerateMissingRule,
-    "weak-password-policy-validation": WeakPasswordPolicyValidationRule,
-    "upload-mime-extension-mismatch": UploadMimeExtensionMismatchRule,
-    "archive-upload-zip-slip-risk": ArchiveUploadZipSlipRiskRule,
-    "upload-size-limit-missing": UploadSizeLimitMissingRule,
-    "csrf-exception-wildcard-risk": CsrfExceptionWildcardRiskRule,
-    "host-header-poisoning-risk": HostHeaderPoisoningRiskRule,
-    "xml-xxe-risk": XmlXxeRiskRule,
-    "zip-bomb-risk": ZipBombRiskRule,
-    "sensitive-response-cache-control-missing": SensitiveResponseCacheControlMissingRule,
-    "password-reset-token-hardening-missing": PasswordResetTokenHardeningMissingRule,
-    "security-headers-baseline-missing": SecurityHeadersBaselineMissingRule,
-    "api-endpoint-missing-idempotency-key": ApiEndpointMissingIdempotencyKeyRule,
-    "webhook-replay-protection-missing": WebhookReplayProtectionMissingRule,
-    "authorization-missing-on-sensitive-reads": AuthorizationMissingOnSensitiveReadsRule,
-    "insecure-session-cookie-config": InsecureSessionCookieConfigRule,
-    "unsafe-csp-policy": UnsafeCspPolicyRule,
-    "job-missing-idempotency-guard": JobMissingIdempotencyGuardRule,
-    "queue-job-missing-failure-handling": QueueJobMissingFailureHandlingRule,
-    "composer-dependency-below-secure-version": ComposerDependencyBelowSecureVersionRule,
-    "npm-dependency-below-secure-version": NpmDependencyBelowSecureVersionRule,
-    "inertia-shared-props-sensitive-data": InertiaSharedPropsSensitiveDataRule,
-    "inertia-shared-props-eager-query": InertiaSharedPropsEagerQueryRule,
-    "inertia-shared-props-payload-budget": InertiaSharedPropsPayloadBudgetRule,
-    "job-missing-retry-policy": JobMissingRetryPolicyRule,
-    "job-http-call-missing-timeout": JobHttpCallMissingTimeoutRule,
-    "notification-shouldqueue-missing": NotificationShouldQueueMissingRule,
-    "listener-shouldqueue-missing-for-io-bound-handler": ListenerShouldQueueMissingForIoBoundHandlerRule,
-    "broadcast-channel-authorization-missing": BroadcastChannelAuthorizationMissingRule,
-    "observer-heavy-logic": ObserverHeavyLogicRule,
-    "public-api-versioning-missing": PublicApiVersioningMissingRule,
-
-    # Security rules (Laravel)
-    "hardcoded-secrets": HardcodedSecretsRule,
-    "debug-exposure-risk": DebugExposureRiskRule,
-    "cors-misconfiguration": CorsMisconfigurationRule,
-    "missing-csrf-token-verification": MissingCsrfTokenVerificationRule,
-    "missing-https-enforcement": MissingHttpsEnforcementRule,
-    "insecure-deserialization": InsecureDeserializationRule,
-    "insecure-random-for-security": InsecureRandomForSecurityRule,
-    "sensitive-data-logging": SensitiveDataLoggingRule,
-    "missing-hsts-header": MissingHstsHeaderRule,
-    "cookie-samesite-missing": CookieSameSiteMissingRule,
-    "timing-attack-token-comparison": TimingAttackTokenComparisonRule,
-    "password-hash-weak-algorithm": PasswordHashWeakAlgorithmRule,
-    "plain-text-sensitive-config": PlainTextSensitiveConfigRule,
-    "livewire-public-prop-mass-assignment": LivewirePublicPropMassAssignmentRule,
-    "missing-content-security-policy": MissingContentSecurityPolicyRule,
-    "webhook-signature-parameter-unused": WebhookSignatureParameterUnusedRule,
-    "forced-login-without-authorization": ForcedLoginWithoutAuthorizationRule,
-    "console-command-missing-tenant-scope": ConsoleCommandMissingTenantScopeRule,
-    "high-privilege-action-missing-authorization": HighPrivilegeActionMissingAuthorizationRule,
-    "url-validation-protocol-bypass": UrlValidationProtocolBypassRule,
-
-    # Performance rules (Laravel)
-    "column-selection-suggestion": ColumnSelectionSuggestionRule,
-    "missing-cache-for-reference-data": MissingCacheForReferenceDataRule,
-    "missing-pagination": MissingPaginationRule,
-    "error-pages-missing": ErrorPagesMissingRule,
-    "null-filtering-suggestion": NullFilteringSuggestionRule,
-    "asset-versioning-check": AssetVersioningCheckRule,
-
-    # Architecture rules (Laravel)
-    "controller-returning-view-in-api": ControllerReturningViewInApiRule,
-    "missing-api-resource": MissingApiResourceRule,
-    "cache-stampede-risk": CacheStampedeRiskRule,
-    "cache-missing-fallback": CacheMissingFallbackRule,
-    "synchronous-mail-in-request": SynchronousMailInRequestRule,
-    "service-provider-heavy-boot": ServiceProviderHeavyBootRule,
-    "business-logic-in-migration": BusinessLogicInMigrationRule,
-    "missing-health-check-endpoint": MissingHealthCheckEndpointRule,
-    "missing-model-factory": MissingModelFactoryRule,
-    "test-no-database-trait": TestNoDatabaseTraitRule,
-    "missing-circuit-breaker": MissingCircuitBreakerRule,
-    "http-call-missing-fallback": HttpCallMissingFallbackRule,
-    "missing-domain-event": MissingDomainEventRule,
-    "chunk-missing-for-large-datasets": ChunkMissingForLargeDatasetsRule,
-    "laravel-naming-conventions": LaravelNamingConventionsRule,
-    "hardcoded-magic-strings": HardcodedMagicStringsRule,
-    "date-format-missing-cast": DateFormatMissingCastRule,
-    "missing-null-guard-after-relation-load": MissingNullGuardAfterRelationLoadRule,
-    "missing-api-rate-limit-headers": MissingApiRateLimitHeadersRule,
-    "eloquent-raw-where-string": EloquentRawWhereStringRule,
-    "missing-model-observer-registration": MissingModelObserverRegistrationRule,
-    "blade-component-no-fallback-slot": BladeComponentNoFallbackSlotRule,
-    "api-response-inconsistent-shape": ApiResponseInconsistentShapeRule,
-    "no-pagination-on-relationship": NoPaginationOnRelationshipRule,
-    "missing-feature-flag-pattern": MissingFeatureFlagPatternRule,
-    "realtime-inmemory-state-scalability": RealtimeInMemoryStateScalabilityRule,
-    "websocket-handler-integration-tests-missing": WebSocketHandlerIntegrationTestsMissingRule,
-    "realtime-config-outside-laravel-config": RealtimeConfigOutsideLaravelConfigRule,
-    "public-anonymous-mutation-abuse-readiness": PublicAnonymousMutationAbuseReadinessRule,
-
-    # PHP rules
-    "dry-violation": DryViolationRule,
-    "high-complexity": HighComplexityRule,
-    "long-method": LongMethodRule,
-    "god-class": GodClassRule,
-    "too-many-dependencies": TooManyDependenciesRule,
-    "raw-sql": RawSqlRule,
-    "config-in-loop": ConfigInLoopRule,
-    "static-helper-abuse": StaticHelperAbuseRule,
-    "unused-private-method": UnusedPrivateMethodRule,
-    "circular-dependency": CircularDependencyRule,
-    "high-coupling-class": HighCouplingClassRule,
-    "prefer-imports": PreferImportsRule,
-    "unsafe-eval": UnsafeEvalRule,
-    "unsafe-unserialize": UnsafeUnserializeRule,
-    "command-injection-risk": CommandInjectionRiskRule,
-    "sql-injection-risk": SqlInjectionRiskRule,
-
-    # Quality gates
-    "tests-missing": TestsMissingRule,
-    "low-coverage-files": LowCoverageFilesRule,
-    "pcre-redos-risk": PcreRedosRiskRule,
-    "unsafe-file-include-variable": UnsafeFileIncludeVariableRule,
-    "missing-strict-types": MissingStrictTypesRule,
-    "missing-type-declarations": MissingTypeDeclarationsRule,
-    "exception-swallowing": ExceptionSwallowingRule,
-    "mutable-global-state": MutableGlobalStateRule,
-    "array-unpacking-in-loop": ArrayUnpackingInLoopRule,
-    "string-concat-in-loop": StringConcatInLoopRule,
-    "bulk-insert-missing": BulkInsertMissingRule,
-    "missing-return-type-nullable": MissingReturnTypeNullableRule,
-    "catch-too-broad": CatchTooBroadRule,
-
-    # React rules
-    "large-react-component": LargeComponentRule,
-    "inline-api-logic": InlineLogicRule,
-    "react-useeffect-deps": UseEffectDependencyArrayRule,
-    "react-no-array-index-key": NoArrayIndexKeyRule,
-    "hooks-in-conditional-or-loop": HooksInConditionalOrLoopRule,
-    "missing-key-on-list-render": MissingKeyOnListRenderRule,
-    "hardcoded-user-facing-strings": HardcodedUserFacingStringsRule,
-    "interactive-element-a11y": InteractiveElementA11yRule,
-    "form-label-association": FormLabelAssociationRule,
-    "no-nested-components": NoNestedComponentsRule,
-    "no-dangerously-set-inner-html": NoDangerouslySetInnerHtmlRule,
-    "img-alt-missing": ImageAltMissingRule,
-    "safe-target-blank": SafeTargetBlankRule,
-    "no-inline-hooks": NoInlineHooksRule,
-    "no-inline-types": NoInlineTypesRule,
-    "no-inline-services": NoInlineServicesRule,
-    "react-parent-child-spacing-overlap": ReactParentChildSpacingOverlapRule,
-    "react-project-structure-consistency": ReactProjectStructureConsistencyRule,
-    "inertia-page-missing-head": InertiaPageMissingHeadRule,
-    "inertia-internal-link-anchor": InertiaInternalLinkAnchorRule,
-    "inertia-form-uses-fetch": InertiaFormUsesFetchRule,
-    "anonymous-default-export-component": AnonymousDefaultExportComponentRule,
-    "multiple-exported-react-components": MultipleExportedComponentsPerFileRule,
-    "context-provider-inline-value": ContextProviderInlineValueRule,
-    "react-useeffect-fetch-without-abort": UseEffectFetchWithoutAbortRule,
-    "no-direct-useeffect": NoDirectUseEffectRule,
-    "derived-state-in-effect": DerivedStateInEffectRule,
-    "state-update-in-render": StateUpdateInRenderRule,
-    "large-custom-hook": LargeCustomHookRule,
-    "cross-feature-import-boundary": CrossFeatureImportBoundaryRule,
-    "query-key-instability": QueryKeyInstabilityRule,
-    "effect-event-relay-smell": EffectEventRelaySmellRule,
-    "route-shell-missing-error-boundary": RouteShellMissingErrorBoundaryRule,
-    "unsafe-async-handler-without-guard": UnsafeAsyncHandlerWithoutGuardRule,
-    "react-no-random-key": ReactNoRandomKeyRule,
-    "react-no-props-mutation": ReactNoPropsMutationRule,
-    "react-no-state-mutation": ReactNoStateMutationRule,
-    "react-side-effects-in-render": ReactSideEffectsInRenderRule,
-    "react-event-listener-cleanup-required": ReactEventListenerCleanupRequiredRule,
-    "react-timer-cleanup-required": ReactTimerCleanupRequiredRule,
-    "inertia-reload-without-only": InertiaReloadWithoutOnlyRule,
-    "insecure-postmessage-origin-wildcard": InsecurePostMessageOriginWildcardRule,
-    "token-storage-insecure-localstorage": TokenStorageInsecureLocalStorageRule,
-    "client-open-redirect-unvalidated-navigation": ClientOpenRedirectUnvalidatedNavigationRule,
-    "api-key-in-client-bundle": ApiKeyInClientBundleRule,
-    "client-side-auth-only": ClientSideAuthOnlyRule,
-    "postmessage-receiver-origin-not-verified": PostMessageReceiverOriginNotVerifiedRule,
-    "dangerous-html-sink-without-sanitizer": DangerousHtmlSinkWithoutSanitizerRule,
-
-    # Phase 1 React rules
-    "useeffect-cleanup-missing": UseEffectCleanupMissingRule,
-
-    # Phase 2 React performance rules
-    "missing-usememo-for-expensive-calc": MissingUseMemoForExpensiveCalcRule,
-    "missing-usecallback-for-event-handlers": MissingUseCallbackForEventHandlersRule,
-
-    # Phase 3 React architecture rules
-    "missing-props-type": MissingPropsTypeRule,
-
-    # Phase 4 UX/A11y rules
-    "touch-target-size": TouchTargetSizeRule,
-    "placeholder-as-label": PlaceholderAsLabelRule,
-    "link-text-vague": LinkTextVagueRule,
-    "button-text-vague": ButtonTextVagueRule,
-    "autocomplete-missing": AutocompleteMissingRule,
-    "heading-order": HeadingOrderRule,
-    "focus-indicator-missing": FocusIndicatorMissingRule,
-    "skip-link-missing": SkipLinkMissingRule,
-    "modal-trap-focus": ModalTrapFocusRule,
-    "error-message-missing": ErrorMessageMissingRule,
-    "long-page-no-toc": LongPageNoTocRule,
-    "color-contrast-ratio": ColorContrastRatioRule,
-
-    # Phase 5 WCAG-based UX rules
-    "page-title-missing": PageTitleMissingRule,
-    "language-attribute-missing": LanguageAttributeMissingRule,
-    "status-message-announcement": StatusMessageAnnouncementRule,
-    "autoplay-media": AutoplayMediaRule,
-    "redundant-entry": RedundantEntryRule,
-    "accessible-authentication": AccessibleAuthenticationRule,
-    "focus-not-obscured": FocusNotObscuredRule,
-    "semantic-wrapper-breakage": SemanticWrapperBreakageRule,
-    "interactive-accessible-name-required": InteractiveAccessibleNameRequiredRule,
-    "jsx-aria-attribute-format": JsxAriaAttributeFormatRule,
-    "outside-click-without-keyboard-fallback": OutsideClickWithoutKeyboardFallbackRule,
-    "apg-tabs-keyboard-contract": APGTabsKeyboardContractRule,
-    "apg-accordion-disclosure-contract": APGAccordionDisclosureContractRule,
-    "apg-menu-button-contract": APGMenuButtonContractRule,
-    "apg-combobox-contract": APGComboboxContractRule,
-    "dialog-focus-restore-missing": DialogFocusRestoreMissingRule,
-    # React gap expansion rules
-    "avoid-props-to-state-copy": AvoidPropsToStateCopyRule,
-    "props-state-sync-effect-smell": PropsStateSyncEffectSmellRule,
-    "controlled-uncontrolled-input-mismatch": ControlledUncontrolledInputMismatchRule,
-    "usememo-overuse": UseMemoOveruseRule,
-    "usecallback-overuse": UseCallbackOveruseRule,
-    "context-oversized-provider": ContextOversizedProviderRule,
-    "lazy-without-suspense": LazyWithoutSuspenseRule,
-    "suspense-fallback-missing": SuspenseFallbackMissingRule,
-    "stale-closure-in-timer": StaleClosureInTimerRule,
-    "stale-closure-in-listener": StaleClosureInListenerRule,
-    "duplicate-key-source": DuplicateKeySourceRule,
-    "missing-loading-state": MissingLoadingStateRule,
-    "missing-empty-state": MissingEmptyStateRule,
-    "ref-access-during-render": RefAccessDuringRenderRule,
-    "ref-used-as-reactive-state": RefUsedAsReactiveStateRule,
-    # React SEO expansion rules
-    "meta-description-missing-or-generic": MetaDescriptionMissingOrGenericRule,
-    "canonical-missing-or-invalid": CanonicalMissingOrInvalidRule,
-    "robots-directive-risk": RobotsDirectiveRiskRule,
-    "crawlable-internal-navigation-required": CrawlableInternalNavigationRequiredRule,
-    "jsonld-structured-data-invalid-or-mismatched": JsonLdStructuredDataInvalidOrMismatchedRule,
-    "h1-singleton-violation": H1SingletonViolationRule,
-    "page-indexability-conflict": PageIndexabilityConflictRule,
-    "css-font-size-px": CssFontSizePxRule,
-    "css-spacing-px": CssSpacingPxRule,
-    "css-fixed-layout-px": CssFixedLayoutPxRule,
-    "tailwind-arbitrary-value-overuse": TailwindArbitraryValueOveruseRule,
-    "tailwind-arbitrary-text-size": TailwindArbitraryTextSizeRule,
-    "tailwind-arbitrary-spacing": TailwindArbitrarySpacingRule,
-    "tailwind-arbitrary-layout-size": TailwindArbitraryLayoutSizeRule,
-    "tailwind-arbitrary-radius-shadow": TailwindArbitraryRadiusShadowRule,
-    "tailwind-motion-reduce-missing": TailwindMotionReduceMissingRule,
-    "tailwind-appearance-none-risk": TailwindAppearanceNoneRiskRule,
-    "css-focus-outline-without-replacement": CssFocusOutlineWithoutReplacementRule,
-    "css-hover-only-interaction": CssHoverOnlyInteractionRule,
-    "css-color-only-state-indicator": CssColorOnlyStateIndicatorRule,
-
-    # AST-based React rules (higher accuracy)
-    "usecallback-ast": UseCallbackASTRule,
-    "usememo-ast": UseMemoASTRule,
-    "exhaustive-deps-ast": ExhaustiveDepsASTRule,
-
-    # Process-based rules (external tools)
-    "typescript-type-check": TypeScriptTypeCheckRule,
-    "unthrottled-scroll-resize-handler": UnthrottledScrollResizeHandlerRule,
-    "missing-list-virtualization": MissingListVirtualizationRule,
-    "input-debounce-missing": InputDebounceMissingRule,
-    "missing-route-code-splitting": MissingRouteCodeSplittingRule,
-    "missing-error-boundary-general": MissingErrorBoundaryGeneralRule,
-    "unhandled-promise-in-handler": UnhandledPromiseInHandlerRule,
-    "form-double-submit": FormDoubleSubmitRule,
-    "focus-lost-on-route-change": FocusLostOnRouteChangeRule,
-    "table-missing-headers": TableMissingHeadersRule,
-    "missing-fieldset-legend": MissingFieldsetLegendRule,
-    "video-missing-captions": VideoMissingCaptionsRule,
-    "animation-no-pause-control": AnimationNoPauseControlRule,
-    "inline-prop-object-array": InlinePropObjectArrayRule,
-    "unstable-react-key": UnstableReactKeyRule,
-    "loose-default-object-prop": LooseDefaultObjectPropRule,
-    "console-log-in-production-code": ConsoleLogInProductionCodeRule,
-    "inertia-page-missing-error-boundary": InertiaPageMissingErrorBoundaryRule,
-    "useless-suspense-boundary": UselessSuspenseBoundaryRule,
-}
-
-WRAPPED_INTERNAL_RULES: dict[str, str] = {
-    "missing-throttle-on-auth-api-routes": "missing-rate-limiting",
-    "sensitive-route-rate-limit-missing": "missing-rate-limiting",
-    "debug-mode-exposure": "debug-exposure-risk",
-    "api-debug-trace-leak": "debug-exposure-risk",
-    "unsafe-external-redirect": "unsafe-redirect",
-    "unvalidated-login-redirect": "unsafe-redirect",
-}
-
 LEGACY_RULE_ALIASES: dict[str, str] = {
     "rate-limit-public-forms": "missing-rate-limiting",
     "rate-limit-password-reset": "missing-rate-limiting",
+    "sql-injection-raw-php": "sql-injection-risk",
 }
 
 INTERNAL_RULE_WRAPPERS: dict[str, str] = dict(WRAPPED_INTERNAL_RULES)
@@ -935,7 +248,7 @@ class RuleEngine:
         )
         self._context_matrices: dict[str, ContextProfileMatrix] = {}
         with contextlib.suppress(Exception):
-            self._context_matrices["laravel"] = ContextProfileMatrix.load_default()
+            self._context_matrices["laravel"] = load_laravel_context_matrix()
         with contextlib.suppress(Exception):
             self._context_matrices["react"] = load_react_context_matrix()
         self._load_rules()
@@ -1030,6 +343,14 @@ class RuleEngine:
 
         call_once_rules = facts_based_rules + process_rules
         regex_scan_rules = regex_rules + supplemental_regex_rules
+        source_store = SourceFileStore(
+            str(getattr(facts, "project_path", "") or "."),
+            list(getattr(facts, "files", []) or []),
+            list(getattr(facts, "test_files", []) or []),
+        )
+        phase_timings: dict[str, float] = {}
+        regex_rule_file_pairs = 0
+        ast_rule_file_pairs = 0
 
         def _run_call_once_rule(rule: Rule) -> tuple[str, RuleResult]:
             """Execute a single analyze()-based rule and return (rule_id, result)."""
@@ -1040,6 +361,7 @@ class RuleEngine:
         total_rules = len(call_once_rules) + len(file_based_ast_rules) + len(regex_scan_rules)
         rules_completed = 0
 
+        call_once_start = time.perf_counter()
         if call_once_rules:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_to_rule = {
@@ -1078,24 +400,11 @@ class RuleEngine:
                     rules_completed += 1
                     if progress_callback and total_rules > 0:
                         progress_callback(rules_completed / total_rules, rules_completed, total_rules)
+        phase_timings["call_once_rules_ms"] = round((time.perf_counter() - call_once_start) * 1000.0, 3)
 
         # Regex rules plus supplemental regex passes are lightweight and run directly on file contents.
+        regex_start = time.perf_counter()
         if not (cancellation_check and cancellation_check()) and regex_scan_rules:
-            file_cache: dict[str, str] = {}
-
-            def _read(rel_path: str) -> str:
-                if rel_path in file_cache:
-                    return file_cache[rel_path]
-                try:
-                    from pathlib import Path
-                    root = Path(getattr(facts, "project_path", "")).resolve()
-                    p = (root / rel_path).resolve()
-                    txt = p.read_text(encoding="utf-8", errors="replace")
-                except Exception:
-                    txt = ""
-                file_cache[rel_path] = txt
-                return txt
-
             import time as _time
             for rule in regex_scan_rules:
                 if cancellation_check and cancellation_check():
@@ -1118,27 +427,17 @@ class RuleEngine:
                 t0 = _time.perf_counter()
                 findings: list[Finding] = []
                 try:
-                    raw_exts = getattr(rule, "regex_file_extensions", [".php"]) or [".php"]
-                    allowed_exts: set[str] = set()
-                    for ext in raw_exts:
-                        s = str(ext or "").strip().lower()
-                        if not s:
-                            continue
-                        if not s.startswith("."):
-                            s = "." + s
-                        allowed_exts.add(s)
-                    if not allowed_exts:
-                        allowed_exts = {".php"}
-
-                    # Use FactsBuilder's file list to respect ignore globs.
-                    for rel_path in getattr(facts, "files", []) or []:
-                        rel_path = normalize_rel_path(rel_path)
-                        if not rel_path:
-                            continue
-                        rel_lower = rel_path.lower()
-                        if not any(rel_lower.endswith(ext) for ext in allowed_exts):
-                            continue
-                        content = _read(rel_path)
+                    allowed_exts = normalize_extensions(
+                        getattr(rule, "regex_file_extensions", None),
+                        (".php",),
+                    )
+                    scan_paths = source_store.paths_for_extensions(
+                        allowed_exts,
+                        include_tests=bool(getattr(rule, "include_test_files", False)),
+                    )
+                    regex_rule_file_pairs += len(scan_paths)
+                    for rel_path in scan_paths:
+                        content = source_store.read(rel_path)
                         if not content:
                             continue
                         findings.extend(rule.analyze_regex(rel_path, content, facts, metrics))
@@ -1172,26 +471,11 @@ class RuleEngine:
                 rules_completed += 1
                 if progress_callback and total_rules > 0:
                     progress_callback(rules_completed / total_rules, rules_completed, total_rules)
+        phase_timings["regex_rules_ms"] = round((time.perf_counter() - regex_start) * 1000.0, 3)
 
         # File-based AST rules (analyze_ast) - run on each file
+        ast_start = time.perf_counter()
         if not (cancellation_check and cancellation_check()) and file_based_ast_rules:
-            # Reuse file cache from regex rules if available
-            if 'file_cache' not in dir():
-                file_cache = {}
-
-            def _read_ast(rel_path: str) -> str:
-                if rel_path in file_cache:
-                    return file_cache[rel_path]
-                try:
-                    from pathlib import Path
-                    root = Path(getattr(facts, "project_path", "")).resolve()
-                    p = (root / rel_path).resolve()
-                    txt = p.read_text(encoding="utf-8", errors="replace")
-                except Exception:
-                    txt = ""
-                file_cache[rel_path] = txt
-                return txt
-
             import time as _time_ast
             for rule in file_based_ast_rules:
                 if cancellation_check and cancellation_check():
@@ -1212,27 +496,14 @@ class RuleEngine:
                 t0 = _time_ast.perf_counter()
                 try:
                     findings: list[Finding] = []
-                    raw_exts = getattr(rule, "regex_file_extensions", [".tsx", ".ts", ".jsx", ".js"]) or [".tsx", ".ts", ".jsx", ".js"]
-                    allowed_exts: set[str] = set()
-                    for ext in raw_exts:
-                        s = str(ext or "").strip().lower()
-                        if not s:
-                            continue
-                        if not s.startswith("."):
-                            s = "." + s
-                        allowed_exts.add(s)
-                    if not allowed_exts:
-                        allowed_exts = {".tsx", ".ts", ".jsx", ".js"}
-
-                    # Use FactsBuilder's file list to respect ignore globs.
-                    for rel_path in getattr(facts, "files", []) or []:
-                        rel_path = normalize_rel_path(rel_path)
-                        if not rel_path:
-                            continue
-                        rel_lower = rel_path.lower()
-                        if not any(rel_lower.endswith(ext) for ext in allowed_exts):
-                            continue
-                        content = _read_ast(rel_path)
+                    allowed_exts = normalize_extensions(
+                        getattr(rule, "regex_file_extensions", None),
+                        (".tsx", ".ts", ".jsx", ".js"),
+                    )
+                    scan_paths = source_store.paths_for_extensions(allowed_exts)
+                    ast_rule_file_pairs += len(scan_paths)
+                    for rel_path in scan_paths:
+                        content = source_store.read(rel_path)
                         if not content:
                             continue
                         findings.extend(rule.analyze_ast(rel_path, content, facts, metrics))
@@ -1259,6 +530,7 @@ class RuleEngine:
                 rules_completed += 1
                 if progress_callback and total_rules > 0:
                     progress_callback(rules_completed / total_rules, rules_completed, total_rules)
+        phase_timings["ast_rules_ms"] = round((time.perf_counter() - ast_start) * 1000.0, 3)
 
         before_conf = len(result.findings)
         result.findings = self._apply_confidence_filter(result.findings)
@@ -1281,6 +553,26 @@ class RuleEngine:
                 result.differential_filtered = max(0, before_diff - len(result.findings))
 
         result.execution_time_ms = (time.perf_counter() - start) * 1000
+        slowest_rules = sorted(
+            (
+                {
+                    "rule_id": rule_id,
+                    "execution_time_ms": round(float(rule_result.execution_time_ms or 0.0), 3),
+                    "findings": len(rule_result.findings or []),
+                    "skipped": bool(rule_result.skipped),
+                }
+                for rule_id, rule_result in result.rule_results.items()
+            ),
+            key=lambda item: float(item["execution_time_ms"]),
+            reverse=True,
+        )[:10]
+        result.analysis_stats = {
+            "phases": phase_timings,
+            "source_store": source_store.stats(),
+            "regex_rule_file_pairs": regex_rule_file_pairs,
+            "ast_rule_file_pairs": ast_rule_file_pairs,
+            "slowest_rules": slowest_rules,
+        }
 
         logger.info(
             f"Rule engine complete: {result.rules_run} rules, "
@@ -1297,9 +589,11 @@ class RuleEngine:
         for rule in self.rules:
             self._reset_rule_runtime_state(rule)
             matrix, effective_context = self._matrix_and_context_for_rule(rule, laravel_context, react_context)
-            if matrix is None:
-                continue
-            calibration = matrix.calibrate_rule(rule.id, effective_context)
+            if matrix is not None and rule.id in matrix.rule_behavior:
+                calibration = matrix.calibrate_rule(rule.id, effective_context)
+                calibration.setdefault("context_policy", "matrix")
+            else:
+                calibration = self._generic_context_calibration(rule, effective_context)
             rule._context_calibration = calibration
             rule._runtime_effective_context = effective_context
             if calibration.get("enabled") is False:
@@ -1315,6 +609,58 @@ class RuleEngine:
                 merged.update({str(k): v for k, v in thresholds.items()})
                 rule.config.thresholds = merged
 
+    def _generic_context_calibration(
+        self,
+        rule: Rule,
+        effective_context: EffectiveContext,
+    ) -> dict[str, object]:
+        """Give matrix-unlisted rules an explicit, conservative context policy.
+
+        Defect/security checks remain context-independent. Architectural
+        recommendations are marked adaptive, and convention suggestions are
+        suppressed when the discovered architecture provides no evidence that
+        the convention is a team standard.
+        """
+        declared = str(getattr(rule, "context_policy", "auto") or "auto").strip().lower()
+        adaptive_categories = {
+            Category.ARCHITECTURE,
+            Category.DRY,
+            Category.LARAVEL_BEST_PRACTICE,
+            Category.REACT_BEST_PRACTICE,
+            Category.MAINTAINABILITY,
+            Category.PERFORMANCE,
+        }
+        policy = declared
+        if policy == "auto":
+            policy = "adaptive" if rule.category in adaptive_categories else "independent"
+
+        architecture = str(effective_context.architecture_profile or "unknown").strip().lower()
+        signals = [f"generic_policy={policy}", f"architecture_profile={architecture}"]
+        enabled = True
+
+        expectation_by_rule = {
+            "action-class-suggestion": "services_actions_expected",
+            "contract-suggestion": "services_actions_expected",
+        }
+        expectation_key = expectation_by_rule.get(rule.id)
+        if policy == "adaptive" and expectation_key:
+            state = (effective_context.team_expectations or {}).get(expectation_key)
+            expected = bool(getattr(state, "enabled", False)) if state is not None else False
+            layered = architecture in {"layered", "modular", "api-first"}
+            enabled = expected or layered
+            signals.extend(
+                [
+                    f"team_expectation={expectation_key}",
+                    f"expectation_enabled={int(expected)}",
+                ],
+            )
+
+        return {
+            "enabled": enabled,
+            "context_policy": policy,
+            "signals": signals,
+        }
+
     def _matrix_and_context_for_rule(
         self,
         rule: Rule,
@@ -1323,7 +669,18 @@ class RuleEngine:
     ) -> tuple[ContextProfileMatrix | None, EffectiveContext]:
         module_name = str(getattr(rule.__class__, "__module__", "") or "").lower()
         if ".react." in module_name:
-            return self._context_matrices.get("react"), react_context
+            react_matrix = self._context_matrices.get("react")
+            if react_matrix is not None and rule.id in react_matrix.rule_behavior:
+                return react_matrix, react_context
+
+            # Most mixed Laravel/Inertia React calibration was historically
+            # authored in the Laravel business-context matrix. Preserve those
+            # project-aware policies until they are migrated, rather than
+            # silently discarding them for every React rule.
+            laravel_matrix = self._context_matrices.get("laravel")
+            if laravel_matrix is not None and rule.id in laravel_matrix.rule_behavior:
+                return laravel_matrix, laravel_context
+            return react_matrix, react_context
         if ".laravel." in module_name:
             return self._context_matrices.get("laravel"), laravel_context
         return self._context_matrices.get("laravel"), laravel_context
@@ -1422,12 +779,22 @@ class RuleEngine:
             ).lower():
                 provider_count += 1
 
+        graph = getattr(facts, "_frontend_symbol_graph", None)
+        if isinstance(graph, dict):
+            for payload in (graph.get("files", {}) or {}).values():
+                if not isinstance(payload, dict):
+                    continue
+                imports.extend(str(item or "") for item in (payload.get("imports", []) or []))
+                if any("provider" in str(item or "").lower() for item in (payload.get("imports", []) or [])):
+                    provider_count += 1
+
         imports_low = [item.lower() for item in imports]
-        if any("@inertiajs" in item for item in imports_low):
+        technical_project_type = str(getattr(facts, "framework_project_type", "") or "").lower()
+        if "inertia_react" in technical_project_type or any("@inertiajs" in item for item in imports_low):
             effective.project_type = "inertia_spa"
             effective.project_type_confidence = 0.9
             effective.project_type_confidence_kind = "structural"
-        elif any("next/router" in item or "next/navigation" in item for item in imports_low):
+        elif "next" in technical_project_type or any("next/router" in item or "next/navigation" in item for item in imports_low):
             effective.project_type = "next_js"
             effective.project_type_confidence = 0.88
             effective.project_type_confidence_kind = "structural"
@@ -1521,12 +888,31 @@ class RuleEngine:
                     pass
         return self._profile_confidence_floor()
 
+    def _has_explicit_confidence_floor(self, rule_id: str) -> bool:
+        cfg = self.ruleset.get_rule_config(rule_id)
+        return bool(
+            cfg
+            and isinstance(cfg.thresholds, dict)
+            and cfg.thresholds.get("min_confidence") is not None
+        )
+
+    def _effective_confidence_floor_for_rule(
+        self,
+        rule_id: str,
+        classification: FindingClassification | str,
+    ) -> float:
+        floor = self._confidence_floor_for_rule(rule_id)
+        if not self._has_explicit_confidence_floor(rule_id):
+            floor += self._classification_confidence_adjustment(classification)
+        return max(0.0, min(1.0, floor))
+
     def _apply_confidence_filter(self, findings: list[Finding]) -> list[Finding]:
         out: list[Finding] = []
         for f in findings:
-            floor = self._confidence_floor_for_rule(f.rule_id)
-            floor += self._classification_confidence_adjustment(getattr(f, "classification", FindingClassification.ADVISORY))
-            floor = max(0.0, min(1.0, floor))
+            floor = self._effective_confidence_floor_for_rule(
+                f.rule_id,
+                getattr(f, "classification", FindingClassification.ADVISORY),
+            )
             conf = float(getattr(f, "confidence", 1.0) or 0.0)
             if conf + 1e-9 >= floor:
                 out.append(f)

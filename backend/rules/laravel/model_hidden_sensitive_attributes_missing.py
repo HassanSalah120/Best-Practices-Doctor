@@ -19,7 +19,7 @@ class ModelHiddenSensitiveAttributesMissingRule(Rule):
     id = "model-hidden-sensitive-attributes-missing"
     name = "Model Hidden Sensitive Attributes Missing"
     description = "Detects models that expose sensitive attributes without listing them in $hidden"
-    category = Category.SECURITY
+    category = Category.DATA_INTEGRITY
     default_severity = Severity.HIGH
     default_classification = FindingClassification.RISK
     type = "ast"

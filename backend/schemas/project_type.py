@@ -15,6 +15,7 @@ class ProjectType(StrEnum):
     LARAVEL_LIVEWIRE = "laravel_livewire"
     PHP_MVC = "php_mvc"
     NATIVE_PHP = "native_php"
+    REACT = "react"
     UNKNOWN = "unknown"
 
 
@@ -43,3 +44,8 @@ class ProjectInfo(BaseModel):
     has_blade_views: bool = False
     has_react_components: bool = False
     has_vue_components: bool = False
+
+    # One project-wide discovery pass is shared with the facts builder. These
+    # fields are internal scan data and are excluded from API serialization.
+    discovered_files: list[str] = Field(default_factory=list, exclude=True)
+    discovery_stats: dict[str, int | float] = Field(default_factory=dict, exclude=True)

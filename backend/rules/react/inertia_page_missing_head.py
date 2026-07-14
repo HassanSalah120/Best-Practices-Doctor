@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from core.semantic_roles import is_react_page_source
 from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
@@ -27,7 +28,7 @@ HEAD_IMPORT_RE = re.compile(
     re.MULTILINE,
 )
 ALT_HEAD_COMPONENT_RE = re.compile(
-    r"<(?:PageHead|SeoHead|SeoMeta|PageMeta|MetaTags)\b[^>]*\b(title|pageTitle|metaTitle|seoTitle)\s*=",
+    r"<(?:PageHead|SeoHead|SeoMeta|PageMeta|MetaTags|SafeInertiaHead)\b[^>]*\b(title|pageTitle|metaTitle|seoTitle)\s*=",
     re.MULTILINE,
 )
 HELMET_TITLE_RE = re.compile(
@@ -145,7 +146,7 @@ class InertiaPageMissingHeadRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         norm = (file_path or "").replace("\\", "/")
-        if "/resources/js/pages/" not in f"/{norm.lower()}":
+        if not is_react_page_source(file_path, content, facts):
             return []
         if self._is_likely_page_partial(file_path, facts):
             return []
@@ -156,7 +157,7 @@ class InertiaPageMissingHeadRule(Rule):
         if not COMPONENT_SIGNAL_RE.search(text):
             return []
 
-        if "<Head" in text or HEAD_IMPORT_RE.search(text):
+        if "<Head" in text or "<SafeInertiaHead" in text or HEAD_IMPORT_RE.search(text):
             return []
         if ALT_HEAD_COMPONENT_RE.search(text):
             return []

@@ -98,9 +98,9 @@ def test_form_double_submit_valid_invalid_fp_guard():
 
 def test_focus_lost_on_route_change_valid_invalid_fp_guard():
     rule = FocusLostOnRouteChangeRule()
-    valid = "router.visit('/users'); document.querySelector('main')?.focus();"
-    invalid = "<Link href=\"/users\">Users</Link>"
-    fp_guard = "useFocusRestore();\n<Link href=\"/users\">Users</Link>"
+    valid = "router.on('finish', () => document.querySelector('main')?.focus());"
+    invalid = "router.on('finish', () => announcePageChange());"
+    fp_guard = "<Link href=\"/users\">Users</Link>"
 
     assert rule.analyze_regex("src/layouts/AppLayout.tsx", valid, _facts()) == []
     assert len(rule.analyze_regex("src/layouts/AppLayout.tsx", invalid, _facts())) == 1

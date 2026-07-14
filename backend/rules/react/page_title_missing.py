@@ -61,10 +61,13 @@ class PageTitleMissingRule(Rule):
             re.MULTILINE,
         ),
     ]
-    _PAGE_EXPORT_PATTERN = re.compile(
-        r"\bexport\s+default\b|\bexport\s+function\s+[A-Z]\w*\b|\bexport\s+const\s+[A-Z]\w*\b|return\s*\(",
+    _COMPONENT_DECLARATION_PATTERN = re.compile(
+        r"\b(?:export\s+default\s+)?(?:async\s+)?function\s+[A-Z]\w*\b"
+        r"|\b(?:export\s+)?const\s+[A-Z]\w*\s*(?::[^=]+)?=\s*(?:\([^)]*\)|[A-Za-z_$]\w*)\s*=>"
+        r"|\bclass\s+[A-Z]\w*\s+extends\s+(?:React\.)?(?:Component|PureComponent)\b",
         re.MULTILINE,
     )
+    _JSX_RENDER_PATTERN = re.compile(r"<[A-Za-z][A-Za-z0-9_.:-]*(?:\s|/?>)")
     _GENERIC_TITLES = {"untitled", "page", "new page", "home"}
 
     # Legacy compatibility patterns
@@ -281,7 +284,14 @@ class PageTitleMissingRule(Rule):
         return any(marker in low for marker in self._ALLOWLIST_PATHS)
 
     def _looks_like_page_component(self, content: str) -> bool:
-        return bool(self._PAGE_EXPORT_PATTERN.search(content or ""))
+        text = content or ""
+        # Folder membership and an exported constant are not enough: colocated
+        # `.data.ts`, schema, column, and query modules often live beside pages.
+        # Require both a component-shaped declaration and executable JSX.
+        return bool(
+            self._COMPONENT_DECLARATION_PATTERN.search(text)
+            and self._JSX_RENDER_PATTERN.search(text)
+        )
 
     def _extract_explicit_title(self, content: str) -> str | None:
         text = content or ""

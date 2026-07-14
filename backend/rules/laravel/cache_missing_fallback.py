@@ -17,7 +17,7 @@ class CacheMissingFallbackRule(Rule):
     id = "cache-missing-fallback"
     name = "Cache Missing Fallback"
     description = "Detects Cache::get calls whose nullable result is dereferenced without a fallback"
-    category = Category.PERFORMANCE
+    category = Category.RELIABILITY
     default_severity = Severity.HIGH
     type = "ast"
     regex_file_extensions = [".php"]

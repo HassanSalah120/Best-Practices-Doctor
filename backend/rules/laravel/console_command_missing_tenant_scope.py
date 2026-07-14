@@ -16,7 +16,7 @@ class ConsoleCommandMissingTenantScopeRule(Rule):
     id = "console-command-missing-tenant-scope"
     name = "Console Command Missing Tenant Scope"
     description = "Detects Artisan commands that query tenant data without clinic or tenant scoping"
-    category = Category.SECURITY
+    category = Category.OPERATIONS
     default_severity = Severity.HIGH
     type = "regex"
     regex_file_extensions = [".php"]

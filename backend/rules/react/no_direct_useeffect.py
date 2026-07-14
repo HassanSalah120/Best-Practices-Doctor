@@ -8,6 +8,7 @@ resolved from real JS/TS structure rather than text heuristics.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -103,10 +104,21 @@ class NoDirectUseEffectRule(Rule):
         allowed_names = [str(name or "").strip() for name in allowed_wrappers if str(name or "").strip()]
         suppress_external_sync = bool(self.get_threshold("suppress_external_sync", False))
         allow_mount_only_without_wrapper = bool(self.get_threshold("allow_mount_only_without_wrapper", False))
+        allow_custom_hook_boundaries = bool(self.get_threshold("allow_custom_hook_boundaries", True))
         wrapper_ranges = self._find_wrapper_ranges(tree.root_node, content_bytes, allowed_names)
+        custom_hook_ranges = (
+            self._find_custom_hook_ranges(tree.root_node, content_bytes)
+            if allow_custom_hook_boundaries
+            else []
+        )
 
         findings: list[Finding] = []
         for call in self._find_effect_calls(tree.root_node, content_bytes):
+            if self._is_inside_allowed_wrapper(call.start, custom_hook_ranges):
+                # A dedicated custom hook is the lifecycle boundary this policy
+                # asks components to use. Flagging its implementation is
+                # self-contradictory and pushes effects back into components.
+                continue
             is_allowed_wrapper = self._is_inside_allowed_wrapper(call.start, wrapper_ranges)
             if is_allowed_wrapper and call.dep_arg_text == "[]":
                 continue
@@ -150,6 +162,7 @@ class NoDirectUseEffectRule(Rule):
                             "allowed_wrapper_names": allowed_names,
                             "suppress_external_sync": suppress_external_sync,
                             "allow_mount_only_without_wrapper": allow_mount_only_without_wrapper,
+                            "allow_custom_hook_boundaries": allow_custom_hook_boundaries,
                             "replacement_reason": reason,
                             "parser": "tree-sitter",
                         },
@@ -158,6 +171,29 @@ class NoDirectUseEffectRule(Rule):
             )
 
         return findings
+
+    def _find_custom_hook_ranges(self, root_node, content_bytes: bytes) -> list[tuple[int, int]]:
+        ranges: list[tuple[int, int]] = []
+        for node in self._walk(root_node):
+            value = None
+            if node.type == "function_declaration":
+                name = self._node_text(node.child_by_field_name("name"), content_bytes)
+                value = node
+            elif node.type == "variable_declarator":
+                name = self._node_text(node.child_by_field_name("name"), content_bytes)
+                candidate = node.child_by_field_name("value")
+                if candidate is None or candidate.type not in {"arrow_function", "function_expression"}:
+                    continue
+                value = candidate
+            else:
+                continue
+            if not name or not re.match(r"^use[A-Z]", name):
+                continue
+            body = value.child_by_field_name("body") if value is not None else None
+            target = body or value
+            if target is not None:
+                ranges.append((target.start_byte, target.end_byte))
+        return ranges
 
     def _find_wrapper_ranges(
         self,

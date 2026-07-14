@@ -13,7 +13,7 @@ class CacheStampedeRiskRule(Rule):
     id = "cache-stampede-risk"
     name = "Cache Stampede Risk"
     description = "Detects Cache::remember calls without nearby lock protection"
-    category = Category.PERFORMANCE
+    category = Category.RELIABILITY
     default_severity = Severity.HIGH
     type = "regex"
     severity_weight = 8

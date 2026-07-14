@@ -12,7 +12,7 @@ class StoragePathsNotInGitignoreRule(Rule):
     id = "storage-paths-not-in-gitignore"
     name = "Storage Paths Not In Gitignore"
     description = "Detects generated Laravel storage/cache paths missing from .gitignore"
-    category = Category.SECURITY
+    category = Category.OPERATIONS
     default_severity = Severity.HIGH
     default_classification = FindingClassification.RISK
     type = "ast"

@@ -345,11 +345,10 @@ def _agent_brief(
     checks = "\n".join(f"- [ ] {check}" for check in ranking.acceptance_checks)
     cmd_block = "\n".join(commands)
     return (
-        f"## Remediation task: {group_key}\n\n"
-        f"Rules: {rules}\n"
-        f"Files: {files}\n"
+        f"## Remediation: {group_key}\n\n"
+        f"Rules: {rules} | Files: {files}\n"
         f"Strategy: {ranking.strategy.value} ({ranking.risk_level})\n\n"
         f"{ranking.rationale}\n\n"
-        f"Acceptance checks:\n{checks}\n\n"
-        f"Verification commands:\n```bash\n{cmd_block}\n```"
+        f"Checks:\n{checks}\n\n"
+        f"Verify:\n```bash\n{cmd_block}\n```"
     )

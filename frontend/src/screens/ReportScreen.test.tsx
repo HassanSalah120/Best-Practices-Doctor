@@ -282,13 +282,14 @@ describe("ReportScreen redesigned workspaces", () => {
         medium_count: 0,
         low_count: 0,
       })),
-      action_plan: [
-        {
-          ...report.action_plan[0],
-          files,
-          finding_fingerprints: files.map((_, index) => `fp-${index + 1}`),
-        },
-      ],
+      action_plan: files.map((file, index) => ({
+        ...report.action_plan[0],
+        id: `action-${index + 1}`,
+        rule_id: `rule-${index + 1}`,
+        title: `Action ${index + 1}`,
+        files: [file],
+        finding_fingerprints: [`fp-${index + 1}`],
+      })),
     });
     const { container } = render(<ReportScreen jobId="scan_1" onBack={vi.fn()} onRescan={vi.fn()} />);
 
@@ -304,8 +305,13 @@ describe("ReportScreen redesigned workspaces", () => {
     expect(prompt).toContain("## Operating Protocol");
     expect(prompt).toContain("Define the verifiable goal before editing.");
     expect(prompt).toContain("`AGENTS.md`");
+    expect(prompt).toContain("Coverage: every unique report fingerprint; no top-N truncation");
+    expect(prompt).toContain("Required final dispositions: 8");
     for (const file of files) {
       expect(prompt).toContain(file);
+    }
+    for (const finding of findings) {
+      expect(prompt).toContain(finding.fingerprint);
     }
     expect(prompt).not.toMatch(/\+\s*\d+\s+more files/i);
     expect(prompt).not.toMatch(/and\s+\d+\s+more files/i);
@@ -318,7 +324,7 @@ describe("ReportScreen redesigned workspaces", () => {
       fingerprint: "fp-security",
       rule_id: "client-side-auth-only",
       title: "Authorization appears enforced only on the client",
-      description: "Admin-only UI branch needs server-side authorization evidence.",
+      description: `Admin-only UI branch needs server-side authorization evidence. ${"detail ".repeat(50)}END_OF_FULL_EVIDENCE`,
       severity: Severity.HIGH,
       category: "security",
       file: "frontend/src/pages/Profile.tsx",
@@ -326,6 +332,14 @@ describe("ReportScreen redesigned workspaces", () => {
       line_end: 263,
       suggested_fix: "Ensure matching backend middleware or document the false positive evidence.",
       classification: "risk",
+      confidence: 0.93,
+      evidence_signals: ["client_guard=true", "server_guard=not_found"],
+      metadata: {
+        analysis_contract: "semantic",
+        trace_quality: "trace-backed",
+        confidence_basis: "Client authorization branch found without matching server evidence.",
+        evidence_traces: [{ id: "trace-auth", kind: "authorization", summary: "Admin branch reaches protected action" }],
+      },
     };
     const advisoryFinding = {
       ...finding,
@@ -400,8 +414,69 @@ describe("ReportScreen redesigned workspaces", () => {
     expect(prompt).toContain("## Work Lanes");
     expect(prompt).toContain("Must Fix");
     expect(prompt).toContain("Advisory");
+    expect(prompt).toContain("fp-security");
+    expect(prompt).toContain("fp-advisory");
+    expect(prompt).toContain("Confidence: 93% (0.93)");
+    expect(prompt).toContain("Evidence signals: client_guard=true | server_guard=not_found");
+    expect(prompt).toContain("Analysis contract: semantic");
+    expect(prompt).toContain("Semantic evidence traces:");
+    expect(prompt).toContain("END_OF_FULL_EVIDENCE");
+    expect(prompt).toContain("Required final dispositions: 2");
+    expect(prompt).toContain("Complete finding disposition ledger");
+    expect(prompt).toContain("Never silently skip a rule, file, location, or fingerprint.");
     expect(prompt).toContain("Detected architecture: react/typescript");
     expect(prompt).not.toContain("Detected architecture: laravel / unknown");
     expect(prompt).not.toContain("============================================================");
+  });
+
+  it("aggregates a mixed rule from every finding instead of trusting the first sample", async () => {
+    const advisoryFirst = {
+      ...finding,
+      id: "mixed-advisory",
+      fingerprint: "mixed-fp-advisory",
+      rule_id: "mixed-rule",
+      title: "Mixed rule advisory occurrence",
+      severity: Severity.MEDIUM,
+      classification: "advisory",
+      file: "src/FeatureA.tsx",
+      line_start: 10,
+    };
+    const highRiskSecond = {
+      ...finding,
+      id: "mixed-risk",
+      fingerprint: "mixed-fp-risk",
+      rule_id: "mixed-rule",
+      title: "Mixed rule high-risk occurrence",
+      severity: Severity.HIGH,
+      classification: "risk",
+      file: "src/FeatureB.tsx",
+      line_start: 20,
+    };
+    getReportMock.mockResolvedValueOnce({
+      ...report,
+      findings: [advisoryFirst, highRiskSecond],
+      findings_by_file: {
+        "src/FeatureA.tsx": ["mixed-fp-advisory"],
+        "src/FeatureB.tsx": ["mixed-fp-risk"],
+      },
+      findings_by_category: { architecture: ["mixed-fp-advisory", "mixed-fp-risk"] },
+      findings_by_severity: { high: 1, medium: 1 },
+      findings_by_classification: { risk: 1, advisory: 1 },
+      rules_executed: ["mixed-rule"],
+    });
+
+    render(<ReportScreen jobId="scan_1" onBack={vi.fn()} onRescan={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByText(/Failed \(1\)/i)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Select all/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Copy prompt \(1\)/i }));
+
+    await waitFor(() => expect(copyTextToClipboardMock).toHaveBeenCalled());
+    const prompt = String(copyTextToClipboardMock.mock.calls.at(-1)?.[0] ?? "");
+    expect(prompt).toContain("### Must Fix");
+    expect(prompt).toContain("mixed-rule [high, Must Fix]");
+    expect(prompt).toContain("mixed-fp-advisory");
+    expect(prompt).toContain("mixed-fp-risk");
+    expect(prompt).toContain("Required final dispositions: 2");
   });
 });

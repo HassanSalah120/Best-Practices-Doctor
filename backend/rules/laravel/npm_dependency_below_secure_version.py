@@ -24,7 +24,7 @@ class NpmDependencyBelowSecureVersionRule(Rule):
     id = "npm-dependency-below-secure-version"
     name = "NPM Dependency Below Secure Version"
     description = "Detects npm dependencies pinned below curated secure minimum versions"
-    category = Category.SECURITY
+    category = Category.COMPATIBILITY
     default_severity = Severity.HIGH
     type = "regex"
     regex_file_extensions = [".json"]

@@ -63,7 +63,7 @@ def test_api_resource_usage_positive_and_negative():
     rule = ApiResourceUsageRule(RuleConfig())
     facts = Facts(project_path="x")
 
-    pos = "class C { public function index(){ return ['a' => 1]; } }"
+    pos = "class C { public function index(){ return ['data' => User::query()->paginate()]; } }"
     neg = "use Illuminate\\Http\\Resources\\Json\\JsonResource; class C { public function index(){ return new UserResource($u); } }"
 
     assert rule.analyze_regex("app/Http/Controllers/Api/UserController.php", pos, facts)

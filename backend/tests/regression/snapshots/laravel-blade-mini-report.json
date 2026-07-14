@@ -28,7 +28,7 @@
     "overall": 85,
     "security": 71,
     "performance": 89,
-    "architecture": 93,
+    "architecture": 92,
     "quality": 96,
     "accessibility": 100
   },
@@ -92,16 +92,6 @@
       "classification": "advisory",
       "file": "app/Http/Controllers/FatController.php",
       "context": "index"
-    },
-    {
-      "id": "finding_40e3d4ad2882",
-      "fingerprint": "40e3d4ad2882",
-      "rule_id": "dry-violation",
-      "category": "dry",
-      "severity": "low",
-      "classification": "advisory",
-      "file": "app/Support/DupeA.php",
-      "context": "dup:fb72d5c5d7017ed9"
     },
     {
       "id": "finding_4996356c73ef",
@@ -184,6 +174,16 @@
       "context": "App\\Http\\Controllers\\SecurityBadController::run"
     },
     {
+      "id": "finding_67bd087fae2e",
+      "fingerprint": "67bd087fae2e",
+      "rule_id": "error-pages-missing",
+      "category": "laravel_best_practice",
+      "severity": "high",
+      "classification": "advisory",
+      "file": "",
+      "context": "resources/views/errors"
+    },
+    {
       "id": "finding_6a1b6348dfa4",
       "fingerprint": "6a1b6348dfa4",
       "rule_id": "no-closure-routes",
@@ -262,6 +262,16 @@
       "classification": "risk",
       "file": ".env.example",
       "context": "project:.env.example"
+    },
+    {
+      "id": "finding_8da4ecb8dece",
+      "fingerprint": "8da4ecb8dece",
+      "rule_id": "dry-violation",
+      "category": "dry",
+      "severity": "low",
+      "classification": "advisory",
+      "file": "app/Support/DupeA.php",
+      "context": "dup:aa10f40a05796402"
     },
     {
       "id": "finding_9330e87f4073",
@@ -362,16 +372,6 @@
       "classification": "advisory",
       "file": "app/Services/CycleA.php",
       "context": "App\\Services\\CycleA|App\\Services\\CycleB"
-    },
-    {
-      "id": "finding_dab704e44f3c",
-      "fingerprint": "dab704e44f3c",
-      "rule_id": "error-pages-missing",
-      "category": "laravel_best_practice",
-      "severity": "high",
-      "classification": "advisory",
-      "file": "resources/views/errors",
-      "context": "resources/views/errors"
     },
     {
       "id": "finding_edde5f110dac",

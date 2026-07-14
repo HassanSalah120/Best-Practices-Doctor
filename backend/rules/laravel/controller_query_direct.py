@@ -63,6 +63,28 @@ class ControllerQueryDirectRule(Rule):
         "repository->",
         "repositories->",
     )
+    _NON_DATABASE_SOURCES = {
+        "auth",
+        "cache",
+        "config",
+        "cookie",
+        "crypt",
+        "event",
+        "gate",
+        "hash",
+        "http",
+        "lang",
+        "log",
+        "notification",
+        "queue",
+        "ratelimiter",
+        "redis",
+        "request",
+        "response",
+        "session",
+        "storage",
+        "url",
+    }
 
     def analyze(
         self,
@@ -89,6 +111,9 @@ class ControllerQueryDirectRule(Rule):
         grouped: dict[tuple[str, str], list[QueryUsage]] = {}
         for q in facts.queries:
             if q.file_path not in controller_files:
+                continue
+            source = str(q.model or "").strip().lstrip("\\").rsplit("\\", 1)[-1]
+            if source.lower() in self._NON_DATABASE_SOURCES:
                 continue
             grouped.setdefault((q.file_path, q.method_name), []).append(q)
 

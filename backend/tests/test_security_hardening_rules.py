@@ -15,7 +15,9 @@ from schemas.facts import Facts, RouteInfo
 
 
 def test_user_model_missing_must_verify_email_flags_plain_authenticatable_user():
-    rule = UserModelMissingMustVerifyEmailRule(RuleConfig())
+    rule = UserModelMissingMustVerifyEmailRule(
+        RuleConfig(thresholds={"require_verification_signal": False}),
+    )
     facts = Facts(project_path=".")
     content = """
 <?php

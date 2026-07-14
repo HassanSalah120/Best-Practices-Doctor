@@ -6,6 +6,7 @@ import asyncio
 import logging
 
 from core.pipeline.errors import RuleExecutionError
+from core.pipeline.cache_signatures import implementation_signature, stable_signature
 from core.pipeline.models import ScanPipelineContext, ScanPipelineState
 from core.rule_engine import create_engine
 from core.trust import enrich_findings_with_trust
@@ -39,6 +40,10 @@ class RunRulesStage:
             "differential_mode": bool(context.request.differential_mode),
             "changed_files": sorted(context.request.changed_files or []),
             "project_type": str(getattr(getattr(state.project_info, "project_type", None), "value", "unknown") or "unknown"),
+            "ruleset_signature": stable_signature(state.ruleset),
+            "implementation_signature": implementation_signature(
+                [type(rule_engine), *rule_engine.rules],
+            ),
         }
 
         def on_rule_progress(fraction: float, rules_done: int, rules_total: int) -> None:
@@ -74,7 +79,9 @@ class RunRulesStage:
                     context.stage_cache.save("run_rules", state.engine_result, cache_payload)
             context.check_cancelled()
             if state.engine_result is not None:
-                resolver = lambda rid: float(rule_engine._confidence_floor_for_rule(rid))  # noqa: E731, SLF001
+                resolver = lambda rid, classification: float(  # noqa: E731
+                    rule_engine._effective_confidence_floor_for_rule(rid, classification),  # noqa: SLF001
+                )
                 enrich_findings_with_trust(
                     state.engine_result.findings,
                     confidence_floor_resolver=resolver,

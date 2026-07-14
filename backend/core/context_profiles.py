@@ -7,6 +7,7 @@ selection precedence over auto-detection.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -219,11 +220,13 @@ class ContextProfileMatrix(BaseModel):
         return resolved
 
 
+@lru_cache(maxsize=1)
 def load_laravel_context_matrix() -> ContextProfileMatrix:
     """Load the default Laravel context matrix."""
     return ContextProfileMatrix.load_default()
 
 
+@lru_cache(maxsize=1)
 def load_react_context_matrix() -> ContextProfileMatrix:
     """Load the React context matrix."""
     backend_root = Path(__file__).resolve().parents[1]

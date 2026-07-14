@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "start": "powershell -ExecutionPolicy Bypass -File ..\\run-all.ps1",
+    "start": "vite",
     "dev": "vite",
     "tsc": "tsc -b",
     "build": "tsc -b && vite build",

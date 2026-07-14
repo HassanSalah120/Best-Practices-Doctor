@@ -323,6 +323,9 @@ class AssocArrayLiteral(BaseModel):
     key_count: int = 0
     used_as: str = ""  # assignment|argument|return|unknown
     target: str | None = None  # variable name or call name (best effort)
+    # Calls that subsequently consume an assigned array variable. These are raw
+    # structural facts; rules decide whether a call crosses a layer boundary.
+    consumer_calls: list[str] = Field(default_factory=list)
     snippet: str = ""
 
 class ConfigUsage(BaseModel):
@@ -468,15 +471,21 @@ class Facts(BaseModel):
     """
     project_path: str
     scan_id: str = ""
+    # Technical framework classification from ProjectDetector. This is kept
+    # separate from project_context.project_type, which describes business use.
+    framework_project_type: str = ""
+    npm_packages: dict[str, str] = Field(default_factory=dict)
 
     # --- Quality Gate / Project-level signals ---
     # These are raw structural facts about the repository layout (not derived metrics).
     has_tests: bool = False
     test_files_count: int = 0
+    test_files: list[str] = Field(default_factory=list)
 
     # All files scanned (relative paths)
     files: list[str] = Field(default_factory=list)
     file_hashes: dict[str, str] = Field(default_factory=dict)  # path -> hash
+    analysis_stats: dict[str, object] = Field(default_factory=dict)
     project_context: ProjectContext = Field(default_factory=ProjectContext)
 
     # --- PHP File Metadata ---

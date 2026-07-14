@@ -53,6 +53,9 @@ class ApiResponseInconsistentShapeRule(Rule):
             return []
         if not ({"wrapped", "raw"} <= kinds or {"resource", "raw"} <= kinds):
             return []
+        # Skip if the inconsistent shapes are error vs success (error key or 4xx/5xx status)
+        if self._has_mixed_error_success(content or ""):
+            return []
         line = self._first_response_line(content or "")
         return [
             self.create_finding(
@@ -86,6 +89,26 @@ class ApiResponseInconsistentShapeRule(Rule):
         if response_count < 2:
             return set()
         return kinds
+
+    def _has_mixed_error_success(self, content: str) -> bool:
+        """Check if the controller mixes error (4xx/5xx) and success (2xx) HTTP status codes or error key vs resource."""
+        codes = []
+        # Match response()->json(..., statusCode) where statusCode is a numeric literal
+        for match in re.finditer(
+            r"response\s*\(\s*\)\s*->\s*json\s*\([^,;]*,\s*(\d{3})\s*\)",
+            content,
+            re.I | re.S,
+        ):
+            codes.append(int(match.group(1)))
+        if codes:
+            has_error = any(400 <= c < 600 for c in codes)
+            has_success = any(200 <= c < 300 for c in codes)
+            if has_error and has_success:
+                return True
+        # Also check for mixed 'error' key in response vs Resource usage
+        has_error_key = bool(re.search(r"['\"]error['\"]\s*=>", content))
+        has_resource = bool(re.search(r"new\s+[A-Za-z0-9_\\\\]+Resource", content))
+        return has_error_key and has_resource
 
     def _first_response_line(self, content: str) -> int:
         positions = [pos for pos in (content.find("response()->json"), content.find("Resource")) if pos >= 0]

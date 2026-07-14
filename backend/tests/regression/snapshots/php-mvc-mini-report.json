@@ -28,7 +28,7 @@
     "overall": 100,
     "security": 100,
     "performance": 100,
-    "architecture": 99,
+    "architecture": 100,
     "quality": 100,
     "accessibility": 100
   },
@@ -42,16 +42,6 @@
       "classification": "advisory",
       "file": "composer.json",
       "context": "project:test-suite"
-    },
-    {
-      "id": "finding_dab704e44f3c",
-      "fingerprint": "dab704e44f3c",
-      "rule_id": "error-pages-missing",
-      "category": "laravel_best_practice",
-      "severity": "high",
-      "classification": "advisory",
-      "file": "resources/views/errors",
-      "context": "resources/views/errors"
     }
   ],
   "findings_by_file": {},

@@ -718,6 +718,29 @@ async def get_file_content(job_id: str, path: str = Query(..., description="File
         raise HTTPException(status_code=500, detail=f"Failed to read file: {e}")
 
 
+@router.get("/scan/{job_id}/analysis-context")
+async def get_analysis_context(job_id: str, file: str = Query(..., description="File path")):
+    """Get dataflow analysis context for a specific file in the scan."""
+    report = job_manager.get_report(job_id)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"Report not found: {job_id}")
+
+    # Security check — ensure file path doesn't escape the project (run BEFORE data lookup)
+    project_path = Path(report.project_path).resolve()
+    requested = Path(project_path / file).resolve()
+    try:
+        requested.relative_to(project_path)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Path escape attempt blocked")
+
+    contexts = (report.analysis_debug or {}).get("analysis_contexts_by_file") or {}
+    ctx = contexts.get(file)
+    if not ctx:
+        raise HTTPException(status_code=404, detail=f"Analysis context not found for: {file}")
+
+    return ctx
+
+
 class FindingStatusUpdateRequest(BaseModel):
     """Update finding work status for project intelligence tracking."""
     status: str = Field(..., description="open|in_progress|fixed|skipped")

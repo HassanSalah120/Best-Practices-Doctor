@@ -16,7 +16,7 @@ class DebugExposureRiskRule(Rule):
     id = "debug-exposure-risk"
     name = "Debug Exposure Risk"
     description = "Detects debug settings that can expose stack traces, secrets, or internal internals"
-    category = Category.SECURITY
+    category = Category.OBSERVABILITY
     default_severity = Severity.HIGH
     default_classification = FindingClassification.RISK
     type = "regex"

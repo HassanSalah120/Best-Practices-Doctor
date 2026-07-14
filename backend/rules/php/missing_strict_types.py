@@ -14,7 +14,7 @@ class MissingStrictTypesRule(Rule):
     id = "missing-strict-types"
     name = "Missing strict_types Declaration"
     description = "Detects PHP class/function files missing declare(strict_types=1) near the top"
-    category = Category.MAINTAINABILITY
+    category = Category.COMPATIBILITY
     default_severity = Severity.MEDIUM
     type = "regex"
     regex_file_extensions = [".php"]

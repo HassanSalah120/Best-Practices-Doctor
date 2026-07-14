@@ -8,6 +8,7 @@ Analyzes raw Facts to compute derived metrics:
 - God Class detection
 """
 import logging
+import time
 from pathlib import Path
 
 from schemas.facts import Facts, MethodInfo
@@ -45,7 +46,10 @@ class MetricsAnalyzer:
         Returns:
             Dictionary mapping method_fqn to MethodMetrics
         """
+        started = time.perf_counter()
         metrics = {}
+        self._complexity_file_reads = 0
+        self._complexity_cache_hits = 0
 
         # Phase 10: Import optional test coverage artifacts (if present).
         # This is not a derived metric; we attach it to Facts as a private attribute so
@@ -60,15 +64,16 @@ class MetricsAnalyzer:
         # Tree-sitter PHP parser (optional). Metrics remain derived, separate from Facts.
         self._php_parser = None
         self._php_lang = None
-        try:
-            import tree_sitter
-            import tree_sitter_php
+        if facts.methods:
+            try:
+                import tree_sitter
+                import tree_sitter_php
 
-            self._php_lang = tree_sitter.Language(tree_sitter_php.language_php())
-            self._php_parser = tree_sitter.Parser(self._php_lang)
-        except Exception:
-            self._php_parser = None
-            self._php_lang = None
+                self._php_lang = tree_sitter.Language(tree_sitter_php.language_php())
+                self._php_parser = tree_sitter.Parser(self._php_lang)
+            except Exception:
+                self._php_parser = None
+                self._php_lang = None
 
         # Per-file parsed trees cache
         file_cache: dict[str, tuple[bytes, object]] = {}
@@ -79,10 +84,18 @@ class MetricsAnalyzer:
             metrics[method.method_fqn] = m_metrics
 
         # 2. Analyze file-level aggregations for downstream reporting and diagnostics.
-        self.file_metrics = self._analyze_files(facts, metrics)
+        self.file_metrics = self._analyze_files(facts, metrics, file_cache)
 
         # 3. Analyze project-wide aggregations for dashboards and future rules.
         self.project_metrics = self._analyze_project(facts, metrics, self.file_metrics)
+
+        facts.analysis_stats["metrics"] = {
+            "method_count": len(facts.methods),
+            "complexity_file_reads": self._complexity_file_reads,
+            "complexity_cache_hits": self._complexity_cache_hits,
+            "parsed_php_files": len(file_cache),
+            "analysis_ms": round((time.perf_counter() - started) * 1000.0, 3),
+        }
 
         return metrics
 
@@ -90,6 +103,7 @@ class MetricsAnalyzer:
         self,
         facts: Facts,
         method_metrics: dict[str, MethodMetrics],
+        file_cache: dict[str, tuple[bytes, object]],
     ) -> dict[str, FileMetrics]:
         """Compute file-level metrics from scanned files and method metrics."""
         project_root = Path(facts.project_path) if facts.project_path else None
@@ -108,10 +122,13 @@ class MetricsAnalyzer:
             comment_lines = 0
             if project_root:
                 try:
-                    lines = (project_root / file_path).read_text(
-                        encoding="utf-8",
-                        errors="replace",
-                    ).splitlines()
+                    absolute = project_root / file_path
+                    cached = file_cache.get(str(absolute))
+                    if cached is not None:
+                        text = cached[0].decode("utf-8", errors="replace")
+                    else:
+                        text = absolute.read_text(encoding="utf-8", errors="replace")
+                    lines = text.splitlines()
                     total_lines = len(lines)
                     for line in lines:
                         stripped = line.strip()
@@ -242,18 +259,16 @@ class MetricsAnalyzer:
         if not self._php_parser or not facts.project_path or not method.file_path:
             return (None, None, None)
 
-        try:
-            root = Path(facts.project_path)
-            file_path = root / Path(method.file_path)
-            content = file_path.read_bytes()
-        except Exception:
-            return (None, None, None)
-
+        root = Path(facts.project_path)
+        file_path = root / Path(method.file_path)
         cache_key = str(file_path)
         if cache_key in file_cache:
             content, tree = file_cache[cache_key]
+            self._complexity_cache_hits += 1
         else:
             try:
+                content = file_path.read_bytes()
+                self._complexity_file_reads += 1
                 tree = self._php_parser.parse(content)
             except Exception:
                 return (None, None, None)

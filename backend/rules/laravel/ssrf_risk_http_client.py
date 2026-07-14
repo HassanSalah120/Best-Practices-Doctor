@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 
+from core.source_masking import mask_comments
 from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, FindingClassification, Severity
@@ -79,7 +80,7 @@ class SsrfRiskHttpClientRule(Rule):
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
-        text = content or ""
+        text = mask_comments(content or "", hash_comments=True)
         low_path = str(file_path or "").lower().replace("\\", "/")
         if any(marker in low_path for marker in self._ALLOWLIST_PATH_MARKERS):
             return []

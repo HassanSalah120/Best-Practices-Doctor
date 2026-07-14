@@ -14,7 +14,7 @@ class MissingHealthCheckEndpointRule(Rule):
     id = "missing-health-check-endpoint"
     name = "Missing Health Check Endpoint"
     description = "Detects Laravel apps without a health, status, or ping route"
-    category = Category.ARCHITECTURE
+    category = Category.OBSERVABILITY
     default_severity = Severity.MEDIUM
     type = "ast"
     severity_weight = 5

@@ -1277,7 +1277,9 @@ rules:
     enabled: true
     severity: medium
     thresholds:
-      min_keys: 6
+      min_keys: 10
+      require_project_convention: true
+      max_findings_per_file: 2
     version: 1
   action-class-suggestion:
     category: architecture
@@ -1429,14 +1431,20 @@ scoring:
     low: 2.0
     medium: 5.0
   weights:
+    accessibility: 0.05
     architecture: 0.15
+    compatibility: 0.05
     complexity: 0.15
+    data_integrity: 0.1
     dry: 0.1
     laravel_best_practice: 0.15
     maintainability: 0.1
+    observability: 0.05
+    operations: 0.05
     performance: 0.05
     react_best_practice: 0.05
-    accessibility: 0.05
+    reliability: 0.05
     security: 0.1
+    seo: 0.05
     srp: 0.05
     validation: 0.05

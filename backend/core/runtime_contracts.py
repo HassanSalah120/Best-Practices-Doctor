@@ -1156,20 +1156,23 @@ class RuntimeContractAnalyzer:
 
     def _find_inertia_page_file(self, root: Path, facts: Facts, page: str) -> str | None:
         normalized = page.strip("/").replace("\\", "/")
+        # Try both Pages/ and pages/ conventions
+        roots = ("resources/js/Pages", "resources/js/pages", "js/Pages", "js/pages")
         candidates = [
-            f"resources/js/Pages/{normalized}.{ext}"
+            f"{r}/{normalized}.{ext}"
+            for r in roots
             for ext in ("tsx", "jsx", "ts", "js", "vue")
         ] + [
-            f"resources/js/Pages/{normalized}/Index.{ext}"
+            f"{r}/{normalized}/Index.{ext}"
+            for r in roots
             for ext in ("tsx", "jsx", "ts", "js", "vue")
         ]
         files = {self._normalize_rel_path(path) for path in (getattr(facts, "files", []) or [])}
+        files_lower = {path.lower(): path for path in files}
         for candidate in candidates:
             if candidate in files or (root / candidate).exists():
                 return candidate
-        lower_files = {path.lower(): path for path in files}
-        for candidate in candidates:
-            found = lower_files.get(candidate.lower())
+            found = files_lower.get(candidate.lower())
             if found:
                 return found
         return None
@@ -1395,8 +1398,8 @@ class RuntimeContractAnalyzer:
     def _route_label(self, route: RouteInfo) -> str:
         return f"{self._primary_method(route)} /{self._normalize_uri(route.uri)}"
 
-    def _route_file(self, route: RouteInfo) -> str:
-        return self._normalize_rel_path(route.file_path) or "routes/web.php"
+    def _route_file(self, route: RouteInfo) -> str | None:
+        return self._normalize_rel_path(route.file_path)
 
     def _route_line(self, route: RouteInfo) -> int:
         return max(1, int(getattr(route, "line_number", 0) or 1))

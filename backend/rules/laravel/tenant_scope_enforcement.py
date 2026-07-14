@@ -24,7 +24,7 @@ class TenantScopeEnforcementRule(Rule):
     id = "tenant-scope-enforcement"
     name = "Tenant Scope Enforcement"
     description = "Detects tenant-sensitive queries that appear to be missing tenant scoping"
-    category = Category.SECURITY
+    category = Category.DATA_INTEGRITY
     default_severity = Severity.HIGH
     applicable_project_types = [
         "laravel_blade",
@@ -391,7 +391,9 @@ class TenantScopeEnforcementRule(Rule):
 
     def _is_tenant_sensitive_path(self, file_path: str) -> bool:
         low = (file_path or "").lower().replace("\\", "/")
-        return low.startswith("app/") and any(p in low for p in ["/controllers/", "/services/"])
+        if any(seg in low for seg in ("/tests/", "/vendor/", "/node_modules/", "/storage/")):
+            return False
+        return any(p in low for p in ["/controllers/", "/services/", "/repositories/"])
 
     def _has_method_tenant_context(self, method: MethodInfo, route_ctx: list) -> bool:
         method_text = " ".join(

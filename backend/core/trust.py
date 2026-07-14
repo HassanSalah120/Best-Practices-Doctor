@@ -22,19 +22,10 @@ _GUARDRAIL_RULES = {
 }
 
 
-def _classification_adjustment(classification: FindingClassification | str) -> float:
-    key = classification.value if isinstance(classification, FindingClassification) else str(classification or "").strip().lower()
-    if key == "advisory":
-        return 0.03
-    if key == "risk":
-        return 0.01
-    return 0.0
-
-
 def enrich_findings_with_trust(
     findings: list[Finding],
     *,
-    confidence_floor_resolver: Callable[[str], float] | None = None,
+    confidence_floor_resolver: Callable[..., float] | None = None,
     profile_name: str = "startup",
     suppressed_count: int = 0,
     deduped_overlap_count: int = 0,
@@ -70,8 +61,17 @@ def enrich_findings_with_trust(
         if top_signals:
             why_flagged += f" Signals: {', '.join(top_signals)}."
 
-        base_floor = float(resolver(finding.rule_id) or 0.0)
-        floor = max(0.0, min(1.0, base_floor + _classification_adjustment(getattr(finding, "classification", FindingClassification.ADVISORY))))
+        classification = getattr(finding, "classification", FindingClassification.ADVISORY)
+        try:
+            # New resolvers return the exact floor used by RuleEngine,
+            # including profile/classification handling where applicable.
+            base_floor = float(resolver(finding.rule_id, classification) or 0.0)
+        except TypeError:
+            # Backwards-compatible custom resolvers are treated as already
+            # effective. Re-applying a generic adjustment here previously made
+            # the UX claim impossible comparisons such as 0.72 >= 0.73.
+            base_floor = float(resolver(finding.rule_id) or 0.0)
+        floor = max(0.0, min(1.0, base_floor))
         conf = float(getattr(finding, "confidence", 0.0) or 0.0)
 
         not_ignored_parts = [

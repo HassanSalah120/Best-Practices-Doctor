@@ -1,4 +1,4 @@
-﻿schema_version: 1
+schema_version: 1
 name: startup
 description: Low-noise defaults (Startup profile)
 rules:
@@ -115,7 +115,7 @@ rules:
     version: 1
     thresholds: {}
   high-coupling-class:
-    enabled: true
+    enabled: false
     severity: medium
     category: architecture
     version: 1
@@ -367,7 +367,7 @@ rules:
       max_findings_per_file: 1
       min_confidence: 0.86
   duplicate-key-source:
-    enabled: true
+    enabled: false
     severity: medium
     category: react_best_practice
     version: 1
@@ -375,14 +375,14 @@ rules:
       max_findings_per_file: 1
       min_confidence: 0.8
   missing-loading-state:
-    enabled: true
+    enabled: false
     severity: low
     category: react_best_practice
     version: 1
     thresholds:
       min_confidence: 0.76
   missing-empty-state:
-    enabled: true
+    enabled: false
     severity: low
     category: react_best_practice
     version: 1
@@ -397,7 +397,7 @@ rules:
       max_findings_per_file: 1
       min_confidence: 0.88
   ref-used-as-reactive-state:
-    enabled: true
+    enabled: false
     severity: medium
     category: react_best_practice
     version: 1
@@ -1217,7 +1217,7 @@ rules:
     version: 1
     thresholds: {}
   heavy-logic-in-routes:
-    enabled: true
+    enabled: false
     severity: medium
     category: architecture
     version: 1
@@ -1267,7 +1267,8 @@ rules:
     category: maintainability
     version: 1
     thresholds:
-      min_keys: 6
+      min_keys: 10
+      require_project_convention: true
   action-class-suggestion:
     enabled: false
     severity: low
@@ -1283,7 +1284,7 @@ rules:
       max_findings_per_file: 10
       min_confidence: 0.84
   massive-model:
-    enabled: true
+    enabled: false
     severity: medium
     category: maintainability
     version: 1
@@ -1364,7 +1365,7 @@ rules:
     thresholds:
       max_calls: 0
   static-helper-abuse:
-    enabled: true
+    enabled: false
     severity: medium
     category: architecture
     version: 1

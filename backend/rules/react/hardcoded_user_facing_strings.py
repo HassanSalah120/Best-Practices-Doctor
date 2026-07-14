@@ -135,7 +135,10 @@ class HardcodedUserFacingStringsRule(Rule):
     ) -> list[Finding]:
         if self._is_allowlisted_path(file_path):
             return []
-        # Note: Rule now runs regardless of i18n detection to catch all hardcoded strings
+        context = getattr(facts, "project_context", None)
+        require_i18n = bool(self.get_threshold("require_i18n_context", True))
+        if require_i18n and not bool(getattr(context, "has_i18n", False)):
+            return []
 
         findings: list[Finding] = []
         lines = content.splitlines()

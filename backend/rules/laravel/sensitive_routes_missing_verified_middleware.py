@@ -101,7 +101,7 @@ class SensitiveRoutesMissingVerifiedMiddlewareRule(Rule):
                 self.create_finding(
                     title="Sensitive route appears to be missing verified middleware",
                     context=f"{str(route.method or '').upper()} {route.uri}",
-                    file=route.file_path or "routes/web.php",
+                    file=route.file_path,
                     line_start=int(getattr(route, "line_number", 1) or 1),
                     description=(
                         f"Detected sensitive route `{str(route.method or '').upper()} {route.uri}`"
@@ -140,8 +140,8 @@ class SensitiveRoutesMissingVerifiedMiddlewareRule(Rule):
         return findings
 
     def _is_web_route(self, file_path: str) -> bool:
-        low = (file_path or "").replace("\\", "/").lower()
-        return low == "routes/web.php" or low.endswith("/routes/web.php")
+        from rules.laravel._route_helpers import is_web_route_file
+        return is_web_route_file(file_path)
 
     @staticmethod
     def _mw_text(middleware: list[str]) -> str:

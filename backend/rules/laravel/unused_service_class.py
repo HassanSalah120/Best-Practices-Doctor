@@ -106,7 +106,7 @@ class UnusedServiceClassRule(Rule):
         for c in facts.classes:
             p = (c.file_path or "").replace("\\", "/")
             pl = p.lower()
-            if not pl.startswith("app/services/"):
+            if "/services/" not in pl and not str(c.name or "").lower().endswith("service"):
                 continue
 
             fqcn = (c.fqcn or "").lstrip("\\")

@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 
 from rules.base import Rule
+from rules.react._error_boundary_helpers import global_error_boundary_file
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
@@ -35,5 +36,6 @@ class MissingErrorBoundaryGeneralRule(Rule):
     def analyze_regex(self, file_path: str, content: str, facts: Facts, metrics: dict[str, MethodMetrics] | None = None) -> list[Finding]:
         norm=file_path.replace('\\','/').lower()
         if '/tests/' in '/' + norm or 'ErrorBoundary' in content or len(content.splitlines()) < 50: return []
+        if global_error_boundary_file(facts): return []
         if not re.search(r"\b(useQuery|fetch\s*\(|axios\.|DataGrid|Chart|<table)\b", content): return []
-        return [self.create_finding("Large feature tree has no ErrorBoundary", file_path, 1, "This large data-heavy component has no visible ErrorBoundary wrapper.", "Render errors in independent widgets should be contained so the entire page does not crash.", self.fix_suggestion, context=file_path, confidence=0.45, tags=["react", "stability", "error-boundary"])]
+        return [self.create_finding("Large feature tree has no ErrorBoundary", file_path, 1, "This large data-heavy component has no visible ErrorBoundary wrapper.", "Render errors in independent widgets should be contained so the entire page does not crash.", self.fix_suggestion, context=file_path, confidence=0.60, tags=["react", "stability", "error-boundary"])]

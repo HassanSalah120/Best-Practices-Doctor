@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 
+from core.source_masking import mask_comments
 from rules.base import Rule
 from rules.laravel.unsafe_external_redirect import UnsafeExternalRedirectRule
 from rules.laravel.unvalidated_login_redirect import UnvalidatedLoginRedirectRule
@@ -52,10 +53,11 @@ class UnsafeRedirectRule(Rule):
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
+        executable_content = mask_comments(content or "", hash_comments=True)
         findings: list[Finding] = []
-        findings.extend(UnsafeExternalRedirectRule(self.config).analyze_regex(file_path, content, facts, metrics))
-        findings.extend(UnvalidatedLoginRedirectRule(self.config).analyze_regex(file_path, content, facts, metrics))
-        findings.extend(self._detect_self_approving_redirect_allowlist(file_path, content))
+        findings.extend(UnsafeExternalRedirectRule(self.config).analyze_regex(file_path, executable_content, facts, metrics))
+        findings.extend(UnvalidatedLoginRedirectRule(self.config).analyze_regex(file_path, executable_content, facts, metrics))
+        findings.extend(self._detect_self_approving_redirect_allowlist(file_path, executable_content))
 
         normalized: list[Finding] = []
         seen: set[str] = set()

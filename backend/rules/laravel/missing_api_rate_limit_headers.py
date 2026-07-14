@@ -12,7 +12,7 @@ class MissingApiRateLimitHeadersRule(Rule):
     id = "missing-api-rate-limit-headers"
     name = "Missing API Rate Limit Headers"
     description = "Detects throttled API routes where rate-limit response headers may be stripped or absent"
-    category = Category.LARAVEL_BEST_PRACTICE
+    category = Category.OBSERVABILITY
     default_severity = Severity.LOW
     default_classification = FindingClassification.ADVISORY
     type = "ast"
@@ -53,7 +53,7 @@ class MissingApiRateLimitHeadersRule(Rule):
         return [
             self.create_finding(
                 title="Throttled API routes should preserve rate-limit headers",
-                file=route.file_path or "routes/api.php",
+                file=route.file_path,
                 line_start=int(getattr(route, "line_number", 1) or 1),
                 context="api:rate-limit-headers",
                 description=(
@@ -64,17 +64,21 @@ class MissingApiRateLimitHeadersRule(Rule):
                     "API clients need quota and retry headers to back off before repeated 429 responses."
                 ),
                 suggested_fix=self.fix_suggestion,
-                confidence=0.45,
+                confidence=0.60,
                 tags=["laravel", "api", "rate-limit"],
                 evidence_signals=["api_throttle_middleware=true", "rate_limit_header_signal=false"],
             ),
         ]
 
     def _is_api_route(self, route: object) -> bool:
+        from rules.laravel._route_helpers import is_api_route_file
         uri = str(getattr(route, "uri", "") or "").strip("/").lower()
-        path = str(getattr(route, "file_path", "") or "").replace("\\", "/").lower()
-        middleware = " ".join(str(mw or "").lower() for mw in getattr(route, "middleware", []) or [])
-        return uri.startswith("api/") or "routes/api.php" in path or "api" in middleware
+        if uri.startswith("api/"):
+            return True
+        if "api" in " ".join(str(mw or "").lower() for mw in getattr(route, "middleware", []) or []):
+            return True
+        fp = str(getattr(route, "file_path", "") or "").replace("\\", "/").lower()
+        return is_api_route_file(fp)
 
     def _has_rate_limit_header_signal(self, facts: Facts) -> bool:
         root = Path(getattr(facts, "project_path", "") or ".")

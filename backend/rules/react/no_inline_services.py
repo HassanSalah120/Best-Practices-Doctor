@@ -53,7 +53,7 @@ class NoInlineServicesRule(Rule):
     id = "no-inline-services"
     name = "No Inline Service/Helper Definitions"
     description = "Detects helper functions or service classes defined inside UI component files"
-    category = Category.MAINTAINABILITY
+    category = Category.REACT_BEST_PRACTICE
     default_severity = Severity.MEDIUM
     # AST path (analyze) is primary; regex path is fallback only.
     type = "ast"

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 
+from core.source_masking import mask_comments_and_strings
 from rules.base import Rule
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
@@ -18,7 +19,7 @@ class SensitiveDataLoggingRule(Rule):
     id = "sensitive-data-logging"
     name = "Sensitive Data Logging Detection"
     description = "Detects logging of passwords, tokens, and other sensitive data"
-    category = Category.SECURITY
+    category = Category.OBSERVABILITY
     default_severity = Severity.HIGH
     type = "regex"
     applicable_project_types = [
@@ -33,8 +34,7 @@ class SensitiveDataLoggingRule(Rule):
     # Logging methods
     _LOG_PATTERNS = [
         re.compile(r"\bLog::(info|debug|warning|error|notice|critical|alert|emergency)\s*\(", re.IGNORECASE),
-        re.compile(r"\blogger\s*\(\s*['\"]", re.IGNORECASE),
-        re.compile(r"\blogger\s*\(\s*\$", re.IGNORECASE),
+        re.compile(r"\blogger\s*\(", re.IGNORECASE),
         re.compile(r"\binfo\s*\(", re.IGNORECASE),
         re.compile(r"\bdebug\s*\(", re.IGNORECASE),
         re.compile(r"\bdump\s*\(", re.IGNORECASE),
@@ -111,16 +111,20 @@ class SensitiveDataLoggingRule(Rule):
             return findings
 
         lines = content.split("\n")
+        executable_lines = mask_comments_and_strings(content, hash_comments=True).split("\n")
 
         for i, line in enumerate(lines, 1):
-            # Skip comments
-            stripped = line.strip()
-            if stripped.startswith("//") or stripped.startswith("#") or stripped.startswith("*"):
+            executable_line = executable_lines[i - 1] if i - 1 < len(executable_lines) else ""
+
+            # Require the logging call itself to be executable code. Sensitive
+            # field names are then inspected in the original arguments.
+            has_logging = any(pattern.search(executable_line) for pattern in self._LOG_PATTERNS)
+            if not has_logging:
                 continue
 
-            # Check if this line has logging
-            has_logging = any(pattern.search(line) for pattern in self._LOG_PATTERNS)
-            if not has_logging:
+            # Skip lines where sensitive data goes into hasher (not logging)
+            lowered_line = line.lower()
+            if any(skip in lowered_line for skip in ["hash::make(", "hash::check("]):
                 continue
 
             # Check if logging sensitive data

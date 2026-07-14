@@ -99,11 +99,14 @@ def test_hardcoded_user_facing_strings_ignores_short_single_word_labels():
     assert findings == []
 
 
-def test_hardcoded_user_facing_strings_finds_issues_regardless_of_i18n_context():
+def test_hardcoded_user_facing_strings_requires_i18n_context_by_default():
     rule = HardcodedUserFacingStringsRule(RuleConfig())
     facts = Facts(project_path="x")
 
-    # Rule now runs regardless of i18n detection
+    findings = rule.analyze_regex("resources/js/Pages/Patient.tsx", "<h1>Patient Details</h1>", facts)
+    assert findings == []
+
+    facts.project_context.has_i18n = True
     findings = rule.analyze_regex("resources/js/Pages/Patient.tsx", "<h1>Patient Details</h1>", facts)
     assert len(findings) == 1
     assert findings[0].rule_id == "hardcoded-user-facing-strings"

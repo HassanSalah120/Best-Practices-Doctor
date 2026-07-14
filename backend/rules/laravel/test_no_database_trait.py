@@ -14,9 +14,10 @@ class TestNoDatabaseTraitRule(Rule):
     id = "test-no-database-trait"
     name = "Test Missing Database Isolation Trait"
     description = "Detects database-touching tests without RefreshDatabase or transaction traits"
-    category = Category.MAINTAINABILITY
+    category = Category.DATA_INTEGRITY
     default_severity = Severity.HIGH
     type = "regex"
+    include_test_files = True
     severity_weight = 8
     confidence = "medium"
     fix_suggestion = "Add use RefreshDatabase or use DatabaseTransactions to prevent test pollution between runs."

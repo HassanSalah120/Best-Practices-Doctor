@@ -16,7 +16,7 @@ class MissingNullGuardAfterRelationLoadRule(Rule):
     id = "missing-null-guard-after-relation-load"
     name = "Missing Null Guard After Relation Load"
     description = "Detects relation loads followed by relation usage without a null guard"
-    category = Category.VALIDATION
+    category = Category.DATA_INTEGRITY
     default_severity = Severity.MEDIUM
     type = "regex"
     regex_file_extensions = [".php"]

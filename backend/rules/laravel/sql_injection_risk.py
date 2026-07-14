@@ -15,7 +15,10 @@ from schemas.metrics import MethodMetrics
 
 
 class SqlInjectionRiskRule(Rule):
-    id = "sql-injection-risk"
+    # Internal compatibility implementation. The canonical runtime rule is the
+    # framework-neutral PHP AST/facts implementation registered under
+    # ``sql-injection-risk``.
+    id = "laravel-sql-injection-risk"
     name = "SQL Injection Risk Detection"
     description = "Detects raw SQL queries with potential variable interpolation"
     category = Category.SECURITY
@@ -50,7 +53,6 @@ class SqlInjectionRiskRule(Rule):
     _VARIABLE_PATTERNS = [
         re.compile(r"\$[a-zA-Z_][a-zA-Z0-9_]*"),  # $variable
         re.compile(r"\{?\s*\$[a-zA-Z_][a-zA-Z0-9_]*\s*\}?"),  # {$var} or $var
-        re.compile(r"->"),  # Property access like $request->id
     ]
 
     # Safe patterns (parameterized)

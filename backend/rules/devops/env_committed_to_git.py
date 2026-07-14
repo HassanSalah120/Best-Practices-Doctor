@@ -12,7 +12,7 @@ class EnvCommittedToGitRule(Rule):
     id = "env-committed-to-git"
     name = "Env Committed To Git Risk"
     description = "Detects projects whose .gitignore does not explicitly ignore the real .env file"
-    category = Category.SECURITY
+    category = Category.OPERATIONS
     default_severity = Severity.CRITICAL
     default_classification = FindingClassification.RISK
     type = "ast"

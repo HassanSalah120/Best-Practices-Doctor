@@ -22,6 +22,7 @@ from .raw_sql import RawSqlRule
 from .sql_injection_risk import SqlInjectionRiskRule
 from .static_helper_abuse import StaticHelperAbuseRule
 from .string_concat_in_loop import StringConcatInLoopRule
+from .test_coverage_ratio import TestCoverageRatioRule
 from .tests_missing import TestsMissingRule
 from .too_many_dependencies import TooManyDependenciesRule
 from .unsafe_eval import UnsafeEvalRule
@@ -59,4 +60,5 @@ __all__ = [
     "BulkInsertMissingRule",
     "MissingReturnTypeNullableRule",
     "CatchTooBroadRule",
+    "TestCoverageRatioRule",
 ]

@@ -3,6 +3,8 @@ Too Many Dependencies Rule
 
 Flags constructors with too many injected dependencies (tight coupling / SRP smell).
 """
+import re
+
 from core.project_recommendations import (
     enabled_capabilities,
     enabled_team_standards,
@@ -90,6 +92,20 @@ class TooManyDependenciesRule(Rule):
         "action",
         "command",
     )
+    _NON_DEPENDENCY_TYPES = {
+        "array",
+        "bool",
+        "callable",
+        "false",
+        "float",
+        "int",
+        "iterable",
+        "mixed",
+        "null",
+        "object",
+        "string",
+        "true",
+    }
 
     def analyze(
         self,
@@ -128,7 +144,8 @@ class TooManyDependenciesRule(Rule):
             if self._is_bounded_service_facade(m, architecture_profile):
                 continue
 
-            dep_count = len(m.parameters or [])
+            dependency_params = self._dependency_parameters(m.parameters or [])
+            dep_count = len(dependency_params)
             if dep_count <= max_deps:
                 continue
 
@@ -141,6 +158,7 @@ class TooManyDependenciesRule(Rule):
                 business_context=business_context,
                 capabilities=capabilities,
                 team_standards=team_standards,
+                dependency_params=dependency_params,
             )
             ctx = m.method_fqn
             confidence = min(0.96, 0.58 + (max(0, dep_count - max_deps) * 0.08))
@@ -188,10 +206,11 @@ class TooManyDependenciesRule(Rule):
         business_context: str = "unknown",
         capabilities: set[str] | None = None,
         team_standards: set[str] | None = None,
+        dependency_params: list[str] | None = None,
     ) -> dict[str, object]:
         capabilities = set(capabilities or set())
         team_standards = set(team_standards or set())
-        params = [str(param or "") for param in (method.parameters or [])]
+        params = list(dependency_params) if dependency_params is not None else self._dependency_parameters(method.parameters or [])
         params_low = [param.lower() for param in params]
         service_like = sum(
             1 for param in params_low if any(marker in param for marker in self._SERVICE_LIKE_PARAM_MARKERS)
@@ -209,6 +228,7 @@ class TooManyDependenciesRule(Rule):
             "capabilities": sorted(capabilities),
             "team_standards": sorted(team_standards),
             "dependency_count": len(params),
+            "constructor_parameter_count": len(method.parameters or []),
             "service_like_dependencies": service_like,
             "controller_orchestrator_shape": controller_orchestrator_shape,
             "service_orchestrator_shape": service_orchestrator_shape,
@@ -223,10 +243,40 @@ class TooManyDependenciesRule(Rule):
                 f"capabilities={','.join(sorted(capabilities)) or 'none'}",
                 f"team_standards={','.join(sorted(team_standards)) or 'none'}",
                 f"deps={len(params)}",
+                f"constructor_params={len(method.parameters or [])}",
                 f"service_like={service_like}",
                 f"bounded_service_facade={int(bounded_service_facade)}",
             ],
         }
+
+    @classmethod
+    def _dependency_parameters(cls, parameters: list[str]) -> list[str]:
+        """Return only constructor parameters that can be object collaborators.
+
+        Constructor arity is not dependency count: promoted scalar fields are the
+        normal shape of immutable DTOs and value objects. Untyped parameters are
+        also ambiguous, so this advisory intentionally prefers a false negative
+        over labelling data fields as injected services.
+        """
+        dependencies: list[str] = []
+        for raw in parameters or []:
+            text = str(raw or "").strip()
+            if not text:
+                continue
+            text = re.sub(r"^(?:(?:public|protected|private|readonly)\s+)+", "", text, flags=re.IGNORECASE)
+            match = re.match(r"(?P<type>[^\s$=]+)\s+\$[A-Za-z_]\w*", text)
+            if not match:
+                continue
+            union = match.group("type").lstrip("?")
+            types = [part.strip().lstrip("?\\") for part in union.split("|")]
+            object_types = [
+                part
+                for part in types
+                if part and part.lower() not in cls._NON_DEPENDENCY_TYPES
+            ]
+            if object_types:
+                dependencies.append(raw)
+        return dependencies
 
     def _calibrated_severity(self, business_context: str, capabilities: set[str], team_standards: set[str]) -> Severity:
         if business_context in {"realtime_game_control_platform", "saas_platform"}:

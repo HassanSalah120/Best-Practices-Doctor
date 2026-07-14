@@ -626,8 +626,8 @@ class AgentRulesGenerator:
             "uses_inertia": uses_inertia,
             "has_react": has_react,
             "is_api_only": is_api_only,
-            "uses_service_layer": (project_root / "app" / "Services").exists() or any(path.startswith("app/services/") for path in lower_paths),
-            "uses_repository_pattern": (project_root / "app" / "Repositories").exists() or any(path.startswith("app/repositories/") for path in lower_paths),
+            "uses_service_layer": (project_root / "app" / "Services").exists() or (project_root / "src" / "Services").exists() or any(path.startswith("app/services/") or path.startswith("src/services/") for path in lower_paths),
+            "uses_repository_pattern": (project_root / "app" / "Repositories").exists() or (project_root / "src" / "Repositories").exists() or any(path.startswith("app/repositories/") or path.startswith("src/repositories/") for path in lower_paths),
         }
 
     def _all_report_paths(self, report: ScanReport) -> list[str]:

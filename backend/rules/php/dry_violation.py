@@ -132,6 +132,8 @@ class DryViolationRule(Rule):
                 continue
             if self._is_low_signal_data_mapping_duplicate(duplicate, unique_files):
                 continue
+            if self._is_low_signal_controller_boundary_duplicate(duplicate, unique_files):
+                continue
             if self._is_action_extraction_duplicate(duplicate, unique_files):
                 continue
 
@@ -387,6 +389,32 @@ class DryViolationRule(Rule):
 
         snippet = str(getattr(duplicate, "code_snippet", "") or "").lower()
         return not any(token in snippet for token in ("route::", "schema::", "view(", "migration", "create table"))
+
+    def _is_low_signal_controller_boundary_duplicate(
+        self,
+        duplicate: DuplicateBlock,
+        unique_files: set[str],
+    ) -> bool:
+        """Ignore short, conventional HTTP boundary skeletons.
+
+        Repeating authorize/validate/delegate in separate endpoints is often
+        clearer than hiding the request contract behind a generic helper. A
+        larger block or one containing loops/branching remains actionable.
+        """
+        if not unique_files or not all(
+            "/http/controllers/" in f"/{self._normalize_path(path).lower()}"
+            for path in unique_files
+        ):
+            return False
+        if int(getattr(duplicate, "token_count", 0) or 0) > 100:
+            return False
+        snippet = str(getattr(duplicate, "code_snippet", "") or "").lower()
+        if any(token in snippet for token in self._LOW_SIGNAL_DATA_MAPPING_CONTROL_FLOW):
+            return False
+        has_authorization = "authorize(" in snippet or "abort_unless(" in snippet or "gate::" in snippet
+        has_validation = "validate(" in snippet or "validated(" in snippet
+        has_delegation = "->service" in snippet or "$this->" in snippet
+        return has_authorization and has_validation and has_delegation
 
     def _create_finding(self, duplicate: DuplicateBlock) -> Finding:
         """Create finding for duplicate block."""

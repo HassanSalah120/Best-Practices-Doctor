@@ -718,12 +718,20 @@ def test_react_seo_rules_present_in_profiles():
         "page-indexability-conflict",
     }
     strict_only_advisory_ids = {"usememo-overuse", "usecallback-overuse"}
+    not_startup_ids = {
+        "duplicate-key-source",
+        "missing-loading-state",
+        "missing-empty-state",
+        "ref-used-as-reactive-state",
+    }
     backend_root = Path(__file__).resolve().parents[1]
     for profile in ("startup", "balanced", "strict"):
         ruleset = Ruleset.load(backend_root / "rulesets" / f"{profile}.yaml")
         for rule_id in required_ids:
             assert rule_id in ruleset.rules, f"{rule_id} missing in {profile}"
             if rule_id in strict_only_advisory_ids and profile != "strict":
+                assert ruleset.rules[rule_id].enabled is False
+            elif rule_id in not_startup_ids and profile == "startup":
                 assert ruleset.rules[rule_id].enabled is False
             else:
                 assert ruleset.rules[rule_id].enabled is True

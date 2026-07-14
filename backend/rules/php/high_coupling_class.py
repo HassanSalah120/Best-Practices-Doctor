@@ -40,6 +40,8 @@ class HighCouplingClassRule(Rule):
     analysis_cost = 'medium'
     auto_fixable = False
     tags = {'domain': 'php', 'type': 'architecture', 'concern': 'high-coupling-class'}
+    _PASSIVE_NAMESPACE_SEGMENTS = {"datatransfer", "dto", "dtos", "enums", "exceptions", "valueobjects"}
+    _PASSIVE_CLASS_SUFFIXES = ("Data", "Dto", "Payload", "ValueObject")
 
     def analyze(
         self,
@@ -60,7 +62,8 @@ class HighCouplingClassRule(Rule):
             if "ServiceProvider" in n or n.startswith("App\\Providers"):
                 continue
 
-            deps = sorted(d for d in g.outgoing.get(n, set()) if d in app_nodes)
+            raw_deps = sorted(d for d in g.outgoing.get(n, set()) if d in app_nodes)
+            deps = [d for d in raw_deps if not self._is_passive_dependency(d)]
             if len(deps) <= max_outgoing:
                 continue
 
@@ -77,7 +80,7 @@ class HighCouplingClassRule(Rule):
                     line_start=line_start,
                     line_end=c.line_end if c else None,
                     description=(
-                        f"Class `{n}` has {len(deps)} outgoing dependencies to other App\\* classes "
+                        f"Class `{n}` has {len(deps)} behavioral outgoing dependencies to other App\\* classes "
                         f"(threshold: {max_outgoing}).\n\nDependencies:\n{dep_preview}"
                     ),
                     why_it_matters=(
@@ -94,7 +97,27 @@ class HighCouplingClassRule(Rule):
                     related_methods=deps,  # evidence: dependencies
                     tags=["architecture", "coupling"],
                     confidence=0.6,
+                    evidence_signals=[
+                        f"behavioral_dependencies={len(deps)}",
+                        f"raw_dependencies={len(raw_deps)}",
+                        f"passive_data_dependencies={len(raw_deps) - len(deps)}",
+                    ],
                 ),
             )
 
         return findings
+
+    @classmethod
+    def _is_passive_dependency(cls, fqcn: str) -> bool:
+        """Data contracts and exception types do not represent collaboration.
+
+        They still appear in the dependency graph, but counting them exactly
+        like services, models, or gateways systematically penalizes builders
+        and mapping boundaries.
+        """
+        parts = [part for part in str(fqcn or "").strip("\\").split("\\") if part]
+        if not parts:
+            return False
+        if any(part.lower() in cls._PASSIVE_NAMESPACE_SEGMENTS for part in parts[:-1]):
+            return True
+        return parts[-1].endswith(cls._PASSIVE_CLASS_SUFFIXES)

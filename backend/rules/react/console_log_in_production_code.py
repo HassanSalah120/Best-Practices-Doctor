@@ -45,11 +45,13 @@ class ConsoleLogInProductionCodeRule(Rule):
         if self._is_ignored_file(file_path, content or ""):
             return []
         findings: list[Finding] = []
-        for match in re.finditer(r"\bconsole\.(?:log|warn|error|info|debug)\s*\(", content or ""):
+        source = content or ""
+        code_only = self._mask_comments_and_strings(source)
+        for match in re.finditer(r"\bconsole\.(?:log|warn|error|info|debug)\s*\(", code_only):
             method = match.group(0).split(".")[1].split("(")[0]
-            if method == "error" and self._is_error_boundary_logging(content or "", match.start()):
+            if method == "error" and self._is_error_boundary_logging(source, match.start()):
                 continue
-            line = (content or "").count("\n", 0, match.start()) + 1
+            line = source.count("\n", 0, match.start()) + 1
             findings.append(
                 self.create_finding(
                     title="Console statement left in production source",
@@ -65,6 +67,71 @@ class ConsoleLogInProductionCodeRule(Rule):
                 ),
             )
         return findings
+
+    @staticmethod
+    def _mask_comments_and_strings(content: str) -> str:
+        """Blank JS comments and literals while preserving offsets/newlines."""
+        chars = list(content)
+        state = "code"
+        quote = ""
+        escaped = False
+        i = 0
+        while i < len(chars):
+            ch = chars[i]
+            nxt = chars[i + 1] if i + 1 < len(chars) else ""
+            if state == "code":
+                if ch == "/" and nxt == "/":
+                    chars[i] = chars[i + 1] = " "
+                    state = "line_comment"
+                    i += 2
+                    continue
+                if ch == "/" and nxt == "*":
+                    chars[i] = chars[i + 1] = " "
+                    state = "block_comment"
+                    i += 2
+                    continue
+                if ch in {"'", '"', "`"}:
+                    quote = ch
+                    chars[i] = " "
+                    state = "string"
+                i += 1
+                continue
+            if state == "line_comment":
+                if ch == "\n":
+                    state = "code"
+                else:
+                    chars[i] = " "
+                i += 1
+                continue
+            if state == "block_comment":
+                if ch == "*" and nxt == "/":
+                    chars[i] = chars[i + 1] = " "
+                    state = "code"
+                    i += 2
+                    continue
+                if ch != "\n":
+                    chars[i] = " "
+                i += 1
+                continue
+            if escaped:
+                if ch != "\n":
+                    chars[i] = " "
+                escaped = False
+                i += 1
+                continue
+            if ch == "\\":
+                chars[i] = " "
+                escaped = True
+                i += 1
+                continue
+            if ch == quote:
+                chars[i] = " "
+                state = "code"
+                quote = ""
+            elif ch != "\n":
+                chars[i] = " "
+            i += 1
+        return "".join(chars)
 
     def _is_ignored_file(self, file_path: str, content: str) -> bool:
         norm = (file_path or "").replace("\\", "/").lower()

@@ -24,7 +24,7 @@ class ComposerDependencyBelowSecureVersionRule(Rule):
     id = "composer-dependency-below-secure-version"
     name = "Composer Dependency Below Secure Version"
     description = "Detects Composer dependencies pinned below curated secure minimum versions"
-    category = Category.SECURITY
+    category = Category.COMPATIBILITY
     default_severity = Severity.HIGH
     type = "regex"
     regex_file_extensions = [".json", ".lock"]

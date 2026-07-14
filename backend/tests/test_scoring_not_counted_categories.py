@@ -38,22 +38,22 @@ def test_explicit_weights_missing_categories_get_weight_0_and_na_score():
     ruleset = Ruleset(scoring=ScoringConfig(weights={"architecture": 1.0}))
     scoring = ScoringEngine(ruleset)
 
-    res = scoring.calculate([_mk_finding("long-method", Category.SRP)], file_count=10)
-    cs = res.category_scores["srp"]
+    res = scoring.calculate([_mk_finding("long-method", Category.MAINTAINABILITY)], file_count=10)
+    cs = res.category_scores["maintainability"]
 
     assert cs.weight == 0
     assert cs.has_weight is False
     assert cs.score is None  # N/A
 
 
-def test_srp_is_a_real_category_and_scores_when_weighted():
-    assert Category.SRP.value == "srp"
+def test_not_configured_category_is_not_counted_with_default_weights():
+    assert Category.MAINTAINABILITY.value == "maintainability"
 
-    ruleset = Ruleset(scoring=ScoringConfig(weights={"srp": 1.0}))
+    ruleset = Ruleset(scoring=ScoringConfig(weights={}))
     scoring = ScoringEngine(ruleset)
 
-    res = scoring.calculate([_mk_finding("long-method", Category.SRP)], file_count=10)
-    cs = res.category_scores["srp"]
+    res = scoring.calculate([_mk_finding("long-method", Category.MAINTAINABILITY)], file_count=10)
+    cs = res.category_scores["maintainability"]
 
     assert cs.weight > 0
     assert cs.has_weight is True

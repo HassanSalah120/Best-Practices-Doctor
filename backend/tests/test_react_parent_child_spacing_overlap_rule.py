@@ -75,7 +75,9 @@ export function Footer() {
 
 
 def test_spacing_overlap_invalid_same_scope_direct_parent_child():
-    rule = ReactParentChildSpacingOverlapRule(RuleConfig())
+    rule = ReactParentChildSpacingOverlapRule(
+        RuleConfig(thresholds={"enforce_single_spacing_owner": True}),
+    )
     facts = Facts(project_path=".")
     content = """
 export function Footer() {
@@ -101,6 +103,7 @@ def test_spacing_overlap_invalid_respects_max_findings_per_file_cap():
                 "max_findings_per_file": 1,
                 "require_same_value": True,
                 "allowed_responsive_scopes": ["base", "sm", "md", "lg", "xl", "2xl"],
+                "enforce_single_spacing_owner": True,
             },
         ),
     )

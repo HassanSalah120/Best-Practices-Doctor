@@ -124,6 +124,28 @@ from .realtime_advisory import (
 from .registration_missing_registered_event import RegistrationMissingRegisteredEventRule
 from .repository_suggestion import RepositorySuggestionRule
 from .sanctum_token_scope_missing import SanctumTokenScopeMissingRule
+# Inventory/dataflow rules
+from .missing_inventory_lock_on_decrement import MissingInventoryLockOnDecrementRule
+from .negative_stock_not_guarded import NegativeStockNotGuardedRule
+
+# Inertia architecture rules
+from .inertia_api_route_returns_inertia import InertiaApiRouteReturnsInertiaRule
+from .inertia_conditional_wants_json import InertiaConditionalWantsJsonRule
+from .inertia_get_with_side_effects import InertiaGetWithSideEffectsRule
+from .inertia_hybrid_controller import InertiaHybridControllerRule
+from .inertia_post_returns_render import InertiaPostReturnsRenderRule
+from .inertia_route_returns_json_response import InertiaRouteReturnsJsonResponseRule
+from .inertia_session_flash_on_api import InertiaSessionFlashOnApiRule
+
+# Other standalone rules
+from .composite_index_on_tenant_models import CompositeIndexOnTenantModelsRule
+from .controller_inheritance_inconsistency import ControllerInheritanceInconsistencyRule
+from .malformed_authorization_call import MalformedAuthorizationCallRule
+from .obsolete_x_xss_header import ObsoleteXXssHeaderRule
+from .phi_encryption_missing import PhiEncryptionMissingRule
+from .tenant_global_scope_missing import TenantGlobalScopeMissingRule
+
+from .sanctum_token_scope_missing import SanctumTokenScopeMissingRule
 from .security_headers_baseline_missing import SecurityHeadersBaselineMissingRule
 from .sensitive_data_logging import SensitiveDataLoggingRule
 from .sensitive_model_appends_risk import SensitiveModelAppendsRiskRule
@@ -313,4 +335,19 @@ __all__ = [
     "WebSocketHandlerIntegrationTestsMissingRule",
     "RealtimeConfigOutsideLaravelConfigRule",
     "PublicAnonymousMutationAbuseReadinessRule",
+    "MissingInventoryLockOnDecrementRule",
+    "NegativeStockNotGuardedRule",
+    "InertiaApiRouteReturnsInertiaRule",
+    "InertiaConditionalWantsJsonRule",
+    "InertiaGetWithSideEffectsRule",
+    "InertiaHybridControllerRule",
+    "InertiaPostReturnsRenderRule",
+    "InertiaRouteReturnsJsonResponseRule",
+    "InertiaSessionFlashOnApiRule",
+    "CompositeIndexOnTenantModelsRule",
+    "ControllerInheritanceInconsistencyRule",
+    "MalformedAuthorizationCallRule",
+    "ObsoleteXXssHeaderRule",
+    "PhiEncryptionMissingRule",
+    "TenantGlobalScopeMissingRule",
 ]

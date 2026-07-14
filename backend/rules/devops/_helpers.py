@@ -77,4 +77,7 @@ def is_laravel_project(facts: Facts) -> bool:
     if (root / "artisan").exists():
         return True
     files = {str(path or "").replace("\\", "/").lower() for path in (getattr(facts, "files", []) or [])}
-    return bool("routes/web.php" in files or "routes/api.php" in files or any(path.startswith("app/http/") for path in files))
+    return bool(
+        any("/routes/" in path for path in files)
+        or any("/http/" in path or "/http/controllers/" in path for path in files)
+    )

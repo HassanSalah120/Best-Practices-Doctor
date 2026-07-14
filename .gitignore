@@ -33,8 +33,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -91,7 +91,6 @@ tmp/
 
 # Rust / Tauri
 target/
-Cargo.lock
 *.rs.bk
 tauri/gen/
 
@@ -101,6 +100,15 @@ tauri/gen/
 .bpdoctor/
 appdata/
 *.discovery.json
+
+# Local analyzer calibration and AI-agent working notes
+.bpd-suppressions.json
+BPD_FALSE_POSITIVE_EVIDENCE.md
+CLAUDE.md
+backend/scan_*_request.json
+backend/debug_facts.py
+docs/PROJECT_CONTEXT_FULL.md
+docs/SCANNER_FALSE_POSITIVES.md
 
 # Backend build artifacts (PyInstaller)
 backend/build/
@@ -202,4 +210,3 @@ storybook-static/
 
 # TypeScript incremental builds
 *.tsbuildinfo
-

@@ -22,7 +22,12 @@ class ErrorPagesMissingRule(Rule):
     category = Category.LARAVEL_BEST_PRACTICE
     default_severity = Severity.MEDIUM
     default_classification = FindingClassification.ADVISORY
-    applicable_project_types = []
+    applicable_project_types = [
+        "laravel_blade",
+        "laravel_inertia_react",
+        "laravel_inertia_vue",
+        "laravel_livewire",
+    ]
     severity_weight = 0
     confidence = 'medium'
     fix_suggestion = 'Move the missing laravel error pages responsibility into the appropriate service, action, repository, or boundary object. Keep controllers and UI components focused on orchestration only.'
@@ -80,7 +85,7 @@ class ErrorPagesMissingRule(Rule):
                 self.create_finding(
                     title="Missing core 4xx/5xx error pages",
                     context=surface_context,
-                    file="resources/js/pages/errors" if inertia_mode else "resources/views/errors",
+                    file="",
                     line_start=1,
                     description=(
                         "Core Laravel error pages are missing: "
@@ -125,7 +130,7 @@ class ErrorPagesMissingRule(Rule):
                 self.create_finding(
                     title="Recommended error pages are missing",
                     context=surface_context,
-                    file="resources/js/pages/errors" if inertia_mode else "resources/views/errors",
+                    file="",
                     line_start=1,
                     description=(
                         "Recommended error pages are missing: "
@@ -174,7 +179,13 @@ class ErrorPagesMissingRule(Rule):
             f"resources/views/errors/{normalized}.php",
             f"resources/views/errors/{normalized}/index.blade.php",
         }
-        return any(candidate in files for candidate in candidates)
+        if any(candidate in files for candidate in candidates):
+            return True
+        return any(
+            path.endswith(f"/{normalized}.blade.php")
+            or path.endswith(f"/{normalized}/index.blade.php")
+            for path in files
+        )
 
     def _has_inertia_error_page(self, files: set[str], code: str) -> bool:
         normalized = str(code).strip()
@@ -218,7 +229,18 @@ class ErrorPagesMissingRule(Rule):
             "resources/js/components/errors/errorpage.tsx",
             "resources/js/components/errors/errorpage.jsx",
         }
-        return any(candidate in files for candidate in generic_candidates)
+        if any(candidate in files for candidate in generic_candidates):
+            return True
+        extensions = (".tsx", ".jsx", ".ts", ".js")
+        stems = {normalized, f"error{normalized}", f"error-{normalized}"}
+        for path in files:
+            if not path.endswith(extensions):
+                continue
+            filename = PurePosixPath(path).stem.lower()
+            parent = PurePosixPath(path).parent.name.lower()
+            if filename in stems or (filename == "index" and parent in stems | {"errors"}):
+                return True
+        return False
 
     def _has_spa_not_found_route(self, files: set[str], facts: Facts) -> bool:
         not_found_symbols = self._not_found_component_symbols(files)

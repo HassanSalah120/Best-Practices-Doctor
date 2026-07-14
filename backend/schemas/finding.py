@@ -19,7 +19,6 @@ class Severity(StrEnum):
 class Category(StrEnum):
     """Issue categories."""
     DRY = "dry"
-    SRP = "srp"  # Single Responsibility Principle
     VALIDATION = "validation"
     ARCHITECTURE = "architecture"
     PERFORMANCE = "performance"
@@ -29,6 +28,12 @@ class Category(StrEnum):
     REACT_BEST_PRACTICE = "react_best_practice"
     COMPLEXITY = "complexity"
     MAINTAINABILITY = "maintainability"
+    DATA_INTEGRITY = "data_integrity"
+    OBSERVABILITY = "observability"
+    OPERATIONS = "operations"
+    RELIABILITY = "reliability"
+    SEO = "seo"
+    COMPATIBILITY = "compatibility"
 
 
 class FindingClassification(StrEnum):

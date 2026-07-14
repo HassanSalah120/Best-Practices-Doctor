@@ -32,7 +32,7 @@ def test_low_info_penalty_capped_once_per_file_per_rule():
                 rule_id="long-method",
                 file="app/Foo.php",
                 severity=Severity.LOW,
-                category=Category.SRP,
+                category=Category.MAINTAINABILITY,
                 score_impact=1 + (i % 10),
             ),
         )
@@ -43,16 +43,16 @@ def test_low_info_penalty_capped_once_per_file_per_rule():
                 rule_id="long-method",
                 file="app/Bar.php",
                 severity=Severity.LOW,
-                category=Category.SRP,
+                category=Category.MAINTAINABILITY,
                 score_impact=5,
             ),
         )
 
     result = scorer.calculate(findings=findings, file_count=2)
-    srp = result.category_scores[Category.SRP.value]
+    mnt = result.category_scores[Category.MAINTAINABILITY.value]
 
-    # With capping, SRP should remain far above 30% despite many findings.
-    assert srp.raw_score > 30.0
+    # With capping, MAINTAINABILITY should remain far above 30% despite many findings.
+    assert mnt.raw_score > 30.0
 
 
 def test_medium_and_higher_not_capped():

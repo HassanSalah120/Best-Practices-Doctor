@@ -86,7 +86,7 @@ class ReactParentChildSpacingOverlapRule(Rule):
     applies_to = ['react-component']
     references = []
     related_rules = []
-    false_positive_notes = ''
+    false_positive_notes = 'Opt-in team convention. Parent and child padding normally operate at different layout boundaries and are not inherently redundant.'
     detection_type = 'ast'
     analysis_cost = 'medium'
     auto_fixable = False
@@ -118,6 +118,8 @@ class ReactParentChildSpacingOverlapRule(Rule):
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
         text = content or ""
+        if not bool(self.get_threshold("enforce_single_spacing_owner", False)):
+            return []
         if "className" not in text and "class=" not in text:
             return []
 
