@@ -90,7 +90,7 @@ describe("AgentRulesPanel", () => {
       expect(screen.getByText(/AI Agent Rules/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Download AGENTS.md" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Download AGENTS.md" }));
 
     await waitFor(() => {
       expect(downloadedNames).toContain("bpd-agent-rules__AGENTS.md");
@@ -120,7 +120,7 @@ describe("AgentRulesPanel", () => {
       expect(screen.getByText(/AI Agent Rules/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Download ZIP/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /Download ZIP/i }));
 
     await waitFor(() => {
       expect(downloadAgentRulesZipMock).toHaveBeenCalledWith("scan_1");
