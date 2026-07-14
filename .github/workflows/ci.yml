@@ -14,32 +14,46 @@ concurrency:
 
 jobs:
   macos-launcher:
-    name: macOS launcher and Rust check
+    name: macOS app and DMG
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            tauri/package-lock.json
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
       - name: Validate macOS scripts
         run: |
           bash -n scripts/macos/setup.sh
           bash -n scripts/macos/start.sh
           bash -n scripts/macos/build.sh
           node --check scripts/platform-runner.mjs
-      - name: Prepare macOS backend
-        run: bash scripts/macos/setup.sh --skip-node
+      - name: Prepare macOS application
+        run: bash scripts/macos/setup.sh
       - name: Validate macOS startup check
         env:
           BPD_CHECK_ONLY: "1"
           BPD_SKIP_SETUP: "1"
         run: node scripts/platform-runner.mjs start --check --skip-setup
-      - name: Check Tauri Rust application on macOS
-        run: cargo check --manifest-path tauri/src-tauri/Cargo.toml
+      - name: Build macOS app and DMG
+        run: npm run build:mac
+      - name: Upload macOS bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: best-practices-doctor-macos-arm64
+          if-no-files-found: error
+          path: |
+            tauri/src-tauri/target/*/release/bundle/macos/*.app
+            tauri/src-tauri/target/*/release/bundle/dmg/*.dmg
 
   backend:
     name: Backend tests
