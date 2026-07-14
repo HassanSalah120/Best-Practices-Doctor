@@ -50,6 +50,13 @@ from schemas.project_type import ProjectInfo
 
 logger = logging.getLogger(__name__)
 
+# The Python Tree-sitter bindings expose native grammar modules. Although each
+# worker owns its parser, some grammar/binding combinations can segfault when
+# parser construction, parsing, and query traversal overlap across threads
+# (observed on Linux/Python 3.12). Keep filesystem and regex work parallel while
+# serializing the native AST section across builders and worker threads.
+_TREE_SITTER_NATIVE_LOCK = threading.RLock()
+
 
 @dataclass
 class BuildProgress:
@@ -512,19 +519,20 @@ class FactsBuilder:
                     with self._lock:
                         self._facts.env_usages.extend(env_hits)
 
-            # Lazy init parser
-            self._init_treesitter()
-
             parsed = False
             ts_had_errors = False
 
             # Tree-sitter is the primary parser.
-            if self._local.php_parser:
-                try:
-                    ts_had_errors = self._parse_php_treesitter(rel_path, content, file_hash, rel_path, True)
-                    parsed = True
-                except Exception as e:
-                    logger.error(f"Tree-sitter parsing failed for {rel_path}: {e}")
+            with _TREE_SITTER_NATIVE_LOCK:
+                # Initialization, parsing, and query traversal stay in one native
+                # critical section. Parsers remain thread-local for correctness.
+                self._init_treesitter()
+                if self._local.php_parser:
+                    try:
+                        ts_had_errors = self._parse_php_treesitter(rel_path, content, file_hash, rel_path, True)
+                        parsed = True
+                    except Exception as e:
+                        logger.error(f"Tree-sitter parsing failed for {rel_path}: {e}")
 
             # Fallback to regex parsing only if Tree-sitter is unavailable/failed.
             if not parsed:
@@ -3551,15 +3559,15 @@ class FactsBuilder:
                 self._facts.file_hashes[rel_path] = file_hash
 
             # Tree-sitter is primary for JS structure when available.
-            ext = file_path.suffix.lower().lstrip(".")
-            js_parser, js_lang = self._get_treesitter_js(ext)
-
             parsed = False
-            if js_parser and js_lang:
-                try:
-                    parsed = self._parse_react_treesitter(rel_path, content, file_hash, js_parser, js_lang)
-                except Exception as e:
-                    logger.warning(f"Tree-sitter JS parsing failed for {rel_path}: {e}")
+            ext = file_path.suffix.lower().lstrip(".")
+            with _TREE_SITTER_NATIVE_LOCK:
+                js_parser, js_lang = self._get_treesitter_js(ext)
+                if js_parser and js_lang:
+                    try:
+                        parsed = self._parse_react_treesitter(rel_path, content, file_hash, js_parser, js_lang)
+                    except Exception as e:
+                        logger.warning(f"Tree-sitter JS parsing failed for {rel_path}: {e}")
 
             if not parsed:
                 # Fallback: regex-based parsing (allowed fallback).
