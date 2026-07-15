@@ -31,7 +31,14 @@ from schemas.facts import (
 from schemas.metrics import MethodMetrics
 
 
-def _class(name: str, fqcn: str, file_path: str, *, extends: str | None = None, implements: list[str] | None = None) -> ClassInfo:
+def _class(
+    name: str,
+    fqcn: str,
+    file_path: str,
+    *,
+    extends: str | None = None,
+    implements: list[str] | None = None,
+) -> ClassInfo:
     return ClassInfo(
         name=name,
         fqcn=fqcn,
@@ -115,7 +122,9 @@ def test_missing_index_on_lookup_columns_skips_change_operation_snippet():
     assert rule.analyze(facts) == []
 
 
-def test_missing_content_security_policy_skips_when_header_exists_in_security_middleware(tmp_path: Path):
+def test_missing_content_security_policy_skips_when_header_exists_in_security_middleware(
+    tmp_path: Path,
+):
     rule = MissingContentSecurityPolicyRule(RuleConfig())
     project_root = tmp_path
     middleware_file = project_root / "app/Http/Middleware/SecurityHeadersMiddleware.php"
@@ -133,6 +142,37 @@ def test_missing_content_security_policy_skips_when_header_exists_in_security_mi
     kernel_payload = "<?php class Kernel { protected $middleware = ['auth']; }"
 
     assert rule.analyze_regex(kernel_rel, kernel_payload, facts) == []
+
+
+def test_missing_content_security_policy_is_path_independent_and_uses_header_ownership(
+    tmp_path: Path,
+):
+    rule = MissingContentSecurityPolicyRule(RuleConfig())
+    owner_rel = "src/Platform/BrowserProtection.php"
+    owner_file = tmp_path / owner_rel
+    owner_file.parent.mkdir(parents=True, exist_ok=True)
+    owner_payload = """<?php
+    $response->headers->set('X-Frame-Options', 'DENY');
+    $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    """
+    owner_file.write_text(owner_payload, encoding="utf-8")
+    facts = Facts(project_path=str(tmp_path), files=[owner_rel, "framework/start.php"])
+
+    findings = rule.analyze_regex(owner_rel, owner_payload, facts)
+
+    assert len(findings) == 1
+    assert findings[0].file == owner_rel
+    assert "header_ownership=application" in findings[0].evidence_signals
+
+
+def test_missing_content_security_policy_does_not_infer_absence_from_bootstrap_name():
+    rule = MissingContentSecurityPolicyRule(RuleConfig())
+    facts = Facts(project_path=".", files=["bootstrap/app.php", "routes/web.php"])
+    payload = (
+        "<?php return Application::configure()->withMiddleware(fn ($middleware) => $middleware);"
+    )
+
+    assert rule.analyze_regex("bootstrap/app.php", payload, facts) == []
 
 
 def test_missing_hsts_header_skips_when_header_exists_in_security_middleware(tmp_path: Path):
@@ -153,6 +193,42 @@ def test_missing_hsts_header_skips_when_header_exists_in_security_middleware(tmp
     kernel_payload = "<?php class Kernel { protected $middleware = ['auth']; }"
 
     assert rule.analyze_regex(kernel_rel, kernel_payload, facts) == []
+
+
+def test_missing_hsts_header_uses_semantic_owner_not_kernel_path():
+    rule = MissingHstsHeaderRule(RuleConfig())
+    facts = Facts(project_path=".")
+    payload = """<?php
+    $response->headers->set('Content-Security-Policy', "default-src 'self'");
+    $response->headers->set('X-Content-Type-Options', 'nosniff');
+    """
+
+    findings = rule.analyze_regex("src/Platform/BrowserProtection.php", payload, facts)
+
+    assert len(findings) == 1
+    assert findings[0].file == "src/Platform/BrowserProtection.php"
+
+
+def test_missing_hsts_header_skips_when_tls_proxy_configuration_owns_it(tmp_path: Path):
+    rule = MissingHstsHeaderRule(RuleConfig())
+    owner_rel = "src/Platform/BrowserProtection.php"
+    owner_payload = """<?php
+    $response->headers->set('Content-Security-Policy', "default-src 'self'");
+    $response->headers->set('X-Content-Type-Options', 'nosniff');
+    """
+    owner = tmp_path / owner_rel
+    owner.parent.mkdir(parents=True, exist_ok=True)
+    owner.write_text(owner_payload, encoding="utf-8")
+    proxy_rel = "deploy/nginx/security.conf"
+    proxy = tmp_path / proxy_rel
+    proxy.parent.mkdir(parents=True, exist_ok=True)
+    proxy.write_text(
+        'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;',
+        encoding="utf-8",
+    )
+    facts = Facts(project_path=str(tmp_path), files=[owner_rel, proxy_rel])
+
+    assert rule.analyze_regex(owner_rel, owner_payload, facts) == []
 
 
 def test_webhook_replay_protection_missing_skips_replay_guard_middleware():
@@ -269,7 +345,10 @@ class ImportInventoryCsvAction
 }
 """
 
-    assert rule.analyze_regex("app/Actions/Inventory/ImportInventoryCsvAction.php", content, facts) == []
+    assert (
+        rule.analyze_regex("app/Actions/Inventory/ImportInventoryCsvAction.php", content, facts)
+        == []
+    )
 
 
 def test_service_extraction_skips_thin_controller_when_service_property_is_used():

@@ -20,7 +20,9 @@ from rules.react.postmessage_receiver_origin_not_verified import (
 from schemas.facts import Facts, MethodInfo, RouteInfo
 
 
-def _method(class_name: str, name: str, calls: list[str], file_path: str | None = None) -> MethodInfo:
+def _method(
+    class_name: str, name: str, calls: list[str], file_path: str | None = None
+) -> MethodInfo:
     return MethodInfo(
         name=name,
         class_name=class_name,
@@ -61,8 +63,20 @@ def test_host_header_poisoning_risk_ast():
     rule = HostHeaderPoisoningRiskRule(RuleConfig())
     facts = Facts(project_path=".")
     facts.methods = [
-        _method("SafeController", "go", ["$host = $request->getHost();", "if ($this->isAllowedHost($host)) {}", "return redirect()->to($host);"]),
-        _method("UnsafeController", "go", ["$host = $request->getHost();", "return redirect()->to($host . '/login');"]),
+        _method(
+            "SafeController",
+            "go",
+            [
+                "$host = $request->getHost();",
+                "if ($this->isAllowedHost($host)) {}",
+                "return redirect()->to($host);",
+            ],
+        ),
+        _method(
+            "UnsafeController",
+            "go",
+            ["$host = $request->getHost();", "return redirect()->to($host . '/login');"],
+        ),
     ]
     findings = rule.run(facts, project_type="laravel_blade").findings
     assert len(findings) == 1
@@ -85,8 +99,14 @@ def test_zip_bomb_risk_ast():
     rule = ZipBombRiskRule(RuleConfig())
     facts = Facts(project_path=".")
     facts.methods = [
-        _method("SafeArchiveController", "extract", ["$zip->open($path);", "$limit = $zip->numFiles;", "$zip->extractTo($dir);"]),
-        _method("UnsafeArchiveController", "extract", ["$zip->open($path);", "$zip->extractTo($dir);"]),
+        _method(
+            "SafeArchiveController",
+            "extract",
+            ["$zip->open($path);", "$limit = $zip->numFiles;", "$zip->extractTo($dir);"],
+        ),
+        _method(
+            "UnsafeArchiveController", "extract", ["$zip->open($path);", "$zip->extractTo($dir);"]
+        ),
     ]
     findings = rule.run(facts, project_type="laravel_blade").findings
     assert len(findings) == 1
@@ -101,7 +121,11 @@ def test_sensitive_response_cache_control_missing_ast():
         _route("GET", "/portal/account", "AccountController", "showUnsafe", ["web", "auth"]),
     ]
     facts.methods = [
-        _method("AccountController", "showSafe", ["return response()->json($data)->header('Cache-Control', 'no-store');"]),
+        _method(
+            "AccountController",
+            "showSafe",
+            ["return response()->json($data)->header('Cache-Control', 'no-store');"],
+        ),
         _method("AccountController", "showUnsafe", ["return response()->json($data);"]),
     ]
     findings = rule.run(facts, project_type="laravel_inertia_react").findings
@@ -198,7 +222,15 @@ def test_password_reset_token_hardening_missing_ast():
     ]
     facts.methods = [
         _method("ResetController", "safe", ["Password::reset($credentials, function() {});"]),
-        _method("ResetController", "unsafe", ["$token = $request->input('token');", "$email = $request->input('email');", "$password = $request->input('password');"]),
+        _method(
+            "ResetController",
+            "unsafe",
+            [
+                "$token = $request->input('token');",
+                "$email = $request->input('email');",
+                "$password = $request->input('password');",
+            ],
+        ),
     ]
     findings = rule.run(facts, project_type="laravel_blade").findings
     assert len(findings) == 1
@@ -210,29 +242,59 @@ def test_security_headers_baseline_missing_ast():
     rule = SecurityHeadersBaselineMissingRule(RuleConfig())
     safe = Facts(project_path=".")
     safe.files = ["routes/web.php"]
-    safe.methods = [_method("SecurityHeaders", "handle", ["return $response->header('X-Frame-Options', 'DENY');"], "app/Http/Middleware/SecurityHeaders.php")]
+    safe.methods = [
+        _method(
+            "SecurityHeaders",
+            "handle",
+            ["return $response->header('X-Frame-Options', 'DENY');"],
+            "app/Http/Middleware/SecurityHeaders.php",
+        )
+    ]
     assert rule.run(safe, project_type="laravel_blade").findings == []
 
     unsafe = Facts(project_path=".")
     unsafe.files = ["routes/web.php", "resources/views/welcome.blade.php"]
-    unsafe.methods = [_method("HomeController", "index", ["return view('welcome');"])]
+    unsafe.methods = [
+        _method(
+            "BrowserProtection",
+            "handle",
+            [
+                "$response->header('X-Frame-Options', 'DENY');",
+                "$response->header('X-Content-Type-Options', 'nosniff');",
+            ],
+        )
+    ]
     findings = rule.run(unsafe, project_type="laravel_blade").findings
     assert len(findings) == 1
+    assert "header_ownership=application" in findings[0].evidence_signals
 
 
 def test_webhook_replay_protection_missing_ast():
     rule = WebhookReplayProtectionMissingRule(RuleConfig())
     facts = Facts(project_path=".")
     facts.project_context.capabilities = {
-        "external_integrations_heavy": {"enabled": True, "confidence": 1.0, "source": "explicit", "evidence": ["test"]},
+        "external_integrations_heavy": {
+            "enabled": True,
+            "confidence": 1.0,
+            "source": "explicit",
+            "evidence": ["test"],
+        },
     }
     facts.routes = [
         _route("POST", "/webhooks/stripe", "StripeWebhookController", "safe", ["api"]),
         _route("POST", "/webhooks/stripe", "StripeWebhookController", "unsafe", ["api"]),
     ]
     facts.methods = [
-        _method("StripeWebhookController", "safe", ["$this->validateSignature($payload);", "$this->assertRecentTimestamp($payload);"]),
-        _method("StripeWebhookController", "unsafe", ["$this->validateSignature($payload);", "$this->processWebhook($payload);"]),
+        _method(
+            "StripeWebhookController",
+            "safe",
+            ["$this->validateSignature($payload);", "$this->assertRecentTimestamp($payload);"],
+        ),
+        _method(
+            "StripeWebhookController",
+            "unsafe",
+            ["$this->validateSignature($payload);", "$this->processWebhook($payload);"],
+        ),
     ]
     findings = rule.run(facts, project_type="laravel_blade").findings
     assert len(findings) == 1

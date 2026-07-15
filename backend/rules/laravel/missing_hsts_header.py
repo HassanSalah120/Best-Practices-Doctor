@@ -4,10 +4,12 @@ Missing HSTS header rule.
 
 from __future__ import annotations
 
-import re
-from pathlib import Path
-
 from rules.base import Rule
+from rules.laravel._security_header_evidence import (
+    iter_project_texts,
+    normalize_path,
+    written_security_headers,
+)
 from schemas.facts import Facts
 from schemas.finding import Category, Finding, Severity
 from schemas.metrics import MethodMetrics
@@ -16,37 +18,26 @@ from schemas.metrics import MethodMetrics
 class MissingHstsHeaderRule(Rule):
     id = "missing-hsts-header"
     name = "Missing HSTS Header"
-    description = "Detects missing Strict-Transport-Security hardening in middleware/header configuration"
+    description = "Detects HSTS omissions at an application-owned security-header boundary"
     category = Category.SECURITY
     default_severity = Severity.HIGH
     type = "regex"
     regex_file_extensions = [".php"]
 
-    _HSTS_SIGNAL = re.compile(r"strict-transport-security", re.IGNORECASE)
-    _HSTS_REGISTRATION_SIGNAL = re.compile(
-        r"(securityheadersmiddleware|hsts|stricttransportsecurity)",
-        re.IGNORECASE,
-    )
-    _TARGET_FILES = (
-        "app/http/kernel.php",
-        "bootstrap/app.php",
-        "app/http/middleware",
-    )
-    _PRIMARY_FILES = ("bootstrap/app.php", "app/http/kernel.php")
     severity_weight = 0
-    confidence = 'high'
-    fix_suggestion = 'Remove the missing hsts header risk and enforce the relevant Laravel/React security control at the boundary. Add a regression test that proves unsafe input or configuration is rejected.'
+    confidence = "high"
+    fix_suggestion = "Remove the missing hsts header risk and enforce the relevant Laravel/React security control at the boundary. Add a regression test that proves unsafe input or configuration is rejected."
     examples = {}
     priority = 1
-    group = 'Security Hardening'
-    applies_to = ['config']
-    references = ['OWASP A05:2021 - Security Misconfiguration']
+    group = "Security Hardening"
+    applies_to = ["config"]
+    references = ["OWASP A05:2021 - Security Misconfiguration"]
     related_rules = []
-    false_positive_notes = 'May be a false positive when protection is enforced by upstream middleware, shared policy, or infrastructure not visible to the scanner.'
-    detection_type = 'regex'
-    analysis_cost = 'low'
+    false_positive_notes = "May be a false positive when protection is enforced by upstream middleware, shared policy, or infrastructure not visible to the scanner."
+    detection_type = "regex"
+    analysis_cost = "low"
     auto_fixable = False
-    tags = {'domain': 'laravel', 'type': 'security', 'concern': 'hsts-header'}
+    tags = {"domain": "laravel", "type": "security", "concern": "hsts-header"}
 
     def analyze(
         self,
@@ -62,26 +53,40 @@ class MissingHstsHeaderRule(Rule):
         facts: Facts,
         metrics: dict[str, MethodMetrics] | None = None,
     ) -> list[Finding]:
-        norm = (file_path or "").replace("\\", "/").lower()
-        if not any(token in norm for token in self._TARGET_FILES):
+        norm = normalize_path(file_path)
+        current_headers = written_security_headers(content or "")
+        if len(current_headers) < 2:
             return []
-        if not self._is_primary_target(norm, facts):
+        project_texts = list(
+            iter_project_texts(
+                facts,
+                current_path=file_path,
+                current_content=content,
+            )
+        )
+        inventories = [(path, written_security_headers(text)) for path, text in project_texts]
+        if any("strict-transport-security" in headers for _, headers in inventories):
             return []
-
-        if self._project_has_hsts_signal(facts=facts, current_path=norm, current_content=content):
+        owners = [(path, headers) for path, headers in inventories if len(headers) >= 2]
+        if not owners:
+            # HSTS is commonly and correctly owned by a TLS terminator outside the repository.
             return []
-
-        if "middleware" not in (content or "").lower() and "headers" not in (content or "").lower():
+        owner_path, present_headers = sorted(
+            owners,
+            key=lambda item: (-len(item[1]), item[0]),
+        )[0]
+        if norm != owner_path:
             return []
 
         return [
             self.create_finding(
                 title="HSTS header hardening appears missing",
-                context="Strict-Transport-Security not configured",
+                context="application-owned security-header boundary",
                 file=file_path,
                 line_start=1,
                 description=(
-                    "Could not find `Strict-Transport-Security` header handling in middleware/kernel bootstrapping."
+                    "The application visibly owns a multi-header browser security boundary, but no "
+                    "`Strict-Transport-Security` header was found in application or infrastructure configuration."
                 ),
                 why_it_matters=(
                     "Without HSTS, browsers may downgrade to insecure HTTP, enabling man-in-the-middle attacks."
@@ -93,54 +98,8 @@ class MissingHstsHeaderRule(Rule):
                 tags=["laravel", "security", "headers", "hsts"],
                 evidence_signals=[
                     "hsts_header_missing=true",
-                    "scan_scope=project_security_headers",
+                    "header_ownership=application",
+                    f"existing_headers={','.join(sorted(present_headers))}",
                 ],
             ),
         ]
-
-    def _is_primary_target(self, normalized_path: str, facts: Facts) -> bool:
-        known = {
-            str(path or "").replace("\\", "/").lower()
-            for path in (getattr(facts, "files", []) or [])
-        }
-        for primary in self._PRIMARY_FILES:
-            if primary in known:
-                return normalized_path == primary
-        return normalized_path in set(self._PRIMARY_FILES)
-
-    def _project_has_hsts_signal(self, *, facts: Facts, current_path: str, current_content: str) -> bool:
-        files = {
-            str(path or "").replace("\\", "/").lower()
-            for path in (getattr(facts, "files", []) or [])
-            if any(token in str(path or "").replace("\\", "/").lower() for token in self._TARGET_FILES)
-        }
-        files.add(current_path)
-
-        for rel in sorted(files):
-            text = self._read_project_file(facts=facts, rel_path=rel, current_path=current_path, current_content=current_content)
-            if not text:
-                continue
-            if self._HSTS_SIGNAL.search(text) or self._HSTS_REGISTRATION_SIGNAL.search(text):
-                return True
-        return False
-
-    def _read_project_file(self, *, facts: Facts, rel_path: str, current_path: str, current_content: str) -> str:
-        if rel_path == current_path:
-            return current_content or ""
-        project_root = Path(str(getattr(facts, "project_path", "") or "."))
-        normalized = str(rel_path or "").replace("\\", "/").lower()
-        original_path = next(
-            (
-                str(path or "").replace("\\", "/")
-                for path in (getattr(facts, "files", []) or [])
-                if str(path or "").replace("\\", "/").lower() == normalized
-            ),
-            rel_path,
-        )
-        candidate = project_root / original_path
-        try:
-            if candidate.exists():
-                return candidate.read_text(encoding="utf-8", errors="replace")
-        except Exception:
-            return ""
-        return ""

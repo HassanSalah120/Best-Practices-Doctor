@@ -21,11 +21,20 @@ def test_missing_hsts_header_valid_invalid_edge():
     facts = Facts(project_path=".")
 
     valid = "<?php $response->headers->set('Strict-Transport-Security', 'max-age=31536000');"
-    invalid = "<?php class Kernel { protected $middleware = ['auth']; }"
+    invalid = """<?php
+    $response->headers->set('Content-Security-Policy', "default-src 'self'");
+    $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    """
     edge = "<?php return ['name' => 'app'];"
 
     assert rule.analyze_regex("app/Http/Middleware/SecurityHeaders.php", valid, facts) == []
-    assert len(rule.analyze_regex("app/Http/Kernel.php", invalid, facts)) == 1
+    assert len(rule.analyze_regex("src/Platform/BrowserProtection.php", invalid, facts)) == 1
+    assert (
+        rule.analyze_regex(
+            "app/Http/Kernel.php", "<?php class Kernel { protected $middleware = ['auth']; }", facts
+        )
+        == []
+    )
     assert rule.analyze_regex("config/app.php", edge, facts) == []
 
 
@@ -112,11 +121,20 @@ def test_missing_content_security_policy_valid_invalid_edge():
     facts = Facts(project_path=".")
 
     valid = "<?php $response->headers->set('Content-Security-Policy', \"default-src 'self'\");"
-    invalid = "<?php class Kernel { protected $middleware = ['auth']; }"
+    invalid = """<?php
+    $response->headers->set('X-Frame-Options', 'DENY');
+    $response->headers->set('X-Content-Type-Options', 'nosniff');
+    """
     edge = "<?php return ['name' => 'app'];"
 
     assert rule.analyze_regex("app/Http/Middleware/SecurityHeaders.php", valid, facts) == []
-    assert len(rule.analyze_regex("app/Http/Kernel.php", invalid, facts)) == 1
+    assert len(rule.analyze_regex("src/Platform/BrowserProtection.php", invalid, facts)) == 1
+    assert (
+        rule.analyze_regex(
+            "app/Http/Kernel.php", "<?php class Kernel { protected $middleware = ['auth']; }", facts
+        )
+        == []
+    )
     assert rule.analyze_regex("config/app.php", edge, facts) == []
 
 

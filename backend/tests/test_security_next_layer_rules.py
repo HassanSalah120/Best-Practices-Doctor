@@ -61,9 +61,14 @@ def test_authorization_missing_on_sensitive_reads_flags_sensitive_show_without_p
         ),
     )
 
-    findings = AuthorizationMissingOnSensitiveReadsRule(RuleConfig()).run(
-        facts, project_type="laravel_blade",
-    ).findings
+    findings = (
+        AuthorizationMissingOnSensitiveReadsRule(RuleConfig())
+        .run(
+            facts,
+            project_type="laravel_blade",
+        )
+        .findings
+    )
     assert len(findings) == 1
     assert findings[0].rule_id == "authorization-missing-on-sensitive-reads"
 
@@ -111,9 +116,14 @@ def test_authorization_missing_on_sensitive_reads_skips_when_authorize_present()
         ),
     )
 
-    findings = AuthorizationMissingOnSensitiveReadsRule(RuleConfig()).run(
-        facts, project_type="laravel_blade",
-    ).findings
+    findings = (
+        AuthorizationMissingOnSensitiveReadsRule(RuleConfig())
+        .run(
+            facts,
+            project_type="laravel_blade",
+        )
+        .findings
+    )
     assert findings == []
 
 
@@ -169,9 +179,14 @@ def test_authorization_missing_on_sensitive_reads_skips_when_controller_uses_aut
         ),
     )
 
-    findings = AuthorizationMissingOnSensitiveReadsRule(RuleConfig()).run(
-        facts, project_type="laravel_blade",
-    ).findings
+    findings = (
+        AuthorizationMissingOnSensitiveReadsRule(RuleConfig())
+        .run(
+            facts,
+            project_type="laravel_blade",
+        )
+        .findings
+    )
     assert findings == []
 
 
@@ -219,6 +234,8 @@ $response->headers->set('Content-Security-Policy', \"default-src 'self'; script-
     findings = rule.analyze_regex("app/Http/Middleware/SecurityHeaders.php", content, facts)
     assert len(findings) == 1
     assert findings[0].rule_id == "unsafe-csp-policy"
+    assert findings[0].severity.value == "high"
+    assert "script-src" in findings[0].context
 
 
 def test_unsafe_csp_policy_skips_safe_policy():
@@ -231,6 +248,88 @@ $response->headers->set('Content-Security-Policy', \"default-src 'self'; script-
 
     findings = rule.analyze_regex("app/Http/Middleware/SecurityHeaders.php", content, facts)
     assert findings == []
+
+
+def test_unsafe_csp_policy_calibrates_inline_styles_without_claiming_script_execution():
+    rule = UnsafeCspPolicyRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+<?php
+$response->headers->set('Content-Security-Policy', "default-src 'self'; style-src 'self' 'unsafe-inline'");
+"""
+
+    findings = rule.analyze_regex("src/Http/BrowserPolicy.php", content, facts)
+
+    assert len(findings) == 1
+    assert findings[0].severity.value == "medium"
+    assert "does not by itself enable inline JavaScript" in findings[0].why_it_matters
+    assert "style-src" in findings[0].context
+
+
+def test_unsafe_csp_policy_skips_nonce_compatibility_fallback():
+    rule = UnsafeCspPolicyRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+<?php
+$policy = "script-src 'nonce-{$nonce}' 'strict-dynamic' 'unsafe-inline'";
+$response->headers->set('Content-Security-Policy', $policy);
+"""
+
+    assert rule.analyze_regex("src/Http/BrowserPolicy.php", content, facts) == []
+
+
+def test_unsafe_csp_policy_skips_development_only_vite_allowance():
+    rule = UnsafeCspPolicyRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+<?php
+if (app()->environment('local')) {
+    $policy .= "script-src 'self' 'unsafe-eval'; connect-src ws://localhost:5173";
+}
+"""
+
+    assert rule.analyze_regex("src/Http/BrowserPolicy.php", content, facts) == []
+
+
+def test_unsafe_csp_policy_still_flags_unconditional_policy_beside_local_policy():
+    rule = UnsafeCspPolicyRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+<?php
+$policy = "script-src 'self' 'unsafe-inline';";
+if (app()->isLocal()) {
+    $policy .= "script-src 'self' 'unsafe-eval';";
+}
+"""
+
+    findings = rule.analyze_regex("src/Http/BrowserPolicy.php", content, facts)
+
+    assert len(findings) == 1
+    assert "unsafe-inline" in findings[0].description
+
+
+def test_unsafe_csp_policy_skips_report_only_rollout_and_comments():
+    rule = UnsafeCspPolicyRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+<?php
+// Enforcing example: script-src 'unsafe-inline'
+header("Content-Security-Policy-Report-Only: script-src 'self' 'unsafe-inline'");
+"""
+
+    assert rule.analyze_regex("src/Http/BrowserPolicy.php", content, facts) == []
+
+
+def test_unsafe_csp_policy_does_not_confuse_report_only_and_enforcing_headers():
+    rule = UnsafeCspPolicyRule(RuleConfig())
+    facts = Facts(project_path=".")
+    content = """
+<?php
+header("Content-Security-Policy-Report-Only: script-src 'self' 'unsafe-inline'");
+header("Content-Security-Policy: script-src 'self' 'nonce-{$nonce}'");
+"""
+
+    assert rule.analyze_regex("src/Http/BrowserPolicy.php", content, facts) == []
 
 
 def test_job_missing_idempotency_guard_flags_side_effecting_job():
@@ -536,9 +635,14 @@ def test_policy_coverage_on_mutations_skips_authorize_resource_controller():
         ),
     )
 
-    findings = PolicyCoverageOnMutationsRule(RuleConfig()).run(
-        facts, project_type="laravel_blade",
-    ).findings
+    findings = (
+        PolicyCoverageOnMutationsRule(RuleConfig())
+        .run(
+            facts,
+            project_type="laravel_blade",
+        )
+        .findings
+    )
     assert findings == []
 
 
@@ -583,9 +687,14 @@ def test_authorization_bypass_risk_skips_authorize_resource_controller():
         ),
     )
 
-    findings = AuthorizationBypassRiskRule(RuleConfig()).run(
-        facts, project_type="laravel_blade",
-    ).findings
+    findings = (
+        AuthorizationBypassRiskRule(RuleConfig())
+        .run(
+            facts,
+            project_type="laravel_blade",
+        )
+        .findings
+    )
     assert findings == []
 
 
